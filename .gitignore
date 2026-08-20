@@ -115,3 +115,6 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# local project identity
+.project-identity
