@@ -155,12 +155,14 @@ export async function POST(request: Request) {
 
     const promptResult = await query<{
       id: string;
+      title: string;
+      description: string;
       prompt_type: string;
       hint_points: unknown;
       is_locked: boolean;
       is_active: boolean;
     }>(
-      `SELECT id, prompt_type, hint_points, is_locked, is_active
+      `SELECT id, title, description, prompt_type, hint_points, is_locked, is_active
        FROM prompts WHERE id = $1 LIMIT 1`,
       [promptId],
     );
@@ -206,10 +208,12 @@ export async function POST(request: Request) {
       ? (prompt.hint_points as string[])
       : [];
 
-    const scored = scoreWritingAttempt({
+    const scored = await scoreWritingAttempt({
       content,
       hintPoints,
       promptType: prompt.prompt_type,
+      promptTitle: prompt.title,
+      promptDescription: prompt.description,
     });
 
     const inserted = await query(
