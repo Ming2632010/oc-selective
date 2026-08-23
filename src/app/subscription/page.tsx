@@ -52,19 +52,23 @@ function statusLabel(status: string, expiry: string | null): {
   classes: string;
 } {
   if (status === 'lifetime') {
-    return { text: 'Active · Lifetime', classes: 'bg-emerald-100 text-emerald-800' };
+    return { text: 'Lifetime', classes: 'bg-emerald-100 text-emerald-800' };
   }
   if (status === 'active') {
     const active = expiry ? new Date(expiry).getTime() > Date.now() : false;
     if (active) {
-      return { text: 'Active', classes: 'bg-emerald-100 text-emerald-800' };
+      const until = expiry ? new Date(expiry).toLocaleDateString() : '';
+      return {
+        text: until ? `Active until ${until}` : 'Active',
+        classes: 'bg-emerald-100 text-emerald-800',
+      };
     }
     return { text: 'Expired', classes: 'bg-amber-100 text-amber-800' };
   }
   if (status === 'cancelled') {
     return { text: 'Cancelled', classes: 'bg-amber-100 text-amber-800' };
   }
-  return { text: 'No subscription', classes: 'bg-stone-100 text-stone-600' };
+  return { text: 'None', classes: 'bg-stone-100 text-stone-600' };
 }
 
 export default function SubscriptionPage() {
@@ -125,7 +129,7 @@ export default function SubscriptionPage() {
     setError(null);
     setManaging(true);
     try {
-      const res = await apiFetch('/api/subscription/portal', { method: 'POST' });
+      const res = await apiFetch('/api/subscription/customer-portal', { method: 'POST' });
       if (!res.response.ok || !res.data.portal_url) {
         throw new Error(res.data.error || 'Could not open billing portal');
       }
@@ -176,11 +180,6 @@ export default function SubscriptionPage() {
               >
                 {badge?.text ?? 'Unknown'}
               </span>
-              {status?.expiry && status.status === 'active' ? (
-                <span className="text-sm text-stone-600">
-                  Renews/expires {new Date(status.expiry).toLocaleDateString()}
-                </span>
-              ) : null}
             </div>
           )}
         </div>

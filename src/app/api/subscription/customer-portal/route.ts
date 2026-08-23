@@ -28,14 +28,14 @@ export async function POST(request: Request) {
     const stripe = getStripeClient();
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${getAppUrl(request)}/subscription`,
+      return_url: `${getAppUrl()}/subscription`,
     });
 
     return NextResponse.json({ portal_url: session.url });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Failed to create billing portal session';
-    console.error('[subscription/portal]', message);
+    console.error('[subscription/customer-portal]', message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
