@@ -10,20 +10,13 @@ import {
   getToken,
   setStudentId,
 } from '@/lib/client-auth';
+import { MODULES } from '@/lib/modules';
 
 type Student = {
   id: string;
   name: string;
   grade: string;
   is_active: boolean;
-};
-
-type Prompt = {
-  id: string;
-  title: string;
-  prompt_type: string;
-  module_id: number;
-  is_locked: boolean;
 };
 
 type ProgressRow = {
@@ -33,14 +26,31 @@ type ProgressRow = {
   is_completed: boolean;
 };
 
+type ModuleStatus = 'Not Started' | 'In Progress' | 'Completed';
+
+function moduleStatus(row: ProgressRow | undefined): ModuleStatus {
+  if (!row || row.completed_count === 0) return 'Not Started';
+  if (row.is_completed) return 'Completed';
+  return 'In Progress';
+}
+
+function statusBadgeClasses(status: ModuleStatus): string {
+  switch (status) {
+    case 'Completed':
+      return 'bg-emerald-100 text-emerald-800';
+    case 'In Progress':
+      return 'bg-amber-100 text-amber-800';
+    default:
+      return 'bg-stone-100 text-stone-600';
+  }
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [userName, setUserName] = useState('');
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [progress, setProgress] = useState<ProgressRow[]>([]);
-  const [moduleId, setModuleId] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -65,7 +75,7 @@ export default function DashboardPage() {
           router.replace('/login');
           return;
         }
-        setUserName(me.data.user?.full_name || me.data.user?.email || 'User');
+        setUserName(me.data.user?.full_name || me.data.user?.email || 'there');
 
         const studentsRes = await apiFetch('/api/students');
         if (!studentsRes.response.ok) {
@@ -93,28 +103,20 @@ export default function DashboardPage() {
   }, [router]);
 
   useEffect(() => {
-    async function loadModuleData() {
+    async function loadProgress() {
       if (!selectedStudentId) {
-        setPrompts([]);
         setProgress([]);
         return;
       }
-
-      const [promptsRes, attemptsRes] = await Promise.all([
-        apiFetch(`/api/prompts?module_id=${moduleId}`),
-        apiFetch(`/api/writing/attempt?student_id=${selectedStudentId}`),
-      ]);
-
-      if (promptsRes.response.ok) {
-        setPrompts((promptsRes.data.prompts as Prompt[]) || []);
-      }
-      if (attemptsRes.response.ok) {
-        setProgress((attemptsRes.data.progress as ProgressRow[]) || []);
+      const res = await apiFetch(
+        `/api/writing/attempt?student_id=${selectedStudentId}`,
+      );
+      if (res.response.ok) {
+        setProgress((res.data.progress as ProgressRow[]) || []);
       }
     }
-
-    void loadModuleData();
-  }, [selectedStudentId, moduleId]);
+    void loadProgress();
+  }, [selectedStudentId]);
 
   async function onCreateStudent(event: FormEvent) {
     event.preventDefault();
@@ -151,135 +153,169 @@ export default function DashboardPage() {
   }
 
   if (loading) {
-    return <main className="mx-auto max-w-4xl p-6">Loading dashboard…</main>;
+    return <main className="mx-auto max-w-5xl p-6">Loading dashboard…</main>;
   }
 
+  const activeStudent =
+    students.find((s) => s.id === selectedStudentId) ?? null;
+
   return (
-    <main className="mx-auto max-w-4xl space-y-8 p-6">
+    <main className="mx-auto max-w-5xl space-y-8 p-6">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-300 pb-4">
         <div>
           <p className="text-sm uppercase tracking-wide text-stone-500">Dashboard</p>
           <h1 className="text-3xl font-semibold text-stone-900">Hi, {userName}</h1>
         </div>
-        <button
-          type="button"
-          onClick={logout}
-          className="rounded-md border border-stone-300 px-3 py-2 text-sm"
-        >
-          Log out
-        </button>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/subscription"
+            className="rounded-md border border-stone-300 px-3 py-2 text-sm text-stone-800"
+          >
+            Subscription
+          </Link>
+          <button
+            type="button"
+            onClick={logout}
+            className="rounded-md border border-stone-300 px-3 py-2 text-sm"
+          >
+            Log out
+          </button>
+        </div>
       </header>
 
       {error ? (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
       ) : null}
 
-      <section className="space-y-4 rounded-lg border border-stone-200 bg-white p-4">
-        <h2 className="text-lg font-medium">Students</h2>
-
-        {students.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {students.map((student) => (
-              <button
-                key={student.id}
-                type="button"
-                onClick={() => onSelectStudent(student.id)}
-                className={`rounded-md px-3 py-2 text-sm ${
-                  selectedStudentId === student.id
-                    ? 'bg-stone-900 text-white'
-                    : 'border border-stone-300 text-stone-800'
-                }`}
-              >
-                {student.name} · {student.grade}
-              </button>
-            ))}
+      {students.length === 0 ? (
+        <section className="space-y-4 rounded-lg border border-stone-200 bg-white p-6">
+          <div>
+            <h2 className="text-xl font-semibold text-stone-900">
+              Let&apos;s set up a student profile
+            </h2>
+            <p className="mt-1 text-sm text-stone-600">
+              Add the student who will be practising so we can track their
+              progress across all six modules.
+            </p>
           </div>
-        ) : (
-          <p className="text-sm text-stone-600">
-            Add a student profile to start writing practice.
-          </p>
-        )}
-
-        <form onSubmit={onCreateStudent} className="grid gap-3 sm:grid-cols-[1fr_8rem_auto]">
-          <input
-            required
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="Student name"
-            className="rounded-md border border-stone-300 px-3 py-2"
-          />
-          <input
-            required
-            value={newGrade}
-            onChange={(e) => setNewGrade(e.target.value)}
-            placeholder="Year 5"
-            className="rounded-md border border-stone-300 px-3 py-2"
-          />
-          <button
-            type="submit"
-            disabled={creating}
-            className="rounded-md bg-stone-900 px-4 py-2 text-white disabled:opacity-60"
+          <form
+            onSubmit={onCreateStudent}
+            className="grid gap-3 sm:grid-cols-[1fr_10rem_auto]"
           >
-            {creating ? 'Adding…' : 'Add student'}
-          </button>
-        </form>
-      </section>
-
-      <section className="space-y-4 rounded-lg border border-stone-200 bg-white p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-medium">Writing modules</h2>
-          <select
-            value={moduleId}
-            onChange={(e) => setModuleId(Number(e.target.value))}
-            className="rounded-md border border-stone-300 px-3 py-2 text-sm"
-          >
-            {[1, 2, 3, 4, 5, 6].map((id) => {
-              const row = progress.find((p) => p.module_id === id);
-              const label = row
-                ? `Module ${id} (${row.completed_count}/${row.prompt_count})`
-                : `Module ${id}`;
-              return (
-                <option key={id} value={id}>
-                  {label}
+            <input
+              required
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Student name"
+              className="rounded-md border border-stone-300 px-3 py-2"
+            />
+            <select
+              value={newGrade}
+              onChange={(e) => setNewGrade(e.target.value)}
+              className="rounded-md border border-stone-300 px-3 py-2"
+            >
+              {['Year 4', 'Year 5', 'Year 6', 'Year 7'].map((g) => (
+                <option key={g} value={g}>
+                  {g}
                 </option>
-              );
-            })}
-          </select>
-        </div>
-
-        {!selectedStudentId ? (
-          <p className="text-sm text-stone-600">Select or add a student first.</p>
-        ) : prompts.length === 0 ? (
-          <p className="text-sm text-stone-600">No active prompts in this module.</p>
-        ) : (
-          <ul className="space-y-3">
-            {prompts.map((prompt) => (
-              <li
-                key={prompt.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-stone-200 px-3 py-3"
-              >
-                <div>
-                  <p className="font-medium text-stone-900">{prompt.title}</p>
-                  <p className="text-sm text-stone-600">
-                    {prompt.prompt_type}
-                    {prompt.is_locked ? ' · locked' : ' · unlocked'}
-                  </p>
-                </div>
-                {prompt.is_locked ? (
-                  <span className="text-sm text-stone-500">Locked</span>
-                ) : (
-                  <Link
-                    href={`/dashboard/writing/${prompt.id}`}
-                    className="rounded-md bg-stone-900 px-3 py-2 text-sm text-white"
+              ))}
+            </select>
+            <button
+              type="submit"
+              disabled={creating}
+              className="rounded-md bg-stone-900 px-4 py-2 text-white disabled:opacity-60"
+            >
+              {creating ? 'Creating…' : 'Create profile'}
+            </button>
+          </form>
+        </section>
+      ) : (
+        <>
+          <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-stone-200 bg-white p-4">
+            <div>
+              <p className="text-sm text-stone-500">Student</p>
+              <p className="text-lg font-medium text-stone-900">
+                {activeStudent?.name}{' '}
+                <span className="text-stone-500">· {activeStudent?.grade}</span>
+              </p>
+            </div>
+            {students.length > 1 ? (
+              <div className="flex flex-wrap gap-2">
+                {students.map((student) => (
+                  <button
+                    key={student.id}
+                    type="button"
+                    onClick={() => onSelectStudent(student.id)}
+                    className={`rounded-md px-3 py-2 text-sm ${
+                      selectedStudentId === student.id
+                        ? 'bg-stone-900 text-white'
+                        : 'border border-stone-300 text-stone-800'
+                    }`}
                   >
-                    Start writing
+                    {student.name}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-lg font-medium text-stone-900">Writing modules</h2>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {MODULES.map((mod) => {
+                const row = progress.find((p) => p.module_id === mod.id);
+                const status = moduleStatus(row);
+                const total = row?.prompt_count ?? 0;
+                const done = row?.completed_count ?? 0;
+                const pct =
+                  total > 0 ? Math.round((done / total) * 100) : 0;
+
+                return (
+                  <Link
+                    key={mod.id}
+                    href={`/dashboard/module/${mod.id}`}
+                    className="group flex flex-col justify-between rounded-xl border border-stone-200 bg-white p-5 transition hover:border-stone-400 hover:shadow-sm"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold uppercase tracking-wide text-stone-400">
+                          Module {mod.id}
+                        </span>
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBadgeClasses(
+                            status,
+                          )}`}
+                        >
+                          {status}
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-semibold text-stone-900">
+                        {mod.title}
+                      </h3>
+                      <p className="text-sm text-stone-600">{mod.blurb}</p>
+                    </div>
+
+                    <div className="mt-5 space-y-1.5">
+                      <div className="flex items-center justify-between text-xs text-stone-500">
+                        <span>
+                          {done}/{total || '—'} prompts
+                        </span>
+                        <span>{pct}%</span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-stone-100">
+                        <div
+                          className="h-full rounded-full bg-stone-900 transition-all"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
                   </Link>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                );
+              })}
+            </div>
+          </section>
+        </>
+      )}
     </main>
   );
 }
