@@ -3,17 +3,32 @@ import type Stripe from 'stripe';
 import { query } from '@/lib/db';
 import { sendPaymentFailedReminder } from '@/lib/email';
 import { getStripeClient, getWebhookSecret } from '@/lib/stripe';
+import { isSubject } from '@/lib/subjects';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 
-function customerIdOf(
-  customer: string | { id: string } | null | undefined,
-): string | null {
-  if (!customer) return null;
-  return typeof customer === 'string' ? customer : customer.id;
+function idOf(ref: string | { id: string } | null | undefined): string | null {
+  if (!ref) return null;
+  return typeof ref === 'string' ? ref : ref.id;
+}
+
+/** Map a Stripe subscription status to our internal status. */
+function mapStatus(stripeStatus: string): 'active' | 'cancelled' | 'expired' {
+  if (stripeStatus === 'active' || stripeStatus === 'trialing') return 'active';
+  if (stripeStatus === 'canceled') return 'cancelled';
+  return 'expired';
+}
+
+function periodEndToDate(subscription: Stripe.Subscription): string {
+  const raw = (subscription as unknown as { current_period_end?: number })
+    .current_period_end;
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return new Date(raw * 1000).toISOString();
+  }
+  return new Date(Date.now() + ONE_YEAR_MS).toISOString();
 }
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
@@ -21,44 +36,82 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     (session.metadata?.userId as string | undefined) ||
     session.client_reference_id ||
     null;
-  if (!userId) {
-    console.warn('[subscription/webhook] checkout.session.completed missing userId');
+  const subject = session.metadata?.subject as string | undefined;
+
+  if (!userId || !subject || !isSubject(subject)) {
+    console.warn(
+      '[subscription/webhook] checkout.session.completed missing/invalid userId or subject',
+    );
     return;
   }
 
-  const customerId = customerIdOf(session.customer);
+  const subscriptionId = idOf(session.subscription);
+  const priceId = (session.metadata?.priceId as string | undefined) ?? null;
+  const customerId = idOf(session.customer);
+  const expiresAt = new Date(Date.now() + ONE_YEAR_MS).toISOString();
 
-  if (session.mode === 'payment') {
-    // Lifetime one-time purchase.
+  // Persist the customer id on the user for the billing portal.
+  if (customerId) {
     await query(
-      `UPDATE users
-       SET subscription_status = 'lifetime',
-           subscription_expiry = NULL,
-           stripe_customer_id = COALESCE($2, stripe_customer_id)
-       WHERE id = $1`,
+      `UPDATE users SET stripe_customer_id = COALESCE($2, stripe_customer_id) WHERE id = $1`,
       [userId, customerId],
     );
-  } else {
-    // Annual subscription.
-    const expiry = new Date(Date.now() + ONE_YEAR_MS).toISOString();
-    await query(
-      `UPDATE users
-       SET subscription_status = 'active',
-           subscription_expiry = $2,
-           stripe_customer_id = COALESCE($3, stripe_customer_id)
-       WHERE id = $1`,
-      [userId, expiry, customerId],
-    );
+  }
+
+  // Upsert by Stripe subscription id so webhook retries do not create duplicates,
+  // while still allowing multiple subscriptions to the same subject (per child).
+  await query(
+    `INSERT INTO user_subscriptions
+       (user_id, subject, status, stripe_subscription_id, stripe_price_id, expires_at)
+     VALUES ($1, $2, 'active', $3, $4, $5)
+     ON CONFLICT (stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL
+     DO UPDATE SET status = 'active',
+                   stripe_price_id = EXCLUDED.stripe_price_id,
+                   expires_at = EXCLUDED.expires_at,
+                   updated_at = NOW()`,
+    [userId, subject, subscriptionId, priceId, expiresAt],
+  );
+
+  // Enforce "no auto-renewal": cancel the subscription at the end of its period.
+  if (subscriptionId) {
+    try {
+      await getStripeClient().subscriptions.update(subscriptionId, {
+        cancel_at_period_end: true,
+      });
+    } catch (error) {
+      console.error(
+        `[subscription/webhook] failed to set cancel_at_period_end for ${subscriptionId}:`,
+        error,
+      );
+    }
   }
 }
 
-async function handlePaymentFailed(invoice: Stripe.Invoice) {
-  const customerId = customerIdOf(invoice.customer);
-  console.warn(
-    `[subscription/webhook] invoice.payment_failed for customer ${customerId} (invoice ${invoice.id}); sending reminder, not cancelling.`,
+async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
+  const status = mapStatus(subscription.status);
+  const expiresAt = periodEndToDate(subscription);
+  await query(
+    `UPDATE user_subscriptions
+     SET status = $2, expires_at = $3, updated_at = NOW()
+     WHERE stripe_subscription_id = $1`,
+    [subscription.id, status, expiresAt],
   );
+}
 
-  // Prefer the invoice email; otherwise look the user up by customer id.
+async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
+  await query(
+    `UPDATE user_subscriptions
+     SET status = 'cancelled', updated_at = NOW()
+     WHERE stripe_subscription_id = $1`,
+    [subscription.id],
+  );
+}
+
+async function handlePaymentFailed(invoice: Stripe.Invoice) {
+  const customerId = idOf(invoice.customer);
+  console.warn(
+    `[subscription/webhook] invoice.payment_failed for customer ${customerId} (invoice ${invoice.id}); sending reminder.`,
+  );
   let email = invoice.customer_email ?? null;
   if (!email && customerId) {
     const result = await query<{ email: string }>(
@@ -67,24 +120,7 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
     );
     email = result.rows[0]?.email ?? null;
   }
-
   await sendPaymentFailedReminder(email);
-}
-
-async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
-  const customerId = customerIdOf(subscription.customer);
-  if (!customerId) {
-    console.warn('[subscription/webhook] subscription.deleted missing customer');
-    return;
-  }
-
-  await query(
-    `UPDATE users
-     SET subscription_status = 'cancelled',
-         subscription_expiry = NULL
-     WHERE stripe_customer_id = $1`,
-    [customerId],
-  );
 }
 
 export async function POST(request: Request) {
@@ -109,14 +145,16 @@ export async function POST(request: Request) {
       case 'checkout.session.completed':
         await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
         break;
-      case 'invoice.payment_failed':
-        await handlePaymentFailed(event.data.object as Stripe.Invoice);
+      case 'customer.subscription.updated':
+        await handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
         break;
       case 'customer.subscription.deleted':
         await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
         break;
+      case 'invoice.payment_failed':
+        await handlePaymentFailed(event.data.object as Stripe.Invoice);
+        break;
       default:
-        // Acknowledge unhandled event types so Stripe stops retrying.
         break;
     }
 

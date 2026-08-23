@@ -2,12 +2,14 @@ import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { getAppUrl, getStripeClient } from '@/lib/stripe';
+import { isSubject, priceIdForSubject } from '@/lib/subjects';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 type CheckoutBody = {
   price_id?: unknown;
+  subject?: unknown;
 };
 
 function isNonEmptyString(value: unknown): value is string {
@@ -28,9 +30,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
-    const priceId = isNonEmptyString(body.price_id) ? body.price_id.trim() : '';
+    const subject = isNonEmptyString(body.subject) ? body.subject.trim() : '';
+    if (!isSubject(subject)) {
+      return NextResponse.json(
+        { error: 'subject must be one of: writing, math, thinking, reading' },
+        { status: 400 },
+      );
+    }
+
+    // The price id can be supplied by the client or resolved server-side from
+    // the subject (server-side is the source of truth for pricing).
+    const priceId = isNonEmptyString(body.price_id)
+      ? body.price_id.trim()
+      : priceIdForSubject(subject);
     if (!priceId) {
-      return NextResponse.json({ error: 'price_id is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: `No Stripe price configured for subject "${subject}"` },
+        { status: 400 },
+      );
     }
 
     const userResult = await query<{
@@ -47,25 +64,23 @@ export async function POST(request: Request) {
     }
 
     const stripe = getStripeClient();
-
-    // Determine checkout mode from the price: recurring => annual subscription,
-    // one-time => lifetime payment.
-    const price = await stripe.prices.retrieve(priceId);
-    const mode: 'subscription' | 'payment' = price.recurring ? 'subscription' : 'payment';
-
     const appUrl = getAppUrl();
 
     const session = await stripe.checkout.sessions.create({
-      mode,
+      mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
       client_reference_id: user.id,
-      metadata: { userId: user.id, priceId },
+      allow_promotion_codes: true,
+      metadata: { userId: user.id, subject, priceId },
+      // The subscription is set to cancel at period end (no auto-renewal) in the
+      // webhook once the subscription exists — the Checkout Session API does not
+      // accept cancel_at_period_end at creation time.
+      subscription_data: {
+        metadata: { userId: user.id, subject, priceId },
+      },
       ...(user.stripe_customer_id
         ? { customer: user.stripe_customer_id }
         : { customer_email: user.email }),
-      ...(mode === 'subscription'
-        ? { subscription_data: { metadata: { userId: user.id, priceId } } }
-        : {}),
       success_url: `${appUrl}/dashboard`,
       cancel_url: `${appUrl}/subscription`,
     });
