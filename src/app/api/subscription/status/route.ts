@@ -1,10 +1,19 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
-import { planFromStatus } from '@/lib/subscription';
+import { isSubscriptionActive } from '@/lib/subscription';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+type SubscriptionRow = {
+  id: string;
+  subject: string;
+  status: string;
+  stripe_subscription_id: string | null;
+  stripe_price_id: string | null;
+  expires_at: Date | null;
+};
 
 export async function GET(request: Request) {
   try {
@@ -13,28 +22,26 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const result = await query<{
-      subscription_status: string;
-      subscription_expiry: Date | null;
-    }>(
-      `SELECT subscription_status, subscription_expiry
-       FROM users WHERE id = $1 LIMIT 1`,
+    const result = await query<SubscriptionRow>(
+      `SELECT id, subject, status, stripe_subscription_id, stripe_price_id, expires_at
+       FROM user_subscriptions
+       WHERE user_id = $1
+       ORDER BY subject ASC, created_at DESC`,
       [userId],
     );
 
-    const row = result.rows[0];
-    if (!row) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    const expiry = row.subscription_expiry
-      ? new Date(row.subscription_expiry).toISOString()
-      : null;
+    const subscriptions = result.rows.map((row) => ({
+      id: row.id,
+      subject: row.subject,
+      status: row.status,
+      expires_at: row.expires_at ? new Date(row.expires_at).toISOString() : null,
+      stripe_subscription_id: row.stripe_subscription_id,
+      active: isSubscriptionActive(row.status, row.expires_at),
+    }));
 
     return NextResponse.json({
-      status: row.subscription_status,
-      expiry,
-      plan: planFromStatus(row.subscription_status, row.subscription_expiry),
+      subscriptions,
+      has_active: subscriptions.some((s) => s.active),
     });
   } catch (error) {
     const message =
