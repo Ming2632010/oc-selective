@@ -26,6 +26,49 @@ type ProgressRow = {
   is_completed: boolean;
 };
 
+type SubscriptionStatus = {
+  status: string;
+  expiry: string | null;
+  plan: 'annual' | 'lifetime' | null;
+};
+
+const EXPIRY_WARNING_DAYS = 7;
+
+function subscriptionBanner(sub: SubscriptionStatus | null): {
+  tone: 'warn' | 'info';
+  message: string;
+} | null {
+  if (!sub) return null;
+
+  if (sub.status === 'lifetime') return null;
+
+  const expiryTime = sub.expiry ? new Date(sub.expiry).getTime() : null;
+  const active =
+    sub.status === 'active' && expiryTime !== null && expiryTime > Date.now();
+
+  if (!active) {
+    return {
+      tone: 'warn',
+      message:
+        'Your subscription is inactive. Reactivate to keep practising writing tasks.',
+    };
+  }
+
+  const daysLeft = expiryTime
+    ? Math.ceil((expiryTime - Date.now()) / (24 * 60 * 60 * 1000))
+    : Infinity;
+  if (daysLeft <= EXPIRY_WARNING_DAYS) {
+    return {
+      tone: 'info',
+      message: `Your subscription expires in ${daysLeft} day${
+        daysLeft === 1 ? '' : 's'
+      }. Renew to avoid interruption.`,
+    };
+  }
+
+  return null;
+}
+
 type ModuleStatus = 'Not Started' | 'In Progress' | 'Completed';
 
 function moduleStatus(row: ProgressRow | undefined): ModuleStatus {
@@ -51,6 +94,7 @@ export default function DashboardPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [progress, setProgress] = useState<ProgressRow[]>([]);
+  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -76,6 +120,11 @@ export default function DashboardPage() {
           return;
         }
         setUserName(me.data.user?.full_name || me.data.user?.email || 'there');
+
+        const statusRes = await apiFetch('/api/subscription/status');
+        if (statusRes.response.ok) {
+          setSubscription(statusRes.data as SubscriptionStatus);
+        }
 
         const studentsRes = await apiFetch('/api/students');
         if (!studentsRes.response.ok) {
@@ -186,6 +235,28 @@ export default function DashboardPage() {
       {error ? (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
       ) : null}
+
+      {(() => {
+        const banner = subscriptionBanner(subscription);
+        if (!banner) return null;
+        const classes =
+          banner.tone === 'warn'
+            ? 'border-amber-300 bg-amber-50 text-amber-900'
+            : 'border-sky-300 bg-sky-50 text-sky-900';
+        return (
+          <div
+            className={`flex flex-wrap items-center justify-between gap-3 rounded-md border px-4 py-3 ${classes}`}
+          >
+            <p className="text-sm">{banner.message}</p>
+            <Link
+              href="/subscription"
+              className="rounded-md bg-stone-900 px-3 py-1.5 text-sm font-medium text-white"
+            >
+              Manage subscription
+            </Link>
+          </div>
+        );
+      })()}
 
       {students.length === 0 ? (
         <section className="space-y-4 rounded-lg border border-stone-200 bg-white p-6">
