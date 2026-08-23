@@ -26,44 +26,50 @@ type ProgressRow = {
   is_completed: boolean;
 };
 
-type SubscriptionStatus = {
+type SubscriptionItem = {
+  subject: string;
   status: string;
-  expiry: string | null;
-  plan: 'annual' | 'lifetime' | null;
+  expires_at: string | null;
+  active: boolean;
+};
+
+type SubscriptionState = {
+  subscriptions: SubscriptionItem[];
+  has_active: boolean;
 };
 
 const EXPIRY_WARNING_DAYS = 7;
 
-function subscriptionBanner(sub: SubscriptionStatus | null): {
+function subscriptionBanner(sub: SubscriptionState | null): {
   tone: 'warn' | 'info';
   message: string;
 } | null {
   if (!sub) return null;
 
-  if (sub.status === 'lifetime') return null;
-
-  const expiryTime = sub.expiry ? new Date(sub.expiry).getTime() : null;
-  const active =
-    sub.status === 'active' && expiryTime !== null && expiryTime > Date.now();
-
-  if (!active) {
+  if (!sub.has_active) {
     return {
       tone: 'warn',
       message:
-        'Your subscription is inactive. Reactivate to keep practising writing tasks.',
+        'You don\u2019t have an active subscription. Subscribe to a subject to keep practising.',
     };
   }
 
-  const daysLeft = expiryTime
-    ? Math.ceil((expiryTime - Date.now()) / (24 * 60 * 60 * 1000))
-    : Infinity;
-  if (daysLeft <= EXPIRY_WARNING_DAYS) {
-    return {
-      tone: 'info',
-      message: `Your subscription expires in ${daysLeft} day${
-        daysLeft === 1 ? '' : 's'
-      }. Renew to avoid interruption.`,
-    };
+  const times = sub.subscriptions
+    .filter((s) => s.active && s.expires_at)
+    .map((s) => new Date(s.expires_at as string).getTime())
+    .filter((t) => Number.isFinite(t));
+
+  if (times.length > 0) {
+    const soonest = Math.min(...times);
+    const daysLeft = Math.ceil((soonest - Date.now()) / (24 * 60 * 60 * 1000));
+    if (daysLeft <= EXPIRY_WARNING_DAYS) {
+      return {
+        tone: 'info',
+        message: `A subscription expires in ${daysLeft} day${
+          daysLeft === 1 ? '' : 's'
+        }. Renew to avoid interruption.`,
+      };
+    }
   }
 
   return null;
@@ -94,7 +100,7 @@ export default function DashboardPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [progress, setProgress] = useState<ProgressRow[]>([]);
-  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
+  const [subscription, setSubscription] = useState<SubscriptionState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -123,7 +129,7 @@ export default function DashboardPage() {
 
         const statusRes = await apiFetch('/api/subscription/status');
         if (statusRes.response.ok) {
-          setSubscription(statusRes.data as SubscriptionStatus);
+          setSubscription(statusRes.data as SubscriptionState);
         }
 
         const studentsRes = await apiFetch('/api/students');
