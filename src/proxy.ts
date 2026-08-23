@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { query } from '@/lib/db';
-import { hasActiveAccess } from '@/lib/subscription';
 
 // Next.js 16 renamed `middleware` to `proxy`. Proxy runs on the Node.js runtime,
 // so it has full database access to check the authoritative subscription state.
@@ -76,15 +75,18 @@ export async function proxy(request: NextRequest) {
   if (!payload) return deny('auth');
 
   try {
-    const result = await query<{
-      subscription_status: string;
-      subscription_expiry: Date | null;
-    }>(
-      `SELECT subscription_status, subscription_expiry FROM users WHERE id = $1 LIMIT 1`,
+    // Allow access when the user has at least one active subscription for any
+    // subject (active status and either no expiry or an expiry in the future).
+    const result = await query<{ exists: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1 FROM user_subscriptions
+         WHERE user_id = $1
+           AND status = 'active'
+           AND (expires_at IS NULL OR expires_at > NOW())
+       ) AS exists`,
       [payload.userId],
     );
-    const row = result.rows[0];
-    if (!row || !hasActiveAccess(row.subscription_status, row.subscription_expiry)) {
+    if (!result.rows[0]?.exists) {
       return deny('subscription');
     }
   } catch (error) {
