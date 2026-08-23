@@ -23,6 +23,20 @@ export function hasActiveAccess(
   return false;
 }
 
+/**
+ * Whether a per-subject subscription row is currently active: status 'active'
+ * and either no expiry (migrated lifetime) or an expiry in the future.
+ */
+export function isSubscriptionActive(
+  status: string | null | undefined,
+  expiresAt: Date | string | null | undefined,
+): boolean {
+  if (status !== 'active') return false;
+  if (!expiresAt) return true;
+  const t = new Date(expiresAt).getTime();
+  return Number.isFinite(t) && t > Date.now();
+}
+
 /** Infer the human-facing plan name from stored subscription state. */
 export function planFromStatus(
   status: string | null | undefined,
