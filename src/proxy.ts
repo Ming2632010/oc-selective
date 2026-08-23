@@ -4,16 +4,29 @@ import { verifyToken } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { hasActiveAccess } from '@/lib/subscription';
 
-// Next.js 16 renamed `middleware` to `proxy`, which runs on the Node.js runtime
-// and therefore has full database access. This gate protects the subscription-
-// only application area (`/dashboard/**`). Public routes (`/`, `/login`,
-// `/register`, `/subscription`), auth APIs, and the Stripe webhook are never
-// matched here, and API routes additionally enforce their own auth.
+// Next.js 16 renamed `middleware` to `proxy`. Proxy runs on the Node.js runtime,
+// so it has full database access to check the authoritative subscription state.
+// (In Next.js 16 a `middleware.ts` file is deprecated/ignored; the working
+// convention is `proxy.ts`.)
 //
-// Note: like all middleware/proxy, this is an optimistic UX gate, not the sole
-// security boundary — the API routes remain the authoritative access checks.
+// This gates the app behind an active subscription. It is an optimistic UX
+// gate — API routes also enforce their own authentication.
 
 const TOKEN_COOKIE = 'oc_token';
+
+// Paths that never require an active subscription.
+// Note: the whole `/api/subscription` subtree is public (not just the webhook)
+// so the subscription page can load status and start checkout before a user is
+// subscribed; otherwise the flow would deadlock.
+const PUBLIC_PAGES = new Set(['/', '/login', '/register', '/subscription']);
+const PUBLIC_API_PREFIXES = ['/api/auth', '/api/subscription', '/api/health'];
+
+function isPublicPath(pathname: string): boolean {
+  if (PUBLIC_PAGES.has(pathname)) return true;
+  return PUBLIC_API_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
 
 function extractToken(request: NextRequest): string | null {
   const cookieToken = request.cookies.get(TOKEN_COOKIE)?.value;
@@ -30,26 +43,31 @@ function extractToken(request: NextRequest): string | null {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const token = extractToken(request);
+  if (isPublicPath(pathname)) {
+    return NextResponse.next();
+  }
 
-  const redirectTo = (path: string) => {
+  const isApi = pathname.startsWith('/api');
+
+  const deny = (reason: 'auth' | 'subscription') => {
+    if (isApi) {
+      const status = reason === 'auth' ? 401 : 402;
+      const error =
+        reason === 'auth' ? 'Unauthorized' : 'Active subscription required';
+      return NextResponse.json({ error }, { status });
+    }
     const url = request.nextUrl.clone();
-    url.pathname = path;
     url.search = '';
+    url.pathname = reason === 'auth' ? '/login' : '/subscription';
     return NextResponse.redirect(url);
   };
 
-  // Not authenticated → send to login.
-  if (!token) {
-    return redirectTo('/login');
-  }
+  const token = extractToken(request);
+  if (!token) return deny('auth');
 
   const payload = await verifyToken(token);
-  if (!payload) {
-    return redirectTo('/login');
-  }
+  if (!payload) return deny('auth');
 
-  // Authenticated → check authoritative subscription state in the database.
   try {
     const result = await query<{
       subscription_status: string;
@@ -60,17 +78,21 @@ export async function proxy(request: NextRequest) {
     );
     const row = result.rows[0];
     if (!row || !hasActiveAccess(row.subscription_status, row.subscription_expiry)) {
-      return redirectTo('/subscription');
+      return deny('subscription');
     }
   } catch (error) {
     console.error('[proxy] subscription check failed:', error);
-    // Fail closed to the subscription page rather than exposing gated content.
-    return redirectTo('/subscription');
+    // Fail closed rather than exposing gated content.
+    return deny('subscription');
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*'],
+  // Run on everything except Next internals and static assets; the allowlist
+  // above handles per-path exclusions.
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|css|js|map|txt|woff2?)).*)',
+  ],
 };
