@@ -22,11 +22,17 @@ export function getWebhookSecret(): string {
   return secret;
 }
 
-/** Resolve the public app URL used for Stripe redirect URLs. */
-export function getAppUrl(request: Request): string {
+const DEFAULT_APP_URL = 'https://oc-selective.com';
+
+/**
+ * Resolve the public app URL used for Stripe redirect URLs.
+ * Prefers NEXT_PUBLIC_APP_URL (so local/staging work), then falls back to the
+ * production domain.
+ */
+export function getAppUrl(): string {
   const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
   if (configured) {
     return configured.replace(/\/$/, '');
   }
-  return new URL(request.url).origin;
+  return DEFAULT_APP_URL;
 }

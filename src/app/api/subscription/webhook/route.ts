@@ -1,12 +1,20 @@
 import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { query } from '@/lib/db';
+import { sendPaymentFailedReminder } from '@/lib/email';
 import { getStripeClient, getWebhookSecret } from '@/lib/stripe';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+
+function customerIdOf(
+  customer: string | { id: string } | null | undefined,
+): string | null {
+  if (!customer) return null;
+  return typeof customer === 'string' ? customer : customer.id;
+}
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const userId =
@@ -18,11 +26,10 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     return;
   }
 
-  const plan = (session.metadata?.plan as string | undefined) ?? 'annual';
-  const customerId =
-    typeof session.customer === 'string' ? session.customer : session.customer?.id ?? null;
+  const customerId = customerIdOf(session.customer);
 
-  if (plan === 'lifetime') {
+  if (session.mode === 'payment') {
+    // Lifetime one-time purchase.
     await query(
       `UPDATE users
        SET subscription_status = 'lifetime',
@@ -32,6 +39,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       [userId, customerId],
     );
   } else {
+    // Annual subscription.
     const expiry = new Date(Date.now() + ONE_YEAR_MS).toISOString();
     await query(
       `UPDATE users
@@ -44,11 +52,27 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   }
 }
 
+async function handlePaymentFailed(invoice: Stripe.Invoice) {
+  const customerId = customerIdOf(invoice.customer);
+  console.warn(
+    `[subscription/webhook] invoice.payment_failed for customer ${customerId} (invoice ${invoice.id}); sending reminder, not cancelling.`,
+  );
+
+  // Prefer the invoice email; otherwise look the user up by customer id.
+  let email = invoice.customer_email ?? null;
+  if (!email && customerId) {
+    const result = await query<{ email: string }>(
+      `SELECT email FROM users WHERE stripe_customer_id = $1 LIMIT 1`,
+      [customerId],
+    );
+    email = result.rows[0]?.email ?? null;
+  }
+
+  await sendPaymentFailedReminder(email);
+}
+
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
-  const customerId =
-    typeof subscription.customer === 'string'
-      ? subscription.customer
-      : subscription.customer?.id ?? null;
+  const customerId = customerIdOf(subscription.customer);
   if (!customerId) {
     console.warn('[subscription/webhook] subscription.deleted missing customer');
     return;
@@ -85,21 +109,14 @@ export async function POST(request: Request) {
       case 'checkout.session.completed':
         await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
         break;
-      case 'invoice.payment_failed': {
-        const invoice = event.data.object as Stripe.Invoice;
-        // Do not cancel immediately; a reminder email would be sent here.
-        console.warn(
-          `[subscription/webhook] payment_failed for customer ${
-            typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id
-          } (invoice ${invoice.id}); sending reminder, not cancelling.`,
-        );
+      case 'invoice.payment_failed':
+        await handlePaymentFailed(event.data.object as Stripe.Invoice);
         break;
-      }
       case 'customer.subscription.deleted':
         await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
         break;
       default:
-        // Unhandled event types are acknowledged so Stripe stops retrying.
+        // Acknowledge unhandled event types so Stripe stops retrying.
         break;
     }
 

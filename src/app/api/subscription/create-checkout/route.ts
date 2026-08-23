@@ -51,25 +51,23 @@ export async function POST(request: Request) {
     // Determine checkout mode from the price: recurring => annual subscription,
     // one-time => lifetime payment.
     const price = await stripe.prices.retrieve(priceId);
-    const isRecurring = Boolean(price.recurring);
-    const plan = isRecurring ? 'annual' : 'lifetime';
-    const mode = isRecurring ? 'subscription' : 'payment';
+    const mode: 'subscription' | 'payment' = price.recurring ? 'subscription' : 'payment';
 
-    const appUrl = getAppUrl(request);
+    const appUrl = getAppUrl();
 
     const session = await stripe.checkout.sessions.create({
       mode,
       line_items: [{ price: priceId, quantity: 1 }],
       client_reference_id: user.id,
-      metadata: { userId: user.id, plan },
+      metadata: { userId: user.id, priceId },
       ...(user.stripe_customer_id
         ? { customer: user.stripe_customer_id }
         : { customer_email: user.email }),
       ...(mode === 'subscription'
-        ? { subscription_data: { metadata: { userId: user.id, plan } } }
+        ? { subscription_data: { metadata: { userId: user.id, priceId } } }
         : {}),
-      success_url: `${appUrl}/subscription?checkout=success`,
-      cancel_url: `${appUrl}/subscription?checkout=cancelled`,
+      success_url: `${appUrl}/dashboard`,
+      cancel_url: `${appUrl}/subscription`,
     });
 
     return NextResponse.json({ checkout_url: session.url });
