@@ -58,7 +58,14 @@ export async function proxy(request: NextRequest) {
     }
     const url = request.nextUrl.clone();
     url.search = '';
-    url.pathname = reason === 'auth' ? '/login' : '/subscription';
+    if (reason === 'auth') {
+      url.pathname = '/login';
+    } else {
+      url.pathname = '/subscription';
+      // Signal the subscription page that access was blocked by an
+      // expired/inactive subscription.
+      url.searchParams.set('expired', 'true');
+    }
     return NextResponse.redirect(url);
   };
 

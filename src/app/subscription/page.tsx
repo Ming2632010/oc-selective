@@ -78,6 +78,15 @@ export default function SubscriptionPage() {
   const [error, setError] = useState<string | null>(null);
   const [busyPlan, setBusyPlan] = useState<string | null>(null);
   const [managing, setManaging] = useState(false);
+  const [expiredNotice, setExpiredNotice] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setExpiredNotice(
+        new URLSearchParams(window.location.search).get('expired') === 'true',
+      );
+    }
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -161,6 +170,13 @@ export default function SubscriptionPage() {
           Back to dashboard
         </Link>
       </header>
+
+      {expiredNotice ? (
+        <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Your subscription has expired or is inactive. Choose a plan below to
+          continue practising.
+        </p>
+      ) : null}
 
       {error ? (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
