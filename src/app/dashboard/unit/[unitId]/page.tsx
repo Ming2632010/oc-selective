@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { apiFetch, getStudentId, getToken } from '@/lib/client-auth';
-import { getModuleInfo, promptTypeLabel } from '@/lib/modules';
+import { getUnitInfo, typeLabel } from '@/lib/units';
 
 type Prompt = {
   id: string;
@@ -37,11 +37,11 @@ function statusBadgeClasses(maxDraft: number): string {
   return 'bg-stone-100 text-stone-600';
 }
 
-export default function ModulePage() {
-  const params = useParams<{ moduleId: string }>();
+export default function UnitPage() {
+  const params = useParams<{ unitId: string }>();
   const router = useRouter();
-  const moduleId = Number(params.moduleId);
-  const moduleInfo = getModuleInfo(moduleId);
+  const unitId = Number(params.unitId);
+  const unitInfo = getUnitInfo(unitId);
 
   const [prompts, setPrompts] = useState<PromptWithStatus[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -59,14 +59,14 @@ export default function ModulePage() {
         router.replace('/dashboard');
         return;
       }
-      if (!Number.isInteger(moduleId) || moduleId < 1 || moduleId > 6) {
-        setError('Invalid module');
+      if (!Number.isInteger(unitId) || unitId < 1 || unitId > 11) {
+        setError('Invalid unit');
         setLoading(false);
         return;
       }
 
       try {
-        const res = await apiFetch(`/api/prompts?module_id=${moduleId}`);
+        const res = await apiFetch(`/api/prompts?module_id=${unitId}`);
         if (!res.response.ok) {
           throw new Error(res.data.error || 'Failed to load prompts');
         }
@@ -96,10 +96,10 @@ export default function ModulePage() {
     }
 
     void load();
-  }, [moduleId, router]);
+  }, [unitId, router]);
 
   if (loading) {
-    return <main className="mx-auto max-w-4xl p-6">Loading module…</main>;
+    return <main className="mx-auto max-w-4xl p-6">Loading unit…</main>;
   }
 
   return (
@@ -109,10 +109,10 @@ export default function ModulePage() {
           ← Back to dashboard
         </Link>
         <p className="mt-2 text-sm uppercase tracking-wide text-stone-500">
-          Module {moduleId}
+          Unit {unitId}
         </p>
-        <h1 className="text-3xl font-semibold text-stone-900">{moduleInfo.title}</h1>
-        <p className="mt-1 text-stone-600">{moduleInfo.blurb}</p>
+        <h1 className="text-3xl font-semibold text-stone-900">{unitInfo.title}</h1>
+        <p className="mt-1 text-stone-600">{unitInfo.blurb}</p>
       </header>
 
       {error ? (
@@ -120,7 +120,7 @@ export default function ModulePage() {
       ) : null}
 
       {prompts.length === 0 && !error ? (
-        <p className="text-sm text-stone-600">No prompts in this module yet.</p>
+        <p className="text-sm text-stone-600">No prompts in this unit yet.</p>
       ) : (
         <ul className="space-y-3">
           {prompts.map((prompt) => {
@@ -139,7 +139,7 @@ export default function ModulePage() {
                 <div className="space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-md bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-700">
-                      {promptTypeLabel(prompt.prompt_type)}
+                      {typeLabel(prompt.prompt_type)}
                     </span>
                     {prompt.is_locked ? (
                       <span className="rounded-md bg-stone-200 px-2 py-0.5 text-xs font-medium text-stone-600">

@@ -158,7 +158,7 @@ export default function WritingPracticePage() {
       <header className="flex flex-wrap items-end justify-between gap-3 border-b border-stone-300 pb-4">
         <div>
           <p className="text-sm uppercase tracking-wide text-stone-500">
-            Module {prompt.module_id} · Draft {draftNumber}/3 · {prompt.prompt_type}
+            Unit {prompt.module_id} · Draft {draftNumber}/3 · {prompt.prompt_type}
           </p>
           <h1 className="text-3xl font-semibold text-stone-900">{prompt.title}</h1>
         </div>

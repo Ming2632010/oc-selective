@@ -10,7 +10,7 @@ import {
   getToken,
   setStudentId,
 } from '@/lib/client-auth';
-import { MODULES } from '@/lib/modules';
+import { UNITS } from '@/lib/units';
 
 type Student = {
   id: string;
@@ -337,10 +337,10 @@ export default function DashboardPage() {
           </section>
 
           <section className="space-y-4">
-            <h2 className="text-lg font-medium text-stone-900">Writing modules</h2>
+            <h2 className="text-lg font-medium text-stone-900">Writing units</h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {MODULES.map((mod) => {
-                const row = progress.find((p) => p.module_id === mod.id);
+              {UNITS.map((unit) => {
+                const row = progress.find((p) => p.module_id === unit.id);
                 const status = moduleStatus(row);
                 const total = row?.prompt_count ?? 0;
                 const done = row?.completed_count ?? 0;
@@ -349,14 +349,14 @@ export default function DashboardPage() {
 
                 return (
                   <Link
-                    key={mod.id}
-                    href={`/dashboard/module/${mod.id}`}
+                    key={unit.id}
+                    href={`/dashboard/unit/${unit.id}`}
                     className="group flex flex-col justify-between rounded-xl border border-stone-200 bg-white p-5 transition hover:border-stone-400 hover:shadow-sm"
                   >
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold uppercase tracking-wide text-stone-400">
-                          Module {mod.id}
+                          Unit {unit.id}
                         </span>
                         <span
                           className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBadgeClasses(
@@ -367,9 +367,9 @@ export default function DashboardPage() {
                         </span>
                       </div>
                       <h3 className="text-lg font-semibold text-stone-900">
-                        {mod.title}
+                        {unit.title}
                       </h3>
-                      <p className="text-sm text-stone-600">{mod.blurb}</p>
+                      <p className="text-sm text-stone-600">{unit.blurb}</p>
                     </div>
 
                     <div className="mt-5 space-y-1.5">
