@@ -44,7 +44,7 @@ export async function sendPaymentFailedReminder(to: string | null): Promise<void
         'Your access is still active for now — please update your payment',
         'method to avoid any interruption.',
         '',
-        'Manage your subscription: https://oc-selective.com/subscription',
+        'Manage your subscription: https://trialseed.com.au/subscription',
         '',
         'Thanks,',
         'The OC-Selective team',

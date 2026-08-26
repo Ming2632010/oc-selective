@@ -22,7 +22,7 @@ export function getWebhookSecret(): string {
   return secret;
 }
 
-const DEFAULT_APP_URL = 'https://oc-selective.com';
+const DEFAULT_APP_URL = 'https://trialseed.com.au';
 
 /**
  * Resolve the public app URL used for Stripe redirect URLs.
