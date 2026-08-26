@@ -10,7 +10,7 @@ import {
   getToken,
   setStudentId,
 } from '@/lib/client-auth';
-import { UNITS } from '@/lib/units';
+import { UNIT_GROUPS, unitsByGroup, type UnitGroup } from '@/lib/units';
 
 type Student = {
   id: string;
@@ -39,6 +39,12 @@ type SubscriptionState = {
 };
 
 const EXPIRY_WARNING_DAYS = 7;
+
+const GROUP_BLURBS: Record<UnitGroup, string> = {
+  Creative: 'Imagine and describe',
+  Informative: 'Inform and explain',
+  Persuasive: 'Convince and influence',
+};
 
 function subscriptionBanner(sub: SubscriptionState | null): {
   tone: 'warn' | 'info';
@@ -272,7 +278,7 @@ export default function DashboardPage() {
             </h2>
             <p className="mt-1 text-sm text-stone-600">
               Add the student who will be practising so we can track their
-              progress across all six modules.
+              progress across all eleven units.
             </p>
           </div>
           <form
@@ -336,60 +342,72 @@ export default function DashboardPage() {
             ) : null}
           </section>
 
-          <section className="space-y-4">
+          <section className="space-y-8">
             <h2 className="text-lg font-medium text-stone-900">Writing units</h2>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {UNITS.map((unit) => {
-                const row = progress.find((p) => p.module_id === unit.id);
-                const status = moduleStatus(row);
-                const total = row?.prompt_count ?? 0;
-                const done = row?.completed_count ?? 0;
-                const pct =
-                  total > 0 ? Math.round((done / total) * 100) : 0;
+            {UNIT_GROUPS.map((group) => (
+              <div key={group} className="space-y-4">
+                <div className="flex items-baseline gap-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-stone-900">
+                    {group}
+                  </h3>
+                  <p className="text-sm text-stone-500">
+                    {GROUP_BLURBS[group]}
+                  </p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {unitsByGroup(group).map((unit) => {
+                    const row = progress.find((p) => p.module_id === unit.id);
+                    const status = moduleStatus(row);
+                    const total = row?.prompt_count ?? 0;
+                    const done = row?.completed_count ?? 0;
+                    const pct =
+                      total > 0 ? Math.round((done / total) * 100) : 0;
 
-                return (
-                  <Link
-                    key={unit.id}
-                    href={`/dashboard/unit/${unit.id}`}
-                    className="group flex flex-col justify-between rounded-xl border border-stone-200 bg-white p-5 transition hover:border-stone-400 hover:shadow-sm"
-                  >
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold uppercase tracking-wide text-stone-400">
-                          Unit {unit.id}
-                        </span>
-                        <span
-                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBadgeClasses(
-                            status,
-                          )}`}
-                        >
-                          {status}
-                        </span>
-                      </div>
-                      <h3 className="text-lg font-semibold text-stone-900">
-                        {unit.title}
-                      </h3>
-                      <p className="text-sm text-stone-600">{unit.blurb}</p>
-                    </div>
+                    return (
+                      <Link
+                        key={unit.id}
+                        href={`/dashboard/unit/${unit.id}`}
+                        className="group flex flex-col justify-between rounded-xl border border-stone-200 bg-white p-5 transition hover:border-stone-400 hover:shadow-sm"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold uppercase tracking-wide text-stone-400">
+                              Unit {unit.id}
+                            </span>
+                            <span
+                              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBadgeClasses(
+                                status,
+                              )}`}
+                            >
+                              {status}
+                            </span>
+                          </div>
+                          <h4 className="text-lg font-semibold text-stone-900">
+                            {unit.title}
+                          </h4>
+                          <p className="text-sm text-stone-600">{unit.blurb}</p>
+                        </div>
 
-                    <div className="mt-5 space-y-1.5">
-                      <div className="flex items-center justify-between text-xs text-stone-500">
-                        <span>
-                          {done}/{total || '—'} prompts
-                        </span>
-                        <span>{pct}%</span>
-                      </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-stone-100">
-                        <div
-                          className="h-full rounded-full bg-stone-900 transition-all"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
+                        <div className="mt-5 space-y-1.5">
+                          <div className="flex items-center justify-between text-xs text-stone-500">
+                            <span>
+                              {done}/{total || '—'} prompts
+                            </span>
+                            <span>{pct}%</span>
+                          </div>
+                          <div className="h-2 w-full overflow-hidden rounded-full bg-stone-100">
+                            <div
+                              className="h-full rounded-full bg-stone-900 transition-all"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </section>
         </>
       )}

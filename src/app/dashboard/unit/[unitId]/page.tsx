@@ -109,7 +109,7 @@ export default function UnitPage() {
           ← Back to dashboard
         </Link>
         <p className="mt-2 text-sm uppercase tracking-wide text-stone-500">
-          Unit {unitId}
+          Unit {unitId} · {unitInfo.group}
         </p>
         <h1 className="text-3xl font-semibold text-stone-900">{unitInfo.title}</h1>
         <p className="mt-1 text-stone-600">{unitInfo.blurb}</p>
