@@ -90,9 +90,9 @@ export async function GET(request: Request) {
     }
 
     const moduleId = Number(moduleIdRaw);
-    if (!Number.isInteger(moduleId) || moduleId < 1 || moduleId > 6) {
+    if (!Number.isInteger(moduleId) || moduleId < 1 || moduleId > 11) {
       return NextResponse.json(
-        { error: 'module_id must be an integer between 1 and 6' },
+        { error: 'module_id must be an integer between 1 and 11' },
         { status: 400 },
       );
     }
