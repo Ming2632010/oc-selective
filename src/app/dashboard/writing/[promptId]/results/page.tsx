@@ -3,11 +3,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import {
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
+  ResponsiveContainer,
+} from 'recharts';
 import { getStudentId, getToken } from '@/lib/client-auth';
 
 type Attempt = {
   id: string;
   draft_number: number;
+  content: string;
   score_set_a: number;
   score_set_b: number;
   overall_score: number;
@@ -103,6 +112,21 @@ export default function WritingResultsPage() {
     ];
   }, [prompt, attempt]);
 
+  const chartData = useMemo(() => {
+    const b = attempt?.scores_breakdown || {
+      structure: 0,
+      vocabulary: 0,
+      audience: 0,
+      grammar: 0,
+    };
+    return [
+      { dimension: 'Structure', value: b.structure },
+      { dimension: 'Vocabulary', value: b.vocabulary },
+      { dimension: 'Audience', value: b.audience },
+      { dimension: 'Grammar', value: b.grammar },
+    ];
+  }, [attempt]);
+
   if (loading) {
     return <main className="mx-auto max-w-4xl p-6">Loading results…</main>;
   }
@@ -137,17 +161,35 @@ export default function WritingResultsPage() {
       <section className="grid gap-3 sm:grid-cols-3">
         <ScoreCard label="Set A" value={`${attempt.score_set_a}/15`} />
         <ScoreCard label="Set B" value={`${attempt.score_set_b}/10`} />
-        <ScoreCard label="Overall" value={`${attempt.overall_score}/25`} />
+        <ScoreCard label="Overall" value={`${attempt.overall_score}/25`} highlight />
       </section>
 
       <section className="rounded-lg border border-stone-200 p-4">
         <h2 className="mb-3 text-lg font-medium">Four-dimension breakdown</h2>
-        <ul className="grid gap-2 sm:grid-cols-2">
-          <li>Structure: {breakdown.structure}/5</li>
-          <li>Vocabulary: {breakdown.vocabulary}/5</li>
-          <li>Audience: {breakdown.audience}/5</li>
-          <li>Grammar: {breakdown.grammar}/5</li>
-        </ul>
+        <div className="grid items-center gap-4 sm:grid-cols-[minmax(0,1fr)_16rem]">
+          <ul className="grid gap-2 sm:grid-cols-2">
+            <BreakdownItem label="Structure" value={breakdown.structure} />
+            <BreakdownItem label="Vocabulary" value={breakdown.vocabulary} />
+            <BreakdownItem label="Audience" value={breakdown.audience} />
+            <BreakdownItem label="Grammar" value={breakdown.grammar} />
+          </ul>
+          <div className="h-56 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart data={chartData} outerRadius="70%">
+                <PolarGrid />
+                <PolarAngleAxis dataKey="dimension" tick={{ fontSize: 12 }} />
+                <PolarRadiusAxis angle={90} domain={[0, 5]} tickCount={6} />
+                <Radar
+                  name="Score"
+                  dataKey="value"
+                  stroke="#1c1917"
+                  fill="#1c1917"
+                  fillOpacity={0.25}
+                />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
         <p className="mt-3 text-sm text-stone-600">{attempt.word_count} words</p>
       </section>
 
@@ -161,11 +203,18 @@ export default function WritingResultsPage() {
         <ul className="space-y-2">
           {hints.map((hint) => (
             <li key={hint.label} className="flex gap-2">
-              <span>{hint.checked ? '✓' : '✗'}</span>
+              <span className={hint.checked ? 'text-emerald-700' : 'text-red-600'}>
+                {hint.checked ? '✓' : '✗'}
+              </span>
               <span>{hint.label}</span>
             </li>
           ))}
         </ul>
+      </section>
+
+      <section className="rounded-lg border border-stone-200 p-4">
+        <h2 className="mb-2 text-lg font-medium">Your submitted writing</h2>
+        <p className="whitespace-pre-wrap text-stone-800">{attempt.content}</p>
       </section>
 
       <div className="flex flex-wrap gap-3">
@@ -187,7 +236,7 @@ export default function WritingResultsPage() {
             {showSamples ? 'Hide sample answers' : 'View Sample Answer'}
           </button>
         ) : (
-          <p className="text-sm text-stone-600">
+          <p className="self-center text-sm text-stone-600">
             Sample answers unlock after Draft 3.
           </p>
         )}
@@ -213,11 +262,44 @@ export default function WritingResultsPage() {
   );
 }
 
-function ScoreCard({ label, value }: { label: string; value: string }) {
+function ScoreCard({
+  label,
+  value,
+  highlight = false,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
   return (
-    <div className="rounded-lg border border-stone-200 bg-stone-50 p-4">
-      <p className="text-sm text-stone-500">{label}</p>
+    <div
+      className={`rounded-lg border p-4 ${
+        highlight
+          ? 'border-stone-900 bg-stone-900 text-white'
+          : 'border-stone-200 bg-stone-50'
+      }`}
+    >
+      <p className={`text-sm ${highlight ? 'text-stone-300' : 'text-stone-500'}`}>
+        {label}
+      </p>
       <p className="text-2xl font-semibold">{value}</p>
     </div>
+  );
+}
+
+function BreakdownItem({ label, value }: { label: string; value: number }) {
+  return (
+    <li className="space-y-1">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-stone-700">{label}</span>
+        <span className="font-medium text-stone-900">{value}/5</span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-stone-100">
+        <div
+          className="h-full rounded-full bg-stone-900"
+          style={{ width: `${(value / 5) * 100}%` }}
+        />
+      </div>
+    </li>
   );
 }

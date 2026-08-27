@@ -7,9 +7,13 @@ CREATE TABLE IF NOT EXISTS prompts (
   title TEXT NOT NULL,
   description TEXT NOT NULL,
   prompt_type TEXT NOT NULL CHECK (
-    prompt_type IN ('newspaper_report', 'diary_entry', 'email', 'advice_sheet')
+    prompt_type IN (
+      'narrative', 'diary_entry', 'news_report', 'explanation', 'advice_sheet',
+      'review', 'advertisement', 'persuasive_text', 'formal_letter', 'speech',
+      'email'
+    )
   ),
-  module_id INTEGER NOT NULL CHECK (module_id BETWEEN 1 AND 6),
+  module_id INTEGER NOT NULL CHECK (module_id BETWEEN 1 AND 11),
   hint_points JSONB NOT NULL DEFAULT '[]'::jsonb,
   sample_answer_high TEXT NOT NULL,
   sample_answer_medium TEXT NOT NULL,

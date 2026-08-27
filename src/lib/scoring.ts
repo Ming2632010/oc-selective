@@ -156,7 +156,7 @@ export function scoreWritingAttemptHeuristic(input: ScoreInput): ScoringResult {
   const hasParagraphs =
     (content.match(/\n\s*\n/g) ?? []).length >= 1 || content.includes('\n');
   const hasTitleLike =
-    /newspaper_report|advice_sheet/.test(input.promptType) &&
+    /news_report|advice_sheet|advertisement/.test(input.promptType) &&
     /[A-Z][A-Z\s]{6,}/.test(content.slice(0, 80));
   const audienceCue =
     /dear |subject:|dear diary|welcome|report|according to|said/i.test(content) ||
