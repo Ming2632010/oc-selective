@@ -66,21 +66,20 @@ export async function POST(request: Request) {
     const stripe = getStripeClient();
     const appUrl = getAppUrl();
 
+    // One-off payment: Stripe charges once. We grant 1 year of access in the
+    // webhook. Promotion codes (coupons) can be entered on the Checkout page.
     const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
+      mode: 'payment',
       line_items: [{ price: priceId, quantity: 1 }],
       client_reference_id: user.id,
       allow_promotion_codes: true,
       metadata: { userId: user.id, subject, priceId },
-      // The subscription is set to cancel at period end (no auto-renewal) in the
-      // webhook once the subscription exists — the Checkout Session API does not
-      // accept cancel_at_period_end at creation time.
-      subscription_data: {
+      payment_intent_data: {
         metadata: { userId: user.id, subject, priceId },
       },
       ...(user.stripe_customer_id
         ? { customer: user.stripe_customer_id }
-        : { customer_email: user.email }),
+        : { customer_email: user.email, customer_creation: 'always' }),
       success_url: `${appUrl}/dashboard`,
       cancel_url: `${appUrl}/subscription`,
     });

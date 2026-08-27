@@ -32,6 +32,13 @@ function periodEndToDate(subscription: Stripe.Subscription): string {
 }
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+  if (session.payment_status && session.payment_status !== 'paid') {
+    console.warn(
+      `[subscription/webhook] checkout.session.completed not paid (${session.payment_status})`,
+    );
+    return;
+  }
+
   const userId =
     (session.metadata?.userId as string | undefined) ||
     session.client_reference_id ||
@@ -45,12 +52,14 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     return;
   }
 
-  const subscriptionId = idOf(session.subscription);
+  // Checkout session id is the idempotency key for one-off payments (no Stripe
+  // subscription object). Stored in stripe_subscription_id so webhook retries
+  // do not insert a second year of access.
+  const paymentRef = session.id;
   const priceId = (session.metadata?.priceId as string | undefined) ?? null;
   const customerId = idOf(session.customer);
   const expiresAt = new Date(Date.now() + ONE_YEAR_MS).toISOString();
 
-  // Persist the customer id on the user for the billing portal.
   if (customerId) {
     await query(
       `UPDATE users SET stripe_customer_id = COALESCE($2, stripe_customer_id) WHERE id = $1`,
@@ -58,8 +67,6 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     );
   }
 
-  // Upsert by Stripe subscription id so webhook retries do not create duplicates,
-  // while still allowing multiple subscriptions to the same subject (per child).
   await query(
     `INSERT INTO user_subscriptions
        (user_id, subject, status, stripe_subscription_id, stripe_price_id, expires_at)
@@ -69,22 +76,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
                    stripe_price_id = EXCLUDED.stripe_price_id,
                    expires_at = EXCLUDED.expires_at,
                    updated_at = NOW()`,
-    [userId, subject, subscriptionId, priceId, expiresAt],
+    [userId, subject, paymentRef, priceId, expiresAt],
   );
-
-  // Enforce "no auto-renewal": cancel the subscription at the end of its period.
-  if (subscriptionId) {
-    try {
-      await getStripeClient().subscriptions.update(subscriptionId, {
-        cancel_at_period_end: true,
-      });
-    } catch (error) {
-      console.error(
-        `[subscription/webhook] failed to set cancel_at_period_end for ${subscriptionId}:`,
-        error,
-      );
-    }
-  }
 }
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
