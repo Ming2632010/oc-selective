@@ -16,7 +16,7 @@ export const SUBJECT_BLURBS: Record<Subject, string> = {
   reading: 'Reading comprehension passages and questions.',
 };
 
-/** Each subject is a $99 AUD / year subscription. */
+/** Each subject is a $99 AUD one-off payment for 1 year of access. */
 export const SUBJECT_PRICE_AUD = 99;
 
 export function isSubject(value: unknown): value is Subject {

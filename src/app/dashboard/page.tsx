@@ -56,7 +56,7 @@ function subscriptionBanner(sub: SubscriptionState | null): {
     return {
       tone: 'warn',
       message:
-        'You don\u2019t have an active subscription. Subscribe to a subject to keep practising.',
+        'You don\u2019t have an active subject. Buy a year of access to keep practising.',
     };
   }
 

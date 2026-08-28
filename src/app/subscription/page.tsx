@@ -115,8 +115,9 @@ export default function SubscriptionPage() {
           <p className="text-sm uppercase tracking-wide text-stone-500">Subscription</p>
           <h1 className="text-3xl font-semibold text-stone-900">Choose your subjects</h1>
           <p className="mt-1 text-sm text-stone-600">
-            Each subject is ${SUBJECT_PRICE_AUD} AUD per year. Subscribe to as many as
-            you like — each expires one year after purchase.
+            Each subject is ${SUBJECT_PRICE_AUD} AUD for one year. Pay once —
+            access ends after 12 months, with no automatic renewal. You can
+            enter a promotion code at checkout.
           </p>
         </div>
         <Link
@@ -185,7 +186,7 @@ export default function SubscriptionPage() {
                       disabled={managing}
                       className="mt-2 rounded-md border border-stone-900 px-4 py-2 text-sm font-medium text-stone-900 disabled:opacity-60"
                     >
-                      {managing ? 'Opening…' : 'Manage Subscription'}
+                      {managing ? 'Opening…' : 'View receipts'}
                     </button>
                   </div>
                 ) : (
@@ -197,7 +198,7 @@ export default function SubscriptionPage() {
                   >
                     {busy === subject
                       ? 'Redirecting…'
-                      : `Subscribe · $${SUBJECT_PRICE_AUD}/year`}
+                      : `Buy 1 year · $${SUBJECT_PRICE_AUD}`}
                   </button>
                 )}
               </div>
@@ -209,7 +210,7 @@ export default function SubscriptionPage() {
       <p className="text-center text-sm text-stone-600">
         Need access for a second child?{' '}
         <span className="font-medium text-stone-800">
-          Purchase again — each subscription is independent.
+          Pay again — each purchase is independent.
         </span>
         {hasBilling ? (
           <>
@@ -220,7 +221,7 @@ export default function SubscriptionPage() {
               disabled={managing}
               className="font-medium text-stone-900 underline disabled:opacity-60"
             >
-              Manage all subscriptions
+              View receipts
             </button>
           </>
         ) : null}
