@@ -4,7 +4,6 @@ export default function Home() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-stone-100 px-4">
       <div className="max-w-lg space-y-6 text-center">
-        <p className="text-sm uppercase tracking-wide text-stone-500">OC-Selective</p>
         <h1 className="text-4xl font-semibold text-stone-900">
           Writing Practice
         </h1>

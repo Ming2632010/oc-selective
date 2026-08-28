@@ -45,7 +45,6 @@ export default function RegisterPage() {
     <main className="flex min-h-screen items-center justify-center bg-stone-100 px-4">
       <div className="w-full max-w-md space-y-6 rounded-xl border border-stone-200 bg-white p-8 shadow-sm">
         <div>
-          <p className="text-sm uppercase tracking-wide text-stone-500">OC-Selective</p>
           <h1 className="text-2xl font-semibold text-stone-900">Create account</h1>
           <p className="mt-1 text-sm text-stone-600">
             Register to practise selective-style writing tasks.
