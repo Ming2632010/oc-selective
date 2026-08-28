@@ -3,7 +3,8 @@ import './globals.css';
 
 export const metadata = {
   title: 'TrialSeed',
-  description: 'Selective high school writing practice with timed drafts and feedback',
+  description:
+    'AI writing practice for NSW Selective and Opportunity Class exams. Timed drafts, clear feedback, one-off yearly access.',
 };
 
 export default function RootLayout({
