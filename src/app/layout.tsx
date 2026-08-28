@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import './globals.css';
 
 export const metadata = {
-  title: 'OC-Selective Writing Practice',
+  title: 'TrialSeed',
   description: 'Selective high school writing practice with timed drafts and feedback',
 };
 
