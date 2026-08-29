@@ -4,7 +4,7 @@ import './globals.css';
 export const metadata = {
   title: 'TrialSeed',
   description:
-    'AI writing practice for NSW Selective and Opportunity Class exams. Timed drafts, clear feedback, one-off yearly access.',
+    'AI practice for NSW Selective and Opportunity Class exams. Writing, Math, Thinking Skills, and Reading — tailored to each student’s strengths and weaknesses.',
 };
 
 export default function RootLayout({
