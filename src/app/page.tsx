@@ -4,6 +4,8 @@ import {
   Brain,
   ClipboardCheck,
   CreditCard,
+  LineChart,
+  MessageCircle,
   Sparkles,
   Target,
 } from 'lucide-react';
@@ -40,9 +42,14 @@ const features = [
     body: 'After each task, AI feedback shows what is already working and what to fix next. Writing does this today on structure, vocabulary, audience, and grammar. Other subjects will use the same idea.',
   },
   {
-    icon: ClipboardCheck,
-    title: 'Two exam tracks',
-    body: 'Open Selective Trials or OC Trials, then add subjects. The dashboard stays with that student so a parent can see progress in one place.',
+    icon: LineChart,
+    title: 'A progress line for every subject',
+    body: 'Each subject will have its own progress line so parent and student can see scores move over time — the improvement, not just the last mark.',
+  },
+  {
+    icon: MessageCircle,
+    title: 'A chat that stays with that subject',
+    body: 'Each subject will also have a chat, so you can talk about that paper together — what went well, what to practise next, and how the line is climbing.',
   },
   {
     icon: Brain,
@@ -69,6 +76,10 @@ const faqs = [
     a: 'Selective Writing is open now. Selective Math, Thinking Skills, and Reading, and all OC Trial subjects, will open as those courses are ready. You are not charged for a subject until you buy it.',
   },
   {
+    q: 'Can parent and student follow progress together?',
+    a: 'Yes. Each subject will have a progress line so you can watch scores move, and a chat so parent and student can talk about that subject in one place. Those tools are being built; they are not in the live Writing course yet.',
+  },
+  {
     q: 'Can I use a promotion code?',
     a: 'Yes. Enter it on the Stripe checkout page after you choose a subject.',
   },
@@ -92,7 +103,9 @@ export default function Home() {
               Two exam tracks — Selective Trials and OC Trials — covering
               Writing, Math, Thinking Skills, and Reading. AI shows where a
               student is already strong and where they need work, then aims
-              the next task at those gaps.
+              the next task at those gaps. Each subject will have a progress
+              line and a chat, so parent and student can see the improvement
+              together.
             </p>
             <div className="mt-8 flex flex-col items-stretch gap-3 sm:flex-row">
               <Link
@@ -112,7 +125,7 @@ export default function Home() {
           <div className="relative aspect-[16/10] overflow-hidden rounded-2xl bg-slate-100 shadow-sm">
             <Image
               src="/marketing/hero-family-study.png"
-              alt="Parent and child working through practice at the kitchen table"
+              alt="A smiling parent and child looking at a rising progress line and subject chat on a laptop"
               fill
               className="object-cover"
               sizes="(min-width: 1024px) 50vw, 100vw"
@@ -151,9 +164,9 @@ export default function Home() {
               How TrialSeed helps
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600">
-              See the pattern, practise the gap, try again.
+              See the pattern, practise the gap, and watch the line move.
             </p>
-            <div className="mt-12 grid gap-6 sm:grid-cols-3">
+            <div className="mt-12 grid gap-6 sm:grid-cols-2">
               {features.map(({ icon: Icon, title, body }) => (
                 <article
                   key={title}
@@ -184,7 +197,7 @@ export default function Home() {
                 <div className="relative aspect-[16/9]">
                   <Image
                     src="/marketing/selective-study.png"
-                    alt="Student preparing for the Selective exam"
+                    alt="A happy Selective student with a writing progress line and chat on a tablet"
                     fill
                     className="object-cover transition duration-300 group-hover:scale-[1.02]"
                     sizes="(min-width: 1024px) 50vw, 100vw"
@@ -210,7 +223,7 @@ export default function Home() {
                 <div className="relative aspect-[16/9]">
                   <Image
                     src="/marketing/oc-study.png"
-                    alt="Younger student preparing for the OC exam"
+                    alt="A happy parent and child looking at a reading progress line and chat on a tablet"
                     fill
                     className="object-cover transition duration-300 group-hover:scale-[1.02]"
                     sizes="(min-width: 1024px) 50vw, 100vw"

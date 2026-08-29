@@ -27,14 +27,15 @@ export default function SelectiveTrialPage() {
             <p className="mt-4 text-lg leading-relaxed text-slate-600">
               Four subjects, including Writing. AI feedback shows where the
               student is strong and where marks are lost, then the next task
-              aims at those gaps. ${SUBJECT_PRICE_AUD} AUD per subject, one
-              year, no auto-renewal.
+              aims at those gaps. Each subject will have a progress line and a
+              chat so parent and student can see the improvement together. $
+              {SUBJECT_PRICE_AUD} AUD per subject, one year, no auto-renewal.
             </p>
           </div>
           <div className="relative aspect-[16/10] overflow-hidden rounded-2xl bg-slate-100">
             <Image
               src="/marketing/selective-study.png"
-              alt="A Selective-age student writing at a desk"
+              alt="A happy Selective student with a writing progress line and chat on a tablet"
               fill
               className="object-cover"
               sizes="(min-width: 1024px) 50vw, 100vw"
