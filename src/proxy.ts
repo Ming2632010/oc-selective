@@ -17,7 +17,15 @@ const TOKEN_COOKIE = 'oc_token';
 // Note: the whole `/api/subscription` subtree is public (not just the webhook)
 // so the subscription page can load status and start checkout before a user is
 // subscribed; otherwise the flow would deadlock.
-const PUBLIC_PAGES = new Set(['/', '/login', '/register', '/subscription', '/privacy']);
+const PUBLIC_PAGES = new Set([
+  '/',
+  '/login',
+  '/register',
+  '/subscription',
+  '/privacy',
+  '/oc-trial',
+  '/selective-trial',
+]);
 const PUBLIC_API_PREFIXES = ['/api/auth', '/api/subscription', '/api/health'];
 
 function isPublicPath(pathname: string): boolean {
