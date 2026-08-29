@@ -35,7 +35,7 @@ export default function OcTrialPage() {
           </div>
           <div className="relative aspect-[16/10] overflow-hidden rounded-2xl bg-slate-100">
             <Image
-              src="/marketing/oc-study.png"
+              src="/marketing/oc-progress-chat.png"
               alt="A happy parent and child looking at a reading progress line and chat on a tablet"
               fill
               className="object-cover"

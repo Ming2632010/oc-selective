@@ -124,7 +124,7 @@ export default function Home() {
           </div>
           <div className="relative aspect-[16/10] overflow-hidden rounded-2xl bg-slate-100 shadow-sm">
             <Image
-              src="/marketing/hero-family-study.png"
+              src="/marketing/hero-progress-chat.png"
               alt="A smiling parent and child looking at a rising progress line and subject chat on a laptop"
               fill
               className="object-cover"
@@ -196,7 +196,7 @@ export default function Home() {
               >
                 <div className="relative aspect-[16/9]">
                   <Image
-                    src="/marketing/selective-study.png"
+                    src="/marketing/selective-progress-chat.png"
                     alt="A happy Selective student with a writing progress line and chat on a tablet"
                     fill
                     className="object-cover transition duration-300 group-hover:scale-[1.02]"
@@ -222,7 +222,7 @@ export default function Home() {
               >
                 <div className="relative aspect-[16/9]">
                   <Image
-                    src="/marketing/oc-study.png"
+                    src="/marketing/oc-progress-chat.png"
                     alt="A happy parent and child looking at a reading progress line and chat on a tablet"
                     fill
                     className="object-cover transition duration-300 group-hover:scale-[1.02]"

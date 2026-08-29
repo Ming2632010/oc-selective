@@ -34,7 +34,7 @@ export default function SelectiveTrialPage() {
           </div>
           <div className="relative aspect-[16/10] overflow-hidden rounded-2xl bg-slate-100">
             <Image
-              src="/marketing/selective-study.png"
+              src="/marketing/selective-progress-chat.png"
               alt="A happy Selective student with a writing progress line and chat on a tablet"
               fill
               className="object-cover"
