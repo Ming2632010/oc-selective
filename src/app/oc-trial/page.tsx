@@ -27,14 +27,16 @@ export default function OcTrialPage() {
             <p className="mt-4 text-lg leading-relaxed text-slate-600">
               Math, Thinking Skills, and Reading — the OC test has no writing
               paper. Practice is built around those three subjects, with AI
-              aimed at each student’s strengths and weaknesses. $
-              {SUBJECT_PRICE_AUD} AUD per subject, one year, no auto-renewal.
+              aimed at each student’s strengths and weaknesses. Each subject
+              will have a progress line and a chat so parent and student can
+              see the improvement together. ${SUBJECT_PRICE_AUD} AUD per
+              subject, one year, no auto-renewal.
             </p>
           </div>
           <div className="relative aspect-[16/10] overflow-hidden rounded-2xl bg-slate-100">
             <Image
-              src="/marketing/oc-study.png"
-              alt="A younger student reading and working through questions at home"
+              src="/marketing/oc-progress-chat.png"
+              alt="A happy parent and child looking at a reading progress line and chat on a tablet"
               fill
               className="object-cover"
               sizes="(min-width: 1024px) 50vw, 100vw"
