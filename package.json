@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "db:seed-writing": "tsx scripts/seed-writing.ts"
+    "db:seed-writing": "tsx scripts/seed-writing.ts",
+    "test": "tsx --test src/lib/writing-guidance.test.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

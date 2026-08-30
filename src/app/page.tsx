@@ -44,12 +44,12 @@ const features = [
   {
     icon: LineChart,
     title: 'A progress line for every subject',
-    body: 'Each subject will have its own progress line so parent and student can see scores move over time — the improvement, not just the last mark.',
+    body: 'Writing already shows scores over time so parent and student can watch the line move — the improvement, not just the last mark. Other subjects will use the same chart when they open.',
   },
   {
     icon: MessageCircle,
     title: 'A chat that stays with that subject',
-    body: 'Each subject will also have a chat, so you can talk about that paper together — what went well, what to practise next, and how the line is climbing.',
+    body: 'Writing already has a chat so you can talk about that paper together — what went well, what to practise next, and how the line is climbing. Other subjects will get their own chat when they open.',
   },
   {
     icon: Brain,
@@ -65,7 +65,7 @@ const faqs = [
   },
   {
     q: 'How does the AI help my child?',
-    a: 'It does not replace a tutor. It marks the work and highlights strengths and weaknesses so the next session is aimed at the gaps. Writing already returns notes on structure, vocabulary, audience, and grammar. Math, Thinking Skills, and Reading will use the same approach as those courses open.',
+    a: 'It does not replace a tutor. It marks the work and highlights strengths and weaknesses, then points the next writing task at those gaps. Writing already returns notes on structure, vocabulary, audience, and grammar. Math, Thinking Skills, and Reading will use the same approach as those courses open.',
   },
   {
     q: 'How does payment work?',
@@ -77,7 +77,7 @@ const faqs = [
   },
   {
     q: 'Can parent and student follow progress together?',
-    a: 'Yes. Each subject will have a progress line so you can watch scores move, and a chat so parent and student can talk about that subject in one place. Those tools are being built; they are not in the live Writing course yet.',
+    a: 'Yes. Writing has a progress line so you can watch scores move, and a chat so parent and student can talk about that subject in one place. After each draft the next task is chosen from the weakest recent scores. Other subjects will get the same tools when they open.',
   },
   {
     q: 'Can I use a promotion code?',
@@ -103,9 +103,9 @@ export default function Home() {
               Two exam tracks — Selective Trials and OC Trials — covering
               Writing, Math, Thinking Skills, and Reading. AI shows where a
               student is already strong and where they need work, then aims
-              the next task at those gaps. Each subject will have a progress
-              line and a chat, so parent and student can see the improvement
-              together.
+              the next task at those gaps. Writing already has a progress
+              line and a chat so parent and student can see the improvement
+              together. Other subjects will get the same when they open.
             </p>
             <div className="mt-8 flex flex-col items-stretch gap-3 sm:flex-row">
               <Link

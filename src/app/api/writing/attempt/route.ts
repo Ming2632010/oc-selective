@@ -2,6 +2,13 @@ import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { scoreWritingAttempt } from '@/lib/scoring';
+import {
+  assertOwnedStudent,
+  ensureWritingEnhancements,
+  getGuidanceForStudent,
+  getUnitProgress,
+} from '@/lib/writing-state';
+import { completedUnitIds, highestUnlockedUnit } from '@/lib/writing-guidance';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,52 +27,14 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-async function assertOwnedStudent(userId: string, studentId: string) {
-  const result = await query<{ id: string }>(
-    `SELECT id FROM students WHERE id = $1 AND user_id = $2 LIMIT 1`,
-    [studentId, userId],
-  );
-  return result.rows[0] ?? null;
-}
-
-async function getModuleProgress(studentId: string) {
-  const result = await query<{
-    module_id: number;
-    prompt_count: string;
-    completed_count: string;
-  }>(
-    `SELECT p.module_id,
-            COUNT(DISTINCT p.id)::text AS prompt_count,
-            COUNT(DISTINCT CASE WHEN a.id IS NOT NULL THEN p.id END)::text AS completed_count
-     FROM prompts p
-     LEFT JOIN writing_attempts a
-       ON a.prompt_id = p.id
-      AND a.student_id = $1
-      AND a.draft_number >= 1
-     WHERE p.is_active = TRUE
-     GROUP BY p.module_id
-     ORDER BY p.module_id ASC`,
-    [studentId],
-  );
-
-  return result.rows.map((row) => {
-    const promptCount = Number(row.prompt_count);
-    const completedCount = Number(row.completed_count);
-    return {
-      module_id: row.module_id,
-      prompt_count: promptCount,
-      completed_count: completedCount,
-      is_completed: promptCount > 0 && completedCount >= promptCount,
-    };
-  });
-}
-
 export async function GET(request: Request) {
   try {
     const userId = await getAuthUserId(request);
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    await ensureWritingEnhancements();
 
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get('student_id');
@@ -80,10 +49,16 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
 
-    const progress = await getModuleProgress(studentId);
+    const guidance = await getGuidanceForStudent(studentId);
 
     if (!promptId) {
-      return NextResponse.json({ progress, attempts: [] });
+      return NextResponse.json({
+        progress: guidance.progress,
+        unlocked_unit: guidance.unlocked_unit,
+        recommendation: guidance.recommendation,
+        history: guidance.history,
+        attempts: [],
+      });
     }
 
     const attempts = await query(
@@ -98,7 +73,10 @@ export async function GET(request: Request) {
     );
 
     return NextResponse.json({
-      progress,
+      progress: guidance.progress,
+      unlocked_unit: guidance.unlocked_unit,
+      recommendation: guidance.recommendation,
+      history: guidance.history,
       attempts: attempts.rows,
     });
   } catch (error) {
@@ -114,6 +92,8 @@ export async function POST(request: Request) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    await ensureWritingEnhancements();
 
     let body: AttemptBody;
     try {
@@ -158,11 +138,13 @@ export async function POST(request: Request) {
       title: string;
       description: string;
       prompt_type: string;
+      module_id: number;
       hint_points: unknown;
       is_locked: boolean;
       is_active: boolean;
     }>(
-      `SELECT id, title, description, prompt_type, hint_points, is_locked, is_active
+      `SELECT id, title, description, prompt_type, module_id, hint_points,
+              is_locked, is_active
        FROM prompts WHERE id = $1 LIMIT 1`,
       [promptId],
     );
@@ -170,9 +152,14 @@ export async function POST(request: Request) {
     if (!prompt || !prompt.is_active) {
       return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
     }
-    if (prompt.is_locked) {
+
+    const progressBefore = await getUnitProgress(studentId);
+    const unlockedUnit = highestUnlockedUnit(completedUnitIds(progressBefore));
+    if (prompt.module_id > unlockedUnit) {
       return NextResponse.json(
-        { error: 'This prompt is locked' },
+        {
+          error: `Unit ${prompt.module_id} unlocks after you finish unit ${prompt.module_id - 1}`,
+        },
         { status: 403 },
       );
     }
@@ -249,12 +236,14 @@ export async function POST(request: Request) {
       ],
     );
 
-    const progress = await getModuleProgress(studentId);
+    const guidance = await getGuidanceForStudent(studentId);
 
     return NextResponse.json(
       {
         attempt: inserted.rows[0],
-        progress,
+        progress: guidance.progress,
+        unlocked_unit: guidance.unlocked_unit,
+        recommendation: guidance.recommendation,
       },
       { status: 201 },
     );
