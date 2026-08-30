@@ -27,8 +27,8 @@ export default function SelectiveTrialPage() {
             <p className="mt-4 text-lg leading-relaxed text-slate-600">
               Four subjects, including Writing. AI feedback shows where the
               student is strong and where marks are lost, then the next task
-              aims at those gaps. Each subject will have a progress line and a
-              chat so parent and student can see the improvement together. $
+              aims at those gaps. Writing already has a progress line, a
+              subject chat, and a next-task suggestion from recent weak spots. $
               {SUBJECT_PRICE_AUD} AUD per subject, one year, no auto-renewal.
             </p>
           </div>

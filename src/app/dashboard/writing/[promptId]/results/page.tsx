@@ -51,6 +51,12 @@ export default function WritingResultsPage() {
   const [prompt, setPrompt] = useState<Prompt | null>(null);
   const [samplesUnlocked, setSamplesUnlocked] = useState(false);
   const [showSamples, setShowSamples] = useState(false);
+  const [nextTask, setNextTask] = useState<{
+    prompt_id: string;
+    title: string;
+    next_draft: number;
+    reason: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -93,6 +99,16 @@ export default function WritingResultsPage() {
             : [],
         });
         setSamplesUnlocked(Boolean(promptData.samples_unlocked));
+        setNextTask(
+          attemptsData.recommendation
+            ? {
+                prompt_id: attemptsData.recommendation.prompt_id,
+                title: attemptsData.recommendation.title,
+                next_draft: attemptsData.recommendation.next_draft,
+                reason: attemptsData.recommendation.reason,
+              }
+            : null,
+        );
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load results');
       } finally {
@@ -227,6 +243,16 @@ export default function WritingResultsPage() {
           </Link>
         ) : null}
 
+        {nextTask &&
+        (nextTask.prompt_id !== promptId || attempt.draft_number >= 3) ? (
+          <Link
+            href={`/dashboard/writing/${nextTask.prompt_id}`}
+            className="rounded-md border border-indigo-200 bg-indigo-50 px-4 py-2 text-indigo-900"
+          >
+            Next: {nextTask.title}
+          </Link>
+        ) : null}
+
         {samplesUnlocked ? (
           <button
             type="button"
@@ -240,7 +266,15 @@ export default function WritingResultsPage() {
             Sample answers unlock after Draft 3.
           </p>
         )}
+
+        <Link href="/dashboard" className="rounded-md border border-stone-300 px-4 py-2">
+          Dashboard
+        </Link>
       </div>
+
+      {nextTask ? (
+        <p className="text-sm text-stone-600">{nextTask.reason}</p>
+      ) : null}
 
       {showSamples && samplesUnlocked ? (
         <section className="space-y-4 rounded-lg border border-stone-200 p-4">

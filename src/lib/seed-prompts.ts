@@ -55,7 +55,7 @@ export const SEED_PROMPTS: SeedPrompt[] = [
       'Dear Diary,\nWhen our house robot woke me up with its loud singing, I remembered that today was Sky-Bridge Day — the first time Year 6 could ride the magnetic pods alone.\n\nMy wrist-holo flashed a green route: kitchen → balcony pad → school dome in four minutes. Below us, gardens grew on every roof and delivery drones hummed like bees.\n\nAt lunch, friends beamed in from three suburbs for a shared AR picnic; we ate real mangoes while our avatars raced on Mars tracks. Mum still insists we talk face-to-face at dinner, robot muted.\n\nI fell asleep planning tomorrow’s pod solo. 2099 feels noisy, bright, and somehow still like home.',
     sample_answer_medium:
       'Dear Diary,\nWhen our house robot woke me up with its loud singing, I remembered that school was starting. I used a flying bus to get there. At home we have screens everywhere. I played games with friends online. The future is cool but also busy.',
-    is_locked: true,
+    is_locked: false,
     time_limit_minutes: 30,
     is_active: true,
   },
@@ -74,7 +74,7 @@ export const SEED_PROMPTS: SeedPrompt[] = [
       'Dear Diary,\nHouse shirts blazed across the oval at 8:10 and my stomach did cartwheels before the whistle.\n\nIn the relay I fumbled the baton — then Mia yelled “still run!” and the crowd noise became a tunnel. We still placed second, laughing so hard we nearly forgot the medal.\n\nBy sunset my legs ached and my voice was gone, but belonging felt louder than winning. Best carnival yet.',
     sample_answer_medium:
       'Dear Diary,\nToday was sports carnival. I ran in a race and it was close. Something funny happened when someone dropped a baton. At the end I was tired but happy.',
-    is_locked: true,
+    is_locked: false,
     time_limit_minutes: 30,
     is_active: true,
   },
@@ -95,7 +95,7 @@ export const SEED_PROMPTS: SeedPrompt[] = [
       'PARTY RUBBISH TURNS BEACH INTO CHAOS\n\nSunrise Beach was buried under balloons, cups and fancy-dress costumes yesterday after a shipping container washed ashore and split open.\n\nLifeguard Maya Chen said tides dragged plastic “as far as the rock pools”. Volunteers filled twelve bags before dusk, yet straws still glittered in the shallows.\n\nLocal café owner Tom Reid called the scene “surreal — kids posing in pirate hats while seagulls fought over plates”. Council ranger Priya Nair urged visitors to leave items for safe disposal: “This is pollution, not a free party.”\n\nAuthorities are tracing the container’s owner while clean-up continues at first light.',
     sample_answer_medium:
       'Chaos on the Beach\n\nYesterday a container opened on the beach and party things went everywhere. People came to look. The beach was messy and some rubbish went in the sea. A lifeguard said it was bad. A parent said kids were excited. Cleaners will come tomorrow.',
-    is_locked: true,
+    is_locked: false,
     time_limit_minutes: 30,
     is_active: true,
   },
@@ -114,7 +114,7 @@ export const SEED_PROMPTS: SeedPrompt[] = [
       'SEARCH ON FOR “MAPLE” THE GINGER CAT\n\nResidents of Harbor Lane are searching for Maple, a ginger cat with a white-tipped tail missing since Tuesday evening.\n\nOwner Elise Park said Maple slipped out during a storm: “She is shy but answers to a treat jar.” Neighbour Omar Blake reported a similar cat near the bus stop at dusk.\n\nAnyone with information is asked to call the community hotline. Flyers are posted at the library and café until Maple is home safe.',
     sample_answer_medium:
       'Cat Missing\n\nA cat called Maple is missing. She is orange. The owner is sad. Please look for her and call if you see her. Neighbours said they will help.',
-    is_locked: true,
+    is_locked: false,
     time_limit_minutes: 30,
     is_active: true,
   },
@@ -135,7 +135,7 @@ export const SEED_PROMPTS: SeedPrompt[] = [
       'HOW VOLCANOES ERUPT\n\nDeep below the ground, it is so hot that rock melts into a thick liquid called magma. Because magma is lighter than the solid rock around it, it slowly rises, collecting in a pocket called a magma chamber.\n\nAs more magma pushes up, pressure builds — like shaking a fizzy drink. Gases trapped inside the magma try to escape. When the pressure becomes too great, the magma bursts through a weak point in the Earth’s crust, and lava, ash and gas explode out.\n\nSome eruptions are gentle because the magma is runny and gases slip out easily. Others are violent because sticky magma traps gas until it explodes all at once. This is why no two volcanoes behave in exactly the same way.',
     sample_answer_medium:
       'Volcanoes erupt because of hot melted rock called magma under the ground. The magma rises and pressure builds up. Gas gets trapped. When there is too much pressure it bursts out as lava and ash. Some eruptions are bigger because the magma is thicker and traps more gas.',
-    is_locked: true,
+    is_locked: false,
     time_limit_minutes: 30,
     is_active: true,
   },
@@ -175,7 +175,7 @@ export const SEED_PROMPTS: SeedPrompt[] = [
       'BUDDY GUIDE: SMALL HANDS, BIG HEARTS\n\nYour job is simple: help a little learner feel brave.\n\nFirst days\nKneel to their height, learn their name, and show toilets, bags, and the bubble taps. Smile more than you speak.\n\nPlaytime\nOffer two game choices, watch for tears, and fetch a teacher if someone is hurt. Never leave your buddy alone near the gate.\n\nMindset\nPatience is a superpower. If plans change, breathe and try again. Kindergarten remembers how you made them feel — be the calm friend you once needed.',
     sample_answer_medium:
       'Advice for Buddies\n\nBe nice to the little kids. Show them where things are. Play with them at lunch. Tell a teacher if there is a problem. Being kind is important.',
-    is_locked: true,
+    is_locked: false,
     time_limit_minutes: 30,
     is_active: true,
   },
@@ -196,7 +196,7 @@ export const SEED_PROMPTS: SeedPrompt[] = [
       'A BOOK THAT KEPT ME UP PAST BEDTIME\n\nIf you have ever wished a story would grab you by the collar, meet *The Clockwork Sparrow*.\n\nSet in a glittering department store, it follows Sophie, a sharp-eyed shop girl who stumbles into a jewel theft and refuses to look away. The plot ticks along like the clockwork bird at its heart — every chapter ends on a hook that made me whisper “one more”.\n\nWhat makes it special is Sophie herself: clever, stubborn, and kind. The mystery is fair, so you can solve clues alongside her.\n\nReaders who love adventure, a dash of history, and a heroine who trusts herself will race through it. Give it to anyone who thinks they “don’t like reading” — this one changes minds.',
     sample_answer_medium:
       'I really liked *The Clockwork Sparrow*. It is about a girl called Sophie who solves a robbery in a big shop. It is exciting and the endings of chapters make you keep reading. I liked Sophie because she is clever and brave. I recommend it to people who like mysteries and adventure.',
-    is_locked: true,
+    is_locked: false,
     time_limit_minutes: 30,
     is_active: true,
   },
@@ -217,7 +217,7 @@ export const SEED_PROMPTS: SeedPrompt[] = [
       'MEET THE HOMEWORK HERO — YOUR DESK’S NEW BEST FRIEND!\n\nTired of losing pens, focus, and time? The Homework Hero clips to any desk and changes everything.\n\nOne tap dims distractions, sets a gentle focus timer, and even whispers a hint when you’re stuck (never the answer — that’s cheating!). Its soft light glows green when you’re smashing your goals.\n\nStudents in trials finished homework 20 minutes faster and actually smiled about it.\n\nDon’t just do your homework. Beat it.\nHomework Hero — focus has never felt this good. Ask for yours today!',
     sample_answer_medium:
       'NEW! The Homework Hero!\n\nThis cool gadget helps you do your homework. It has a timer and a light and gives you hints. It helps you finish faster. Everyone will want one. Get the Homework Hero today!',
-    is_locked: true,
+    is_locked: false,
     time_limit_minutes: 30,
     is_active: true,
   },
@@ -238,7 +238,7 @@ export const SEED_PROMPTS: SeedPrompt[] = [
       'HOMEWORK: LESS, BUT SMARTER\n\nStudents should be set homework — but only the kind that is worth their time.\n\nFirstly, short, focused practice helps ideas stick. Reading for fifteen minutes or revising ten spelling words builds skills that a single lesson cannot. Secondly, homework teaches responsibility: planning a small task each night is practice for the bigger deadlines of high school.\n\nSome argue homework steals family time and causes stress. That is true when it is pointless or endless. The answer is not to scrap homework, but to keep it brief and meaningful.\n\nA little homework, done well, is not a punishment — it is a promise to our future selves. Let’s keep it, and make it count.',
     sample_answer_medium:
       'I think students should have some homework. Homework helps you practise what you learned and remember it. It also teaches you to be responsible. Some people say homework is stressful, but if it is short it is okay. So we should have a little homework but not too much.',
-    is_locked: true,
+    is_locked: false,
     time_limit_minutes: 30,
     is_active: true,
   },
@@ -259,7 +259,7 @@ export const SEED_PROMPTS: SeedPrompt[] = [
       'Dear Councillors,\n\nI am writing to ask you to turn the empty lot on Maple Street into a space for young people, such as a skate park and community garden.\n\nAt present, children in our area have nowhere safe to gather after school. A dedicated space would keep us active, reduce boredom, and give neighbours of all ages a reason to meet. Students from my school have already offered to help plan and care for it.\n\nI understand budgets are limited, so I suggest starting with a small trial: a few ramps and garden beds, reviewed after one year.\n\nThank you for considering my request. I would be glad to present our ideas at a council meeting.\n\nYours faithfully,\nJordan Lee',
     sample_answer_medium:
       'Dear Council,\n\nI am writing about the empty lot on Maple Street. I think you should build a park for kids and teenagers. There is nowhere to go after school. It would keep us active and happy. Students could help look after it. Please think about it.\n\nYours faithfully,\nJordan Lee',
-    is_locked: true,
+    is_locked: false,
     time_limit_minutes: 30,
     is_active: true,
   },
@@ -280,7 +280,7 @@ export const SEED_PROMPTS: SeedPrompt[] = [
       'Good morning, everyone.\n\nRaise your hand if you have ever eaten lunch alone. Keep it up. Now look around — you are not the only one. Today I want to talk about a simple idea that could change that: a Buddy Bench.\n\nA Buddy Bench is a spot in the playground where anyone who feels lonely can sit, and where the rest of us know to come and say hello. It costs almost nothing, but it tells every student the same thing: you belong here.\n\nImagine a school where no one is left out — where kindness is not a rule, but a habit. We already have the kindest students I know. We just need the bench.\n\nSo here is my challenge to you: this week, notice one person on their own, and invite them in. Let’s build the bench, and let’s build the friendships to go with it. Thank you.',
     sample_answer_medium:
       'Good morning everyone.\n\nHave you ever felt lonely at lunch? I think our school should have a Buddy Bench. It is a place where lonely students can sit and others come to talk to them. It would help people make friends and feel included. Please help make our school kinder. Let’s get a Buddy Bench. Thank you.',
-    is_locked: true,
+    is_locked: false,
     time_limit_minutes: 30,
     is_active: true,
   },
@@ -301,7 +301,7 @@ export const SEED_PROMPTS: SeedPrompt[] = [
       'Subject: Competition entry — Tideward\n\nHello Creative Team,\n\nPlease meet Tideward: a 14-year-old coastal guardian in a sea-glass cloak and coral-threaded boots, freckles glowing when danger nears.\n\nPowers: Tideward can reshape water into shields, whisper to marine life, and freeze a single wave mid-crash to buy rescue time. Strength grows with courage, not anger.\n\nWhy audiences will care: kids see a hero who protects beaches they love, mixing adventure with real-world stewardship. Merch writes itself — glow cloaks, tide charts, gentle strength.\n\nThank you for considering Tideward for your next blockbuster.\n\nKind regards,\nAva Chen',
     sample_answer_medium:
       'Hello,\n\nMy superhero is called Flash Kid. He wears a red suit and can run fast. He stops robbers and helps people. I think he would be popular because kids like speed and action. Please pick my idea.\n\nThanks.',
-    is_locked: true,
+    is_locked: false,
     time_limit_minutes: 30,
     is_active: true,
   },
@@ -320,7 +320,7 @@ export const SEED_PROMPTS: SeedPrompt[] = [
       'Subject: Support for a Riverview community garden\n\nDear Councillors,\n\nAn empty lot on Maple Street could become a shared garden that feeds families, cools our block, and gives students real science outdoors.\n\nOur class can run weekend planting clubs, compost workshops, and a produce share for elders nearby. Paths and raised beds would keep it accessible.\n\nPlease approve the garden trial this spring — Riverview is ready to dig in.\n\nYours sincerely,\nJordan Lee\nYear 6 Student Representative',
     sample_answer_medium:
       'Dear Council,\n\nI think a garden is a good idea. People can grow food and kids can help water plants. It would make the area nicer. Please say yes.\n\nFrom Sam',
-    is_locked: true,
+    is_locked: false,
     time_limit_minutes: 30,
     is_active: true,
   },

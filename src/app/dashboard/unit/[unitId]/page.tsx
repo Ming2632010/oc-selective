@@ -44,6 +44,7 @@ export default function UnitPage() {
   const unitInfo = getUnitInfo(unitId);
 
   const [prompts, setPrompts] = useState<PromptWithStatus[]>([]);
+  const [unitLocked, setUnitLocked] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -66,11 +67,14 @@ export default function UnitPage() {
       }
 
       try {
-        const res = await apiFetch(`/api/prompts?module_id=${unitId}`);
+        const res = await apiFetch(
+          `/api/prompts?module_id=${unitId}&student_id=${studentId}`,
+        );
         if (!res.response.ok) {
           throw new Error(res.data.error || 'Failed to load prompts');
         }
         const list = (res.data.prompts as Prompt[]) || [];
+        setUnitLocked(Boolean(res.data.unit_locked));
 
         const withStatus = await Promise.all(
           list.map(async (prompt) => {
@@ -117,6 +121,13 @@ export default function UnitPage() {
 
       {error ? (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+      ) : null}
+
+      {unitLocked ? (
+        <p className="rounded-md border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-700">
+          This unit is locked. Finish every task in unit {unitId - 1} (at least
+          one draft each) to open it.
+        </p>
       ) : null}
 
       {prompts.length === 0 && !error ? (

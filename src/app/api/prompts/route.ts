@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
+import { completedUnitIds, highestUnlockedUnit } from '@/lib/writing-guidance';
+import {
+  assertOwnedStudent,
+  ensureWritingEnhancements,
+  getUnitProgress,
+} from '@/lib/writing-state';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -31,6 +37,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    await ensureWritingEnhancements();
+
     const { searchParams } = new URL(request.url);
     const moduleIdRaw = searchParams.get('module_id');
     const promptId = searchParams.get('id');
@@ -54,15 +62,18 @@ export async function GET(request: Request) {
 
       let includeSamples = false;
       let maxDraft = 0;
+      let unlockedUnit = 1;
+      let unitLocked = false;
 
       if (studentId) {
-        const owned = await query<{ id: string }>(
-          `SELECT id FROM students WHERE id = $1 AND user_id = $2 LIMIT 1`,
-          [studentId, userId],
-        );
-        if (!owned.rows[0]) {
+        const owned = await assertOwnedStudent(userId, studentId);
+        if (!owned) {
           return NextResponse.json({ error: 'Student not found' }, { status: 404 });
         }
+
+        const progress = await getUnitProgress(studentId);
+        unlockedUnit = highestUnlockedUnit(completedUnitIds(progress));
+        unitLocked = prompt.module_id > unlockedUnit;
 
         const attempts = await query<{ draft_number: number }>(
           `SELECT draft_number
@@ -76,9 +87,13 @@ export async function GET(request: Request) {
       }
 
       return NextResponse.json({
-        prompt: includeSamples ? prompt : stripSamples(prompt),
+        prompt: includeSamples
+          ? { ...prompt, is_locked: unitLocked }
+          : { ...stripSamples(prompt), is_locked: unitLocked },
         samples_unlocked: includeSamples,
         max_draft: maxDraft,
+        unlocked_unit: unlockedUnit,
+        unit_locked: unitLocked,
       });
     }
 
@@ -97,6 +112,16 @@ export async function GET(request: Request) {
       );
     }
 
+    let unlockedUnit = 1;
+    if (studentId) {
+      const owned = await assertOwnedStudent(userId, studentId);
+      if (!owned) {
+        return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+      }
+      const progress = await getUnitProgress(studentId);
+      unlockedUnit = highestUnlockedUnit(completedUnitIds(progress));
+    }
+
     const result = await query<PromptRow>(
       `SELECT id, title, description, prompt_type, module_id, hint_points,
               sample_answer_high, sample_answer_medium, is_locked,
@@ -107,9 +132,16 @@ export async function GET(request: Request) {
       [moduleId],
     );
 
+    const unitLocked = Boolean(studentId) && moduleId > unlockedUnit;
+
     return NextResponse.json({
       module_id: moduleId,
-      prompts: result.rows.map(stripSamples),
+      unlocked_unit: unlockedUnit,
+      unit_locked: unitLocked,
+      prompts: result.rows.map((row) => ({
+        ...stripSamples(row),
+        is_locked: unitLocked,
+      })),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load prompts';

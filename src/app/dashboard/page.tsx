@@ -11,6 +11,8 @@ import {
   setStudentId,
 } from '@/lib/client-auth';
 import { UNIT_GROUPS, unitsByGroup, type UnitGroup } from '@/lib/units';
+import { WritingProgressLine, type HistoryPoint } from '@/components/writing/progress-line';
+import { SubjectChat } from '@/components/writing/subject-chat';
 
 type Student = {
   id: string;
@@ -36,6 +38,14 @@ type SubscriptionItem = {
 type SubscriptionState = {
   subscriptions: SubscriptionItem[];
   has_active: boolean;
+};
+
+type Recommendation = {
+  prompt_id: string;
+  title: string;
+  module_id: number;
+  next_draft: number;
+  reason: string;
 };
 
 const EXPIRY_WARNING_DAYS = 7;
@@ -106,6 +116,11 @@ export default function DashboardPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [progress, setProgress] = useState<ProgressRow[]>([]);
+  const [history, setHistory] = useState<HistoryPoint[]>([]);
+  const [unlockedUnit, setUnlockedUnit] = useState(1);
+  const [recommendation, setRecommendation] = useState<Recommendation | null>(
+    null,
+  );
   const [subscription, setSubscription] = useState<SubscriptionState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -167,6 +182,9 @@ export default function DashboardPage() {
     async function loadProgress() {
       if (!selectedStudentId) {
         setProgress([]);
+        setHistory([]);
+        setRecommendation(null);
+        setUnlockedUnit(1);
         return;
       }
       const res = await apiFetch(
@@ -174,6 +192,11 @@ export default function DashboardPage() {
       );
       if (res.response.ok) {
         setProgress((res.data.progress as ProgressRow[]) || []);
+        setHistory((res.data.history as HistoryPoint[]) || []);
+        setUnlockedUnit(Number(res.data.unlocked_unit) || 1);
+        setRecommendation(
+          (res.data.recommendation as Recommendation | null) ?? null,
+        );
       }
     }
     void loadProgress();
@@ -342,8 +365,41 @@ export default function DashboardPage() {
             ) : null}
           </section>
 
+          {recommendation ? (
+            <section className="rounded-xl border border-indigo-100 bg-indigo-50 p-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
+                Next task
+              </p>
+              <h2 className="mt-1 text-lg font-semibold text-stone-900">
+                {recommendation.title}
+              </h2>
+              <p className="mt-2 text-sm text-stone-700">{recommendation.reason}</p>
+              <Link
+                href={`/dashboard/writing/${recommendation.prompt_id}`}
+                className="mt-4 inline-flex rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              >
+                {recommendation.next_draft === 1
+                  ? 'Start this task'
+                  : `Continue draft ${recommendation.next_draft}`}
+              </Link>
+            </section>
+          ) : null}
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <WritingProgressLine history={history} />
+            {selectedStudentId ? (
+              <SubjectChat studentId={selectedStudentId} subject="writing" />
+            ) : null}
+          </div>
+
           <section className="space-y-8">
-            <h2 className="text-lg font-medium text-stone-900">Writing units</h2>
+            <div>
+              <h2 className="text-lg font-medium text-stone-900">Writing units</h2>
+              <p className="mt-1 text-sm text-stone-600">
+                Unit 1 is open. Finish every task in a unit (at least one draft)
+                to unlock the next.
+              </p>
+            </div>
             {UNIT_GROUPS.map((group) => (
               <div key={group} className="space-y-4">
                 <div className="flex items-baseline gap-3">
@@ -362,30 +418,34 @@ export default function DashboardPage() {
                     const done = row?.completed_count ?? 0;
                     const pct =
                       total > 0 ? Math.round((done / total) * 100) : 0;
+                    const locked = unit.id > unlockedUnit;
 
-                    return (
-                      <Link
-                        key={unit.id}
-                        href={`/dashboard/unit/${unit.id}`}
-                        className="group flex flex-col justify-between rounded-xl border border-stone-200 bg-white p-5 transition hover:border-stone-400 hover:shadow-sm"
-                      >
+                    const card = (
+                      <>
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-semibold uppercase tracking-wide text-stone-400">
                               Unit {unit.id}
                             </span>
                             <span
-                              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBadgeClasses(
-                                status,
-                              )}`}
+                              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                locked
+                                  ? 'bg-stone-200 text-stone-600'
+                                  : statusBadgeClasses(status)
+                              }`}
                             >
-                              {status}
+                              {locked ? 'Locked' : status}
                             </span>
                           </div>
                           <h4 className="text-lg font-semibold text-stone-900">
                             {unit.title}
                           </h4>
                           <p className="text-sm text-stone-600">{unit.blurb}</p>
+                          {locked ? (
+                            <p className="text-xs text-stone-500">
+                              Finish unit {unit.id - 1} to unlock.
+                            </p>
+                          ) : null}
                         </div>
 
                         <div className="mt-5 space-y-1.5">
@@ -402,6 +462,27 @@ export default function DashboardPage() {
                             />
                           </div>
                         </div>
+                      </>
+                    );
+
+                    if (locked) {
+                      return (
+                        <div
+                          key={unit.id}
+                          className="flex flex-col justify-between rounded-xl border border-stone-200 bg-stone-50 p-5 opacity-70"
+                        >
+                          {card}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <Link
+                        key={unit.id}
+                        href={`/dashboard/unit/${unit.id}`}
+                        className="group flex flex-col justify-between rounded-xl border border-stone-200 bg-white p-5 transition hover:border-stone-400 hover:shadow-sm"
+                      >
+                        {card}
                       </Link>
                     );
                   })}

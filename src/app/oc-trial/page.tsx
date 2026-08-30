@@ -29,7 +29,8 @@ export default function OcTrialPage() {
               paper. Practice is built around those three subjects, with AI
               aimed at each student’s strengths and weaknesses. Each subject
               will have a progress line and a chat so parent and student can
-              see the improvement together. ${SUBJECT_PRICE_AUD} AUD per
+              see the improvement together when those courses open. $
+              {SUBJECT_PRICE_AUD} AUD per
               subject, one year, no auto-renewal.
             </p>
           </div>
