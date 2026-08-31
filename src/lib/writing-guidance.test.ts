@@ -81,7 +81,7 @@ describe('recommendNextTask', () => {
     assert.ok(rec);
     assert.equal(rec.prompt_id, 'p1');
     assert.equal(rec.next_draft, 2);
-    assert.match(rec.reason, /structure/);
+    assert.match(rec.reason, /organisation/);
   });
 
   it('can recommend a later unit when all units are open', () => {

@@ -36,4 +36,20 @@ describe('writing prompt bank', () => {
     const titles = SEED_PROMPTS.map((p) => p.title);
     assert.equal(new Set(titles).size, titles.length);
   });
+
+  it('attaches image or quote stimuli to some papers', () => {
+    const withImage = SEED_PROMPTS.filter((p) => p.stimulus_image);
+    const withQuote = SEED_PROMPTS.filter((p) => p.stimulus_quote);
+    assert.ok(withImage.length >= 4, 'image stimuli');
+    assert.ok(withQuote.length >= 3, 'quote stimuli');
+    assert.ok(withImage.some((p) => p.kind === 'practice'));
+    assert.ok(withImage.some((p) => p.kind === 'test'));
+  });
+
+  it('includes mixed-purpose jobs on some practice and some tests', () => {
+    const mixed = SEED_PROMPTS.filter((p) => (p.purposes?.length ?? 0) >= 2);
+    assert.ok(mixed.some((p) => (p.kind ?? 'practice') === 'practice'));
+    assert.ok(mixed.some((p) => p.kind === 'test'));
+    assert.ok(mixed.some((p) => p.purpose_note));
+  });
 });

@@ -146,10 +146,10 @@ export default function WritingResultsPage() {
       grammar: 0,
     };
     return [
-      { dimension: 'Structure', value: b.structure },
-      { dimension: 'Vocabulary', value: b.vocabulary },
-      { dimension: 'Audience', value: b.audience },
-      { dimension: 'Grammar', value: b.grammar },
+      { dimension: 'Organisation', value: b.structure },
+      { dimension: 'Vocabulary & style', value: b.vocabulary },
+      { dimension: 'Purpose & form', value: b.audience },
+      { dimension: 'Sentences & accuracy', value: b.grammar },
     ];
   }, [attempt]);
 
@@ -201,19 +201,41 @@ export default function WritingResultsPage() {
       ) : null}
 
       <section className="grid gap-3 sm:grid-cols-3">
-        <ScoreCard label="Set A" value={`${attempt.score_set_a}/15`} />
-        <ScoreCard label="Set B" value={`${attempt.score_set_b}/10`} />
-        <ScoreCard label="Overall" value={`${attempt.overall_score}/25`} highlight />
+        <ScoreCard
+          label="Set A"
+          value={`${attempt.score_set_a}/15`}
+          hint="Content, organisation, vocabulary and style"
+        />
+        <ScoreCard
+          label="Set B"
+          value={`${attempt.score_set_b}/10`}
+          hint="Sentences, punctuation and spelling"
+        />
+        <ScoreCard
+          label="Overall"
+          value={`${attempt.overall_score}/25`}
+          highlight
+          hint="One marker, practice scale"
+        />
       </section>
+
+      <p className="text-sm text-stone-600">
+        This mark is from one marker, out of 25. On the Selective writing paper,
+        two markers each mark out of 25 and the scores are added to give /50.
+        Set A is out of 15. Set B is out of 10.
+      </p>
 
       <section className="rounded-lg border border-stone-200 p-4">
         <h2 className="mb-3 text-lg font-medium">Four-dimension breakdown</h2>
         <div className="grid items-center gap-4 sm:grid-cols-[minmax(0,1fr)_16rem]">
           <ul className="grid gap-2 sm:grid-cols-2">
-            <BreakdownItem label="Structure" value={breakdown.structure} />
-            <BreakdownItem label="Vocabulary" value={breakdown.vocabulary} />
-            <BreakdownItem label="Audience" value={breakdown.audience} />
-            <BreakdownItem label="Grammar" value={breakdown.grammar} />
+            <BreakdownItem label="Organisation" value={breakdown.structure} />
+            <BreakdownItem label="Vocabulary & style" value={breakdown.vocabulary} />
+            <BreakdownItem label="Purpose & form" value={breakdown.audience} />
+            <BreakdownItem
+              label="Sentences, punctuation, spelling"
+              value={breakdown.grammar}
+            />
           </ul>
           <div className="h-56 w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -240,19 +262,21 @@ export default function WritingResultsPage() {
         <p className="whitespace-pre-wrap text-stone-800">{attempt.ai_feedback}</p>
       </section>
 
-      <section className="rounded-lg border border-stone-200 p-4">
-        <h2 className="mb-2 text-lg font-medium">Hint checklist</h2>
-        <ul className="space-y-2">
-          {hints.map((hint) => (
-            <li key={hint.label} className="flex gap-2">
-              <span className={hint.checked ? 'text-emerald-700' : 'text-red-600'}>
-                {hint.checked ? '✓' : '✗'}
-              </span>
-              <span>{hint.label}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {!isTest ? (
+        <section className="rounded-lg border border-stone-200 p-4">
+          <h2 className="mb-2 text-lg font-medium">Hint checklist</h2>
+          <ul className="space-y-2">
+            {hints.map((hint) => (
+              <li key={hint.label} className="flex gap-2">
+                <span className={hint.checked ? 'text-emerald-700' : 'text-red-600'}>
+                  {hint.checked ? '✓' : '✗'}
+                </span>
+                <span>{hint.label}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="rounded-lg border border-stone-200 p-4">
         <h2 className="mb-2 text-lg font-medium">Your submitted writing</h2>
@@ -325,10 +349,12 @@ export default function WritingResultsPage() {
 function ScoreCard({
   label,
   value,
+  hint,
   highlight = false,
 }: {
   label: string;
   value: string;
+  hint?: string;
   highlight?: boolean;
 }) {
   return (
@@ -343,6 +369,11 @@ function ScoreCard({
         {label}
       </p>
       <p className="text-2xl font-semibold">{value}</p>
+      {hint ? (
+        <p className={`mt-1 text-xs ${highlight ? 'text-stone-300' : 'text-stone-500'}`}>
+          {hint}
+        </p>
+      ) : null}
     </div>
   );
 }

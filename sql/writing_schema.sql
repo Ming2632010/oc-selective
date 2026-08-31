@@ -21,6 +21,11 @@ CREATE TABLE IF NOT EXISTS prompts (
   time_limit_minutes INTEGER NOT NULL DEFAULT 30,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   kind TEXT NOT NULL DEFAULT 'practice' CHECK (kind IN ('practice', 'test')),
+  stimulus_image TEXT,
+  stimulus_quote TEXT,
+  purposes TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+  purpose_note TEXT,
+  decode_guide JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -48,6 +53,21 @@ CREATE TABLE IF NOT EXISTS writing_attempts (
 
 ALTER TABLE prompts
   ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'practice';
+ALTER TABLE prompts ADD COLUMN IF NOT EXISTS stimulus_image TEXT;
+ALTER TABLE prompts ADD COLUMN IF NOT EXISTS stimulus_quote TEXT;
+ALTER TABLE prompts ADD COLUMN IF NOT EXISTS purposes TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE prompts ADD COLUMN IF NOT EXISTS purpose_note TEXT;
+ALTER TABLE prompts ADD COLUMN IF NOT EXISTS decode_guide JSONB;
+
+CREATE TABLE IF NOT EXISTS writing_warmups (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id UUID NOT NULL REFERENCES students (id) ON DELETE CASCADE,
+  prompt_id UUID NOT NULL REFERENCES prompts (id) ON DELETE CASCADE,
+  answers JSONB NOT NULL DEFAULT '[]'::jsonb,
+  correct_count INTEGER NOT NULL DEFAULT 0,
+  completed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (student_id, prompt_id)
+);
 
 CREATE INDEX IF NOT EXISTS idx_prompts_module_active ON prompts (module_id, is_active);
 CREATE INDEX IF NOT EXISTS idx_prompts_kind_module ON prompts (kind, module_id, is_active);

@@ -14,8 +14,10 @@ import {
   type AwardLine,
 } from '@/lib/rewards';
 import { MINI_SKILLS, SEED_MINI_DRILLS, type MiniSkill } from '@/lib/seed-mini-drills';
+import { buildDecodeGuide, defaultPurposes } from '@/lib/decode-guide';
 import { SEED_PROMPTS } from '@/lib/seed-prompts';
-import { getUnitInfo } from '@/lib/units';
+import { getUnitInfo, typeLabel } from '@/lib/units';
+import { buildWeekNote, type WeekNoteData } from '@/lib/week-note';
 import {
   recommendNextTask,
   weakestDimension,
@@ -28,7 +30,7 @@ import {
 let schemaReady = false;
 let seededLength = 0;
 let seededPrompts = 0;
-const WRITING_SCHEMA = 4;
+const WRITING_SCHEMA = 5;
 let appliedSchema = 0;
 
 export async function ensureWritingEnhancements(): Promise<void> {
@@ -128,6 +130,24 @@ export async function ensureWritingEnhancements(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_prompts_kind_module
       ON prompts (kind, module_id, is_active)
   `);
+  await query(`ALTER TABLE prompts ADD COLUMN IF NOT EXISTS stimulus_image TEXT`);
+  await query(`ALTER TABLE prompts ADD COLUMN IF NOT EXISTS stimulus_quote TEXT`);
+  await query(
+    `ALTER TABLE prompts ADD COLUMN IF NOT EXISTS purposes TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]`,
+  );
+  await query(`ALTER TABLE prompts ADD COLUMN IF NOT EXISTS purpose_note TEXT`);
+  await query(`ALTER TABLE prompts ADD COLUMN IF NOT EXISTS decode_guide JSONB`);
+  await query(`
+    CREATE TABLE IF NOT EXISTS writing_warmups (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      student_id UUID NOT NULL REFERENCES students (id) ON DELETE CASCADE,
+      prompt_id UUID NOT NULL REFERENCES prompts (id) ON DELETE CASCADE,
+      answers JSONB NOT NULL DEFAULT '[]'::jsonb,
+      correct_count INTEGER NOT NULL DEFAULT 0,
+      completed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (student_id, prompt_id)
+    )
+  `);
 
   await query(`
     CREATE TABLE IF NOT EXISTS student_seed_patch (
@@ -160,6 +180,10 @@ export async function ensureWritingEnhancements(): Promise<void> {
   `);
 
   for (const prompt of SEED_PROMPTS) {
+    const purposes =
+      prompt.purposes && prompt.purposes.length > 0
+        ? prompt.purposes
+        : defaultPurposes(prompt.prompt_type);
     const values = [
       prompt.title,
       prompt.description,
@@ -172,6 +196,11 @@ export async function ensureWritingEnhancements(): Promise<void> {
       prompt.time_limit_minutes,
       prompt.is_active,
       prompt.kind ?? 'practice',
+      purposes,
+      prompt.purpose_note ?? null,
+      prompt.stimulus_image ?? null,
+      prompt.stimulus_quote ?? null,
+      JSON.stringify(buildDecodeGuide(prompt)),
     ];
     const existing = await query<{ id: string }>(
       'SELECT id FROM prompts WHERE title = $1',
@@ -183,7 +212,9 @@ export async function ensureWritingEnhancements(): Promise<void> {
            description = $2, prompt_type = $3, module_id = $4,
            hint_points = $5::jsonb, sample_answer_high = $6,
            sample_answer_medium = $7, is_locked = $8,
-           time_limit_minutes = $9, is_active = $10, kind = $11
+           time_limit_minutes = $9, is_active = $10, kind = $11,
+           purposes = $12::text[], purpose_note = $13,
+           stimulus_image = $14, stimulus_quote = $15, decode_guide = $16::jsonb
          WHERE title = $1`,
         values,
       );
@@ -192,8 +223,9 @@ export async function ensureWritingEnhancements(): Promise<void> {
         `INSERT INTO prompts (
            title, description, prompt_type, module_id, hint_points,
            sample_answer_high, sample_answer_medium, is_locked,
-           time_limit_minutes, is_active, kind
-         ) VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10,$11)`,
+           time_limit_minutes, is_active, kind,
+           purposes, purpose_note, stimulus_image, stimulus_quote, decode_guide
+         ) VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10,$11,$12::text[],$13,$14,$15,$16::jsonb)`,
         values,
       );
     }
@@ -377,6 +409,33 @@ export async function getTermTests(studentId: string): Promise<TermTestRow[]> {
   }));
 }
 
+export async function hasCompletedWarmup(
+  studentId: string,
+  promptId: string,
+): Promise<boolean> {
+  const result = await query<{ n: string }>(
+    `SELECT COUNT(*)::text AS n
+     FROM writing_warmups
+     WHERE student_id = $1 AND prompt_id = $2`,
+    [studentId, promptId],
+  );
+  return Number(result.rows[0]?.n ?? 0) > 0;
+}
+
+async function getLastSatTest(studentId: string) {
+  const result = await query<{ title: string; overall_score: number | null }>(
+    `SELECT p.title, a.overall_score
+     FROM writing_attempts a
+     JOIN prompts p ON p.id = a.prompt_id
+     WHERE a.student_id = $1
+       AND COALESCE(p.kind, 'practice') = 'test'
+     ORDER BY a.created_at DESC
+     LIMIT 1`,
+    [studentId],
+  );
+  return result.rows[0] ?? null;
+}
+
 export async function getGuidanceForStudent(studentId: string): Promise<{
   progress: UnitProgressRow[];
   unlocked_unit: number;
@@ -385,6 +444,7 @@ export async function getGuidanceForStudent(studentId: string): Promise<{
   mini_progress: Awaited<ReturnType<typeof getMiniProgress>>;
   term_tests: TermTestRow[];
   rewards: SeedPatchView;
+  week_note: WeekNoteData;
 }> {
   const progress = await getUnitProgress(studentId);
   const unlocked_unit = 11;
@@ -418,6 +478,14 @@ export async function getGuidanceForStudent(studentId: string): Promise<{
   const history = await getScoreHistory(studentId);
 
   const rewards = await getSeedPatchView(studentId);
+  const lastTest = await getLastSatTest(studentId);
+  const week_note = buildWeekNote({
+    plot_days: rewards.plot_days,
+    focused_minutes: rewards.focused_minutes_week,
+    lastTest,
+    nextFormLabel: recommendation ? typeLabel(recommendation.prompt_type) : null,
+    nextTitle: recommendation?.title ?? null,
+  });
 
   return {
     progress,
@@ -427,6 +495,7 @@ export async function getGuidanceForStudent(studentId: string): Promise<{
     mini_progress,
     term_tests,
     rewards,
+    week_note,
   };
 }
 

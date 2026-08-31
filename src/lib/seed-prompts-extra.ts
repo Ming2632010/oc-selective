@@ -1,6 +1,18 @@
 import type { PromptKind, SeedPrompt } from './seed-prompts';
 import type { WritingType } from './units';
 
+type PromptExtras = Pick<
+  SeedPrompt,
+  | 'stimulus_image'
+  | 'stimulus_quote'
+  | 'purposes'
+  | 'purpose_note'
+  | 'decode_topic'
+  | 'decode_audience'
+  | 'decode_topic_options'
+  | 'decode_audience_options'
+>;
+
 function task(
   kind: PromptKind,
   module_id: number,
@@ -10,6 +22,7 @@ function task(
   hint_points: [string, string, string],
   sample_answer_high: string,
   sample_answer_medium: string,
+  extras: PromptExtras = {},
 ): SeedPrompt {
   return {
     title,
@@ -23,6 +36,7 @@ function task(
     time_limit_minutes: 30,
     is_active: true,
     kind,
+    ...extras,
   };
 }
 
@@ -34,6 +48,7 @@ const practice = (
   hint_points: [string, string, string],
   sample_answer_high: string,
   sample_answer_medium: string,
+  extras: PromptExtras = {},
 ) =>
   task(
     'practice',
@@ -44,6 +59,7 @@ const practice = (
     hint_points,
     sample_answer_high,
     sample_answer_medium,
+    extras,
   );
 
 const review = (
@@ -54,6 +70,7 @@ const review = (
   hint_points: [string, string, string],
   sample_answer_high: string,
   sample_answer_medium: string,
+  extras: PromptExtras = {},
 ) =>
   task(
     'test',
@@ -64,6 +81,7 @@ const review = (
     hint_points,
     sample_answer_high,
     sample_answer_medium,
+    extras,
   );
 
 /** Extra practice tasks so every unit has three full writing tasks. */
@@ -72,7 +90,7 @@ export const EXTRA_PRACTICE_PROMPTS: SeedPrompt[] = [
     1,
     'narrative',
     'The empty seat',
-    'Every afternoon the same seat on the bus is empty. Today, a note is taped to the window above it.\n\nWrite a narrative about what happens when you read the note and take the seat.',
+    'Look at the picture. Every afternoon the same seat on the bus is empty. Today, a note is taped to the window above it.\n\nWrite a narrative about what happens when you read the note and take the seat.',
     [
       'Hook the reader and set the scene on the bus',
       'Build a problem or change in the middle',
@@ -80,12 +98,16 @@ export const EXTRA_PRACTICE_PROMPTS: SeedPrompt[] = [
     ],
     'The vinyl seat still held a dent, as if someone had only just stood up. A folded scrap said: Don’t let them take the last stop.\n\nI sat. The bus hissed forward. At the river bend a boy in a too-big blazer mouthed “you came”, and the lights of the depot flickered like a warning.\n\nWe got off one stop early. Behind us the last bus sighed into the dark, empty again — except the note, now in my pocket, still warm.',
     'I saw an empty seat with a note. I sat down and something strange happened. I got off the bus and the story ended.',
+    {
+      stimulus_image: '/stimuli/empty-seat.jpg',
+      decode_topic: 'what happens when you read the note and take the empty bus seat',
+    },
   ),
   practice(
     1,
     'narrative',
     'After the storm',
-    'A huge storm has passed overnight. In the morning, something in your street has changed.\n\nWrite a narrative about the first person who steps outside and what they discover.',
+    'Look at the picture. A huge storm has passed overnight. In the morning, something in your street has changed.\n\nWrite a narrative about the first person who steps outside and what they discover.',
     [
       'Show the street after the storm with precise detail',
       'Introduce a discovery that changes the character’s plan',
@@ -93,6 +115,10 @@ export const EXTRA_PRACTICE_PROMPTS: SeedPrompt[] = [
     ],
     'Gutters ticked. A letterbox lay on its side, mouth open, spilling soggy envelopes like white fish.\n\nMaya lifted one. It was addressed to her — dated tomorrow. Her hands shook as the ink named a place she had never been allowed to go: the old boatshed.\n\nShe went. The door was already ajar. Inside, a dry towel waited, as if the storm had expected her, and had left the rest of the day in her hands.',
     'After the storm I went outside. Things were messy. I found something surprising and then I went home.',
+    {
+      stimulus_image: '/stimuli/after-the-storm.jpg',
+      decode_topic: 'the first person outside discovers something changed after the storm',
+    },
   ),
   practice(
     2,
@@ -124,7 +150,7 @@ export const EXTRA_PRACTICE_PROMPTS: SeedPrompt[] = [
     4,
     'explanation',
     'How recycling works at home',
-    'Write a clear explanation for a younger student about how household recycling works, from the bin at home to what happens next.\n\nExplain the steps in order and why they matter.',
+    'Write a clear explanation for a younger student about how household recycling works, from the bin at home to what happens next.\n\nExplain the steps in order, then advise one household habit that keeps recycling useful (for example, what never goes in the yellow bin).',
     [
       'Say what you are explaining in the first lines',
       'Order the steps so a younger reader can follow',
@@ -132,6 +158,11 @@ export const EXTRA_PRACTICE_PROMPTS: SeedPrompt[] = [
     ],
     'HOW YOUR RECYCLING BIN HELPS\n\nRecycling means giving used materials another job instead of burying them.\n\nFirst, you rinse a bottle or box so leftover food does not spoil the rest. Then you put paper, plastic bottles and cans in the yellow bin — not soft plastic bags, which tangle machines.\n\nA truck takes the bin to a sorting centre. Machines and workers separate the types. Clean materials can be melted or pulped and made into new things.\n\nIf the wrong rubbish goes in, a whole load can be wasted. That is why the first small step at home matters.',
     'Recycling is when you put rubbish in a special bin. A truck takes it away. Then it is made into new things. You should rinse bottles first.',
+    {
+      purposes: ['inform', 'advise'],
+      purpose_note: 'Explain the steps, then advise one household habit.',
+      decode_topic: 'explain how recycling works and advise one useful household habit',
+    },
   ),
   practice(
     4,
@@ -189,7 +220,7 @@ export const EXTRA_PRACTICE_PROMPTS: SeedPrompt[] = [
     7,
     'advertisement',
     'Advertise the school fair',
-    'Write a short advertisement to persuade families to come to this year’s school fair.\n\nInclude a catchy heading, what is on offer, and a clear “what to do next”.',
+    'Look at the picture of the school fair.\n\nWrite a short advertisement to persuade families to come to this year’s school fair.\n\nInclude a catchy heading, what is on offer, and a clear “what to do next”.',
     [
       'Open with a short, lively heading',
       'Tell the reader what they will find',
@@ -197,6 +228,10 @@ export const EXTRA_PRACTICE_PROMPTS: SeedPrompt[] = [
     ],
     'SATURDAY GLOWS AT RIVERVIEW FAIR\n\nOne afternoon. A hundred small wonders.\n\nFace-painting that actually looks like a tiger, a silent-disco hoop, second-hand books for a gold coin, and a sausage sizzle that runs out if you dawdle.\n\nBring coins, a bag, and someone you like.\nSaturday 2–6pm, school oval. Enter through the hall gates.\nCome for the cake stall. Stay because the oval smells like spring.',
     'Come to the school fair! There will be food and games. It will be fun. See you there on Saturday.',
+    {
+      stimulus_image: '/stimuli/school-fair.jpg',
+      decode_topic: 'persuade families to come to this year’s school fair',
+    },
   ),
   practice(
     7,
@@ -215,7 +250,7 @@ export const EXTRA_PRACTICE_PROMPTS: SeedPrompt[] = [
     8,
     'persuasive_text',
     'Phones at school',
-    'Write a persuasive text arguing whether students your age should be allowed to use phones at school.\n\nTake a clear position, give reasons, and answer the other side.',
+    'Use this line as a starting idea if you wish:\n“The person in front of you matters more than the screen in your hand.”\n\nWrite a persuasive text arguing whether students your age should be allowed to use phones at school.\n\nTake a clear position, give reasons, and answer the other side.',
     [
       'State your position in the opening',
       'Give one reason per paragraph with a short example',
@@ -223,6 +258,10 @@ export const EXTRA_PRACTICE_PROMPTS: SeedPrompt[] = [
     ],
     'PHONES BELONG IN BAGS UNTIL THE BELL\n\nStudents should not use phones during school hours, except in a real emergency.\n\nLessons need attention. A buzzing pocket steals the next instruction, and then the student is lost for ten minutes. At lunch, faces in screens mean fewer games and fewer new friends.\n\nSome families say phones keep children safe. That is fair — phones can stay at the office or switched off in bags, and be used if a parent must be called.\n\nA school day is short. Keep the phones quiet so the learning — and the playground — can be loud in the right way.',
     'I think phones should not be used at school. They distract people. Some people say they are for safety, but you can keep them in your bag. So no phones in class.',
+    {
+      stimulus_quote: 'The person in front of you matters more than the screen in your hand.',
+      decode_topic: 'whether students should be allowed to use phones at school',
+    },
   ),
   practice(
     8,
@@ -241,7 +280,7 @@ export const EXTRA_PRACTICE_PROMPTS: SeedPrompt[] = [
     9,
     'formal_letter',
     'More hours for the library',
-    'Write a formal letter to your principal asking for the school library to stay open one extra afternoon a week.\n\nUse a polite greeting, a clear purpose, and a proper sign-off.',
+    'Write a formal letter to your principal asking for the school library to stay open one extra afternoon a week.\n\nExplain the crowding problem with a specific example, then request a four-week Thursday trial.\n\nUse a polite greeting, a clear purpose, and a proper sign-off.',
     [
       'Open with Dear … and why you are writing',
       'Give a calm, specific reason',
@@ -249,6 +288,11 @@ export const EXTRA_PRACTICE_PROMPTS: SeedPrompt[] = [
     ],
     'Dear Ms Holt,\n\nI am writing to ask if the library could stay open until 4:15pm on Thursdays.\n\nMany students wait for siblings and have nowhere quiet to finish homework. Last Thursday eight of us sat on the hall floor beside bags and sports gear. An extra hour would give us tables, books, and a teacher nearby.\n\nI would be grateful if you could consider a four-week trial. Thank you for your time.\n\nYours sincerely,\nAva Chen\nYear 6',
     'Dear Principal,\n\nPlease keep the library open longer. Students need a quiet place. Thank you.\n\nYours sincerely,\nAva',
+    {
+      purposes: ['inform', 'request'],
+      purpose_note: 'Explain the crowding problem, then request a Thursday trial.',
+      decode_topic: 'explain library crowding and request extra Thursday hours',
+    },
   ),
   practice(
     9,
@@ -267,7 +311,7 @@ export const EXTRA_PRACTICE_PROMPTS: SeedPrompt[] = [
     10,
     'speech',
     'Looking after our oval',
-    'Write a speech to your year group about looking after the school oval.\n\nGreet the listeners, make two or three points, and thank them at the end.',
+    'Write a speech to your year group about looking after the school oval.\n\nTell them what is happening to the oval, then persuade them to take one action this week.\n\nGreet the listeners, make two or three points, and thank them at the end.',
     [
       'Open with a greeting or hook listeners can hear',
       'Use we/you so it sounds spoken',
@@ -275,6 +319,12 @@ export const EXTRA_PRACTICE_PROMPTS: SeedPrompt[] = [
     ],
     'Good morning, Year 5 and 6.\n\nHave we done enough for our oval? Yesterday I counted seventeen wrappers in the long grass after lunch.\n\nIf we each pick up five pieces of litter, the oval changes this week. If we stay on the paths when it is wet, the middle stays green for sport.\n\nWe like this place. Let’s treat it like it belongs to us — because it does.\nThank you.',
     'Hello everyone.\n\nPlease don’t drop rubbish on the oval. It looks bad and it is unsafe. Let’s look after it. Thank you.',
+    {
+      stimulus_quote: 'Leave this place better than you found it.',
+      purposes: ['inform', 'persuade'],
+      purpose_note: 'Tell them what is happening to the oval, then persuade one action this week.',
+      decode_topic: 'inform the year group about the oval and persuade one action',
+    },
   ),
   practice(
     10,
@@ -310,7 +360,7 @@ export const TERM_REVIEW_PROMPTS: SeedPrompt[] = [
     1,
     'narrative',
     'Term review: The last bus home',
-    'The last bus is about to leave. You are not on it yet, and something is stopping you.\n\nWrite a narrative.\n\nYou have one attempt. Plan quickly, then write.',
+    'Look at the picture. The last bus is about to leave. You are not on it yet, and something is stopping you.\n\nWrite a narrative.\n\nYou have one attempt. Plan quickly, then write.',
     [
       'Open in the moment, not with “this is a story”',
       'Develop a problem and show how the character acts',
@@ -318,6 +368,7 @@ export const TERM_REVIEW_PROMPTS: SeedPrompt[] = [
     ],
     'The doors sighed. My pass beeped red.\n\nI ran the wet footpath with a dripping science poster and a promise to Mum. A cyclist shouted; I skidded, caught the rail, and the driver — Mr Patel — lifted one eyebrow, then the lever.\n\nI fell into a seat that still held rain. The poster was ruined. The bus, somehow, was not. Home still existed, one stop at a time.',
     'I missed the bus almost. Then I caught it. I went home. It was a close thing.',
+    { stimulus_image: '/stimuli/last-bus.jpg' },
   ),
   review(
     2,
@@ -336,7 +387,7 @@ export const TERM_REVIEW_PROMPTS: SeedPrompt[] = [
     3,
     'news_report',
     'Term review: Unexpected weather in town',
-    'Write a news report about unexpected weather that affected your town for one afternoon.\n\nFacts first. One attempt only.',
+    'Write a news report about unexpected weather that affected your town for one afternoon.\n\nInclude what happened, who was affected, and what residents should do next.\n\nFacts first. One attempt only.',
     [
       'Headline and key facts near the top',
       'Calm report voice, not a personal recount',
@@ -344,6 +395,7 @@ export const TERM_REVIEW_PROMPTS: SeedPrompt[] = [
     ],
     'HAIL STOPS SATURDAY SPORT\n\nMarble-sized hail swept across Riverview at 2:10pm on Saturday, forcing umpires to abandon junior soccer.\n\nCouncil ranger Priya Nair said drains coped: “We were lucky it lasted twelve minutes.” Shopkeepers on High Street reported dented awnings but no injuries.\n\nPlay will restart next week if fields dry.',
     'There was strange weather. Sport stopped. Someone said it was short. Then it was over.',
+    { purposes: ['inform', 'advise'] },
   ),
   review(
     4,
@@ -370,6 +422,7 @@ export const TERM_REVIEW_PROMPTS: SeedPrompt[] = [
     ],
     'NEW YEAR, BIGGER MAP\n\nYou will feel lost on day one. That is normal.\n\n1. Learn two landmarks: your locker block and the office.\n2. Pack a spare snack; lines are long.\n3. Ask one question a day — teachers expect it.\n\nBy week three the corridors shrink. Start kind, and the place starts kind back.',
     'Advice\n\nFind your classrooms. Be friendly. Ask for help. You will be okay.',
+    { purposes: ['advise', 'inform'] },
   ),
   review(
     6,
@@ -427,7 +480,7 @@ export const TERM_REVIEW_PROMPTS: SeedPrompt[] = [
     10,
     'speech',
     'Term review: Kindness this term',
-    'Write a speech for assembly about why kindness still matters this term.\n\nSpoken to listeners. One attempt only.',
+    'Use the line below as a starting idea if you wish.\n\n“Kindness is not a poster.”\n\nWrite a speech for assembly about why kindness still matters this term.\n\nSpoken to listeners. One attempt only.',
     [
       'Greet the listeners',
       'Make two or three hearable points',
@@ -435,6 +488,7 @@ export const TERM_REVIEW_PROMPTS: SeedPrompt[] = [
     ],
     'Good morning, everyone.\n\nKindness is not a poster. It is the spare pencil, the space on the bench, the “are you okay?” nobody scheduled.\n\nThis term will get busy. Tests will arrive. If we only look at scores, we will miss the student who is new, or tired, or both.\n\nNotice one person this week. Invite them in.\nThank you.',
     'Hello.\n\nPlease be kind this term. It helps everyone. Thank you.',
+    { stimulus_quote: 'Kindness is not a poster.' },
   ),
   review(
     11,

@@ -39,7 +39,7 @@ describe('pickMiniFocus', () => {
       writingWeakest: 'grammar',
     });
     assert.ok(focus.skills.includes('punctuation'));
-    assert.match(focus.reason, /grammar/);
+    assert.match(focus.reason, /sentences, punctuation and spelling/);
   });
 
   it('falls back to format when there is no history', () => {
