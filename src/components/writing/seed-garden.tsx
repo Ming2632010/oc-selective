@@ -25,16 +25,16 @@ function Plant({ stage, large }: { stage: StageId; large?: boolean }) {
     <g transform={`translate(${ox} ${oy}) scale(${s})`}>
       {stage === 'sprout' ? (
         <>
-          <ellipse cx="-4" cy="2" rx="5" ry="3" fill="#c4a574" transform="rotate(-20)" />
-          <ellipse cx="5" cy="3" rx="4.5" ry="2.6" fill="#a9844f" transform="rotate(18)" />
+          <ellipse cx="-5" cy="3" rx="6" ry="3.4" fill="#d2b48c" transform="rotate(-18)" />
+          <ellipse cx="6" cy="4" rx="5.5" ry="3" fill="#b08d57" transform="rotate(16)" />
           <path
-            d="M0 1 C -1 -10, 6 -16, 3 -22"
+            d="M0 2 C -2 -12, 8 -20, 4 -28"
             fill="none"
-            stroke="#6f9b5c"
-            strokeWidth="1.6"
+            stroke="#4f8a3a"
+            strokeWidth="2.4"
             strokeLinecap="round"
           />
-          <ellipse cx="5" cy="-23" rx="3.2" ry="2" fill="#8fbf6e" transform="rotate(25)" />
+          <ellipse cx="7" cy="-29" rx="5" ry="3" fill="#7fbf55" transform="rotate(28)" />
         </>
       ) : null}
 
