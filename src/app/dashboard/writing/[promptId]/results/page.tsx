@@ -11,6 +11,7 @@ import {
   RadarChart,
   ResponsiveContainer,
 } from 'recharts';
+import { SeedAwardBanner } from '@/components/writing/seed-patch';
 import { getStudentId, getToken } from '@/lib/client-auth';
 
 type Attempt = {
@@ -58,6 +59,7 @@ export default function WritingResultsPage() {
     next_draft: number;
     reason: string;
   } | null>(null);
+  const [awards, setAwards] = useState<{ seeds: number; label: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -104,6 +106,9 @@ export default function WritingResultsPage() {
               : 'practice',
         });
         setSamplesUnlocked(Boolean(promptData.samples_unlocked));
+        setAwards(
+          ((attemptsData.awards as { seeds: number; label: string }[]) || []).slice(),
+        );
         setNextTask(
           attemptsData.recommendation
             ? {
@@ -187,6 +192,13 @@ export default function WritingResultsPage() {
           </p>
         ) : null}
       </header>
+
+      {awards.length > 0 ? (
+        <SeedAwardBanner
+          total={awards.reduce((sum, row) => sum + row.seeds, 0)}
+          lines={awards}
+        />
+      ) : null}
 
       <section className="grid gap-3 sm:grid-cols-3">
         <ScoreCard label="Set A" value={`${attempt.score_set_a}/15`} />

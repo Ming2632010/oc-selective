@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { apiFetch, getStudentId, getToken } from '@/lib/client-auth';
+import { SeedAwardBanner } from '@/components/writing/seed-patch';
 import { MINI_SKILL_LABELS, type MiniSkill } from '@/lib/seed-mini-drills';
 import { getUnitInfo } from '@/lib/units';
 
@@ -32,6 +33,10 @@ export default function MiniPracticePage() {
     correct_index: number;
     explanation: string;
   } | null>(null);
+  const [award, setAward] = useState<{
+    total: number;
+    lines: { seeds: number; label: string }[];
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -42,6 +47,7 @@ export default function MiniPracticePage() {
       setError(null);
       setChosen(null);
       setResult(null);
+      setAward(null);
       setDrill(null);
       setNextSlug(null);
       const token = getToken();
@@ -106,6 +112,12 @@ export default function MiniPracticePage() {
         correct_index: res.data.correct_index as number,
         explanation: res.data.explanation as string,
       });
+      if (res.data.award) {
+        setAward({
+          total: Number(res.data.award.total) || 0,
+          lines: (res.data.award.lines as { seeds: number; label: string }[]) || [],
+        });
+      }
       setNextSlug(
         typeof res.data.next_slug === 'string' ? res.data.next_slug : null,
       );
@@ -188,20 +200,27 @@ export default function MiniPracticePage() {
       </ul>
 
       {result ? (
-        <section
-          className={`rounded-lg border px-4 py-3 text-sm ${
-            result.is_correct
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
-              : 'border-amber-200 bg-amber-50 text-amber-950'
-          }`}
-        >
-          <p className="font-medium">
-            {result.is_correct ? 'Correct.' : 'Not quite.'}
-          </p>
-          <p className="mt-2">{result.explanation}</p>
-        </section>
+        <>
+          <section
+            className={`rounded-lg border px-4 py-3 text-sm ${
+              result.is_correct
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                : 'border-amber-200 bg-amber-50 text-amber-950'
+            }`}
+          >
+            <p className="font-medium">
+              {result.is_correct ? 'Correct.' : 'Not quite.'}
+            </p>
+            <p className="mt-2">{result.explanation}</p>
+          </section>
+          {award ? (
+            <SeedAwardBanner total={award.total} lines={award.lines} />
+          ) : null}
+        </>
       ) : (
-        <p className="text-sm text-stone-500">Choose an answer. You will see why it is right or wrong straight away.</p>
+        <p className="text-sm text-stone-500">
+          Choose an answer. You will see why it is right or wrong straight away.
+        </p>
       )}
 
       <div className="flex flex-wrap gap-3">

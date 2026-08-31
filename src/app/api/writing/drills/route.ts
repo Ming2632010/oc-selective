@@ -4,6 +4,7 @@ import { query } from '@/lib/db';
 import { markMiniChoice } from '@/lib/seed-mini-drills';
 import {
   assertOwnedStudent,
+  awardMiniSeeds,
   ensureWritingEnhancements,
   getMiniExtraMeta,
 } from '@/lib/writing-state';
@@ -247,11 +248,24 @@ export async function POST(request: Request) {
     }
 
     const isCorrect = markMiniChoice(drill.correct_index, answerIndex);
+    const prior = await query<{ id: string }>(
+      `SELECT id FROM mini_drill_attempts
+       WHERE student_id = $1 AND drill_id = $2
+       LIMIT 1`,
+      [studentId, drill.id],
+    );
     await query(
       `INSERT INTO mini_drill_attempts (student_id, drill_id, answer_index, is_correct)
        VALUES ($1, $2, $3, $4)`,
       [studentId, drill.id, answerIndex, isCorrect],
     );
+
+    const award = await awardMiniSeeds({
+      studentId,
+      drillId: drill.id,
+      isCorrect,
+      alreadyTried: (prior.rowCount ?? prior.rows.length) > 0,
+    });
 
     return NextResponse.json({
       is_correct: isCorrect,
@@ -259,6 +273,7 @@ export async function POST(request: Request) {
       explanation: drill.explanation,
       next_slug: await nextDrillSlug(drill.module_id, drill.sort_order, studentId),
       drill: publicDrill(drill),
+      award,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to save drill';

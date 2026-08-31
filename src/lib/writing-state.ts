@@ -1,5 +1,18 @@
 import { query } from '@/lib/db';
 import { extraCapacity, pickMiniFocus, type SkillStat } from '@/lib/mini-weakness';
+import {
+  calendarDateInSydney,
+  focusedSecondsToCount,
+  growthStage,
+  harvestBonus,
+  nextPlotState,
+  seedsForMini,
+  seedsForWriting,
+  sumSeeds,
+  weekStartSydney,
+  WEEKLY_HARVEST_GOAL,
+  type AwardLine,
+} from '@/lib/rewards';
 import { MINI_SKILLS, SEED_MINI_DRILLS, type MiniSkill } from '@/lib/seed-mini-drills';
 import { SEED_PROMPTS } from '@/lib/seed-prompts';
 import { getUnitInfo } from '@/lib/units';
@@ -15,7 +28,7 @@ import {
 let schemaReady = false;
 let seededLength = 0;
 let seededPrompts = 0;
-const WRITING_SCHEMA = 3;
+const WRITING_SCHEMA = 4;
 let appliedSchema = 0;
 
 export async function ensureWritingEnhancements(): Promise<void> {
@@ -114,6 +127,36 @@ export async function ensureWritingEnhancements(): Promise<void> {
   await query(`
     CREATE INDEX IF NOT EXISTS idx_prompts_kind_module
       ON prompts (kind, module_id, is_active)
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS student_seed_patch (
+      student_id UUID PRIMARY KEY REFERENCES students (id) ON DELETE CASCADE,
+      lifetime_seeds INTEGER NOT NULL DEFAULT 0,
+      week_seeds INTEGER NOT NULL DEFAULT 0,
+      week_start DATE NOT NULL,
+      harvest_claimed BOOLEAN NOT NULL DEFAULT FALSE,
+      plot_days INTEGER NOT NULL DEFAULT 0,
+      last_plot_date DATE,
+      rain_cheques INTEGER NOT NULL DEFAULT 0,
+      focused_seconds_week INTEGER NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS seed_events (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      student_id UUID NOT NULL REFERENCES students (id) ON DELETE CASCADE,
+      source TEXT NOT NULL,
+      seeds INTEGER NOT NULL,
+      label TEXT NOT NULL,
+      meta JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_seed_events_student
+      ON seed_events (student_id, created_at DESC)
   `);
 
   for (const prompt of SEED_PROMPTS) {
@@ -341,6 +384,7 @@ export async function getGuidanceForStudent(studentId: string): Promise<{
   history: Awaited<ReturnType<typeof getScoreHistory>>;
   mini_progress: Awaited<ReturnType<typeof getMiniProgress>>;
   term_tests: TermTestRow[];
+  rewards: SeedPatchView;
 }> {
   const progress = await getUnitProgress(studentId);
   const unlocked_unit = 11;
@@ -373,6 +417,8 @@ export async function getGuidanceForStudent(studentId: string): Promise<{
   );
   const history = await getScoreHistory(studentId);
 
+  const rewards = await getSeedPatchView(studentId);
+
   return {
     progress,
     unlocked_unit,
@@ -380,6 +426,7 @@ export async function getGuidanceForStudent(studentId: string): Promise<{
     history,
     mini_progress,
     term_tests,
+    rewards,
   };
 }
 
@@ -507,4 +554,273 @@ export async function assertOwnedStudent(userId: string, studentId: string) {
     [studentId, userId],
   );
   return result.rows[0] ?? null;
+}
+
+type PatchRow = {
+  student_id: string;
+  lifetime_seeds: number;
+  week_seeds: number;
+  week_start: string;
+  harvest_claimed: boolean;
+  plot_days: number;
+  last_plot_date: string | null;
+  rain_cheques: number;
+  focused_seconds_week: number;
+};
+
+export type SeedPatchView = {
+  lifetime_seeds: number;
+  week_seeds: number;
+  week_goal: number;
+  harvest_claimed: boolean;
+  plot_days: number;
+  rain_cheques: number;
+  focused_minutes_week: number;
+  stage: ReturnType<typeof growthStage>;
+  recent: { seeds: number; label: string; source: string; created_at: Date }[];
+};
+
+export type SeedAwardResult = {
+  total: number;
+  lines: AwardLine[];
+  patch: SeedPatchView;
+};
+
+function asDateString(value: string | Date | null): string | null {
+  if (!value) return null;
+  if (typeof value === 'string') return value.slice(0, 10);
+  return value.toISOString().slice(0, 10);
+}
+
+async function loadPatchRow(studentId: string): Promise<PatchRow> {
+  const today = calendarDateInSydney();
+  const weekStart = weekStartSydney(today);
+  const existing = await query<PatchRow>(
+    `SELECT student_id, lifetime_seeds, week_seeds, week_start::text,
+            harvest_claimed, plot_days, last_plot_date::text, rain_cheques,
+            focused_seconds_week
+     FROM student_seed_patch WHERE student_id = $1`,
+    [studentId],
+  );
+  if (existing.rows[0]) {
+    const row = existing.rows[0];
+    const storedWeek = asDateString(row.week_start);
+    if (storedWeek !== weekStart) {
+      await query(
+        `UPDATE student_seed_patch SET
+           week_seeds = 0, week_start = $2, harvest_claimed = FALSE,
+           focused_seconds_week = 0, updated_at = NOW()
+         WHERE student_id = $1`,
+        [studentId, weekStart],
+      );
+      return {
+        ...row,
+        week_seeds: 0,
+        week_start: weekStart,
+        harvest_claimed: false,
+        focused_seconds_week: 0,
+      };
+    }
+    return { ...row, week_start: storedWeek ?? weekStart };
+  }
+
+  await query(
+    `INSERT INTO student_seed_patch (student_id, week_start)
+     VALUES ($1, $2)
+     ON CONFLICT (student_id) DO NOTHING`,
+    [studentId, weekStart],
+  );
+  return {
+    student_id: studentId,
+    lifetime_seeds: 0,
+    week_seeds: 0,
+    week_start: weekStart,
+    harvest_claimed: false,
+    plot_days: 0,
+    last_plot_date: null,
+    rain_cheques: 0,
+    focused_seconds_week: 0,
+  };
+}
+
+async function recentSeedEvents(studentId: string, limit = 6) {
+  const result = await query<{
+    seeds: number;
+    label: string;
+    source: string;
+    created_at: Date;
+  }>(
+    `SELECT seeds, label, source, created_at
+     FROM seed_events
+     WHERE student_id = $1
+     ORDER BY created_at DESC
+     LIMIT $2`,
+    [studentId, limit],
+  );
+  return result.rows;
+}
+
+export async function getSeedPatchView(studentId: string): Promise<SeedPatchView> {
+  const row = await loadPatchRow(studentId);
+  return {
+    lifetime_seeds: row.lifetime_seeds,
+    week_seeds: row.week_seeds,
+    week_goal: WEEKLY_HARVEST_GOAL,
+    harvest_claimed: row.harvest_claimed,
+    plot_days: row.plot_days,
+    rain_cheques: row.rain_cheques,
+    focused_minutes_week: Math.round(row.focused_seconds_week / 60),
+    stage: growthStage(row.lifetime_seeds),
+    recent: await recentSeedEvents(studentId),
+  };
+}
+
+async function persistSeedAwards(
+  studentId: string,
+  lines: AwardLine[],
+  extras: {
+    source: string;
+    meta: Record<string, unknown>;
+    focusedSeconds?: number;
+  },
+): Promise<SeedAwardResult> {
+  const today = calendarDateInSydney();
+  const row = await loadPatchRow(studentId);
+  const plot = nextPlotState({
+    plotDays: row.plot_days,
+    lastPlotDate: asDateString(row.last_plot_date),
+    rainCheques: row.rain_cheques,
+    today,
+  });
+
+  const activityLines = lines.filter((line) => line.seeds > 0);
+  if (activityLines.length === 0 && plot.alreadyCounted) {
+    return { total: 0, lines: [], patch: await getSeedPatchView(studentId) };
+  }
+
+  const awarded: AwardLine[] = [...activityLines];
+  if (plot.milestone) awarded.push(plot.milestone);
+  if (plot.gainedCheque) {
+    awarded.push({ seeds: 0, label: 'Rain cheque ready — covers one missed day' });
+  } else if (plot.usedCheque) {
+    awarded.push({ seeds: 0, label: 'Rain cheque used — plot kept going' });
+  } else if (plot.reset) {
+    awarded.push({ seeds: 0, label: 'New plot day — the run starts again' });
+  }
+
+  const activitySeeds = sumSeeds(awarded);
+  const harvest = harvestBonus({
+    weekSeedsBefore: row.week_seeds,
+    justEarned: activitySeeds,
+    alreadyClaimed: row.harvest_claimed,
+  });
+  if (harvest) awarded.push(harvest);
+
+  const total = sumSeeds(awarded);
+  const focusedAdd = extras.focusedSeconds ?? 0;
+
+  for (const line of awarded) {
+    await query(
+      `INSERT INTO seed_events (student_id, source, seeds, label, meta)
+       VALUES ($1, $2, $3, $4, $5::jsonb)`,
+      [studentId, extras.source, line.seeds, line.label, JSON.stringify(extras.meta)],
+    );
+  }
+
+  await query(
+    `UPDATE student_seed_patch SET
+       lifetime_seeds = lifetime_seeds + $2,
+       week_seeds = week_seeds + $2,
+       harvest_claimed = harvest_claimed OR $3,
+       plot_days = $4,
+       last_plot_date = $5,
+       rain_cheques = $6,
+       focused_seconds_week = focused_seconds_week + $7,
+       updated_at = NOW()
+     WHERE student_id = $1`,
+    [
+      studentId,
+      total,
+      Boolean(harvest),
+      plot.plotDays,
+      plot.lastPlotDate,
+      plot.rainCheques,
+      focusedAdd,
+    ],
+  );
+
+  return { total, lines: awarded, patch: await getSeedPatchView(studentId) };
+}
+
+export async function awardMiniSeeds(input: {
+  studentId: string;
+  drillId: string;
+  isCorrect: boolean;
+  alreadyTried: boolean;
+}): Promise<SeedAwardResult> {
+  const today = calendarDateInSydney();
+  const used = await query<{ n: string }>(
+    `SELECT COALESCE(SUM(seeds), 0)::text AS n
+     FROM seed_events
+     WHERE student_id = $1 AND source = 'mini'
+       AND created_at >= ($2::date AT TIME ZONE 'Australia/Sydney')
+       AND created_at < (($2::date + 1) AT TIME ZONE 'Australia/Sydney')`,
+    [input.studentId, today],
+  );
+  const mini = seedsForMini({
+    isCorrect: input.isCorrect,
+    alreadyTried: input.alreadyTried,
+    miniSeedsToday: Number(used.rows[0]?.n ?? 0),
+  });
+  const lines: AwardLine[] = mini.seeds > 0 || mini.label
+    ? [{ seeds: mini.seeds, label: mini.label }]
+    : [];
+  return persistSeedAwards(input.studentId, lines, {
+    source: 'mini',
+    meta: { drill_id: input.drillId, capped: mini.capped },
+  });
+}
+
+export async function awardWritingSeeds(input: {
+  studentId: string;
+  promptId: string;
+  kind: 'practice' | 'test';
+  draftNumber: number;
+  overallScore: number;
+  wordCount: number;
+  timeSpentSeconds: number;
+}): Promise<SeedAwardResult> {
+  const lines = seedsForWriting({
+    kind: input.kind,
+    draftNumber: input.draftNumber,
+    overallScore: input.overallScore,
+    wordCount: input.wordCount,
+    timeSpentSeconds: input.timeSpentSeconds,
+  });
+  return persistSeedAwards(input.studentId, lines, {
+    source: input.kind === 'test' ? 'test' : 'writing',
+    meta: {
+      prompt_id: input.promptId,
+      draft_number: input.draftNumber,
+      overall_score: input.overallScore,
+    },
+    focusedSeconds: focusedSecondsToCount(input.timeSpentSeconds),
+  });
+}
+
+export async function getAwardsForPrompt(studentId: string, promptId: string) {
+  const result = await query<{
+    seeds: number;
+    label: string;
+    source: string;
+    created_at: Date;
+  }>(
+    `SELECT seeds, label, source, created_at
+     FROM seed_events
+     WHERE student_id = $1 AND meta ->> 'prompt_id' = $2
+     ORDER BY created_at DESC
+     LIMIT 12`,
+    [studentId, promptId],
+  );
+  return result.rows;
 }

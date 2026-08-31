@@ -12,6 +12,7 @@ import {
 } from '@/lib/client-auth';
 import { UNIT_GROUPS, unitsByGroup, type UnitGroup } from '@/lib/units';
 import { WritingProgressLine, type HistoryPoint } from '@/components/writing/progress-line';
+import { SeedPatch, type SeedPatchData } from '@/components/writing/seed-patch';
 import { SubjectChat } from '@/components/writing/subject-chat';
 
 type Student = {
@@ -133,6 +134,7 @@ export default function DashboardPage() {
   const [progress, setProgress] = useState<ProgressRow[]>([]);
   const [miniProgress, setMiniProgress] = useState<MiniProgressRow[]>([]);
   const [termTests, setTermTests] = useState<TermTest[]>([]);
+  const [rewards, setRewards] = useState<SeedPatchData | null>(null);
   const [history, setHistory] = useState<HistoryPoint[]>([]);
   const [recommendation, setRecommendation] = useState<Recommendation | null>(
     null,
@@ -200,6 +202,7 @@ export default function DashboardPage() {
         setProgress([]);
         setMiniProgress([]);
         setTermTests([]);
+        setRewards(null);
         setHistory([]);
         setRecommendation(null);
         return;
@@ -211,6 +214,7 @@ export default function DashboardPage() {
         setProgress((res.data.progress as ProgressRow[]) || []);
         setMiniProgress((res.data.mini_progress as MiniProgressRow[]) || []);
         setTermTests((res.data.term_tests as TermTest[]) || []);
+        setRewards((res.data.rewards as SeedPatchData | null) ?? null);
         setHistory((res.data.history as HistoryPoint[]) || []);
         setRecommendation(
           (res.data.recommendation as Recommendation | null) ?? null,
@@ -402,6 +406,8 @@ export default function DashboardPage() {
               </Link>
             </section>
           ) : null}
+
+          <SeedPatch patch={rewards} />
 
           <div className="grid gap-4 lg:grid-cols-2">
             <WritingProgressLine history={history} />

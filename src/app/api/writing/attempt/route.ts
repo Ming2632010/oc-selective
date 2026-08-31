@@ -4,7 +4,9 @@ import { query } from '@/lib/db';
 import { scoreWritingAttempt } from '@/lib/scoring';
 import {
   assertOwnedStudent,
+  awardWritingSeeds,
   ensureWritingEnhancements,
+  getAwardsForPrompt,
   getGuidanceForStudent,
 } from '@/lib/writing-state';
 
@@ -57,6 +59,7 @@ export async function GET(request: Request) {
         history: guidance.history,
         mini_progress: guidance.mini_progress,
         term_tests: guidance.term_tests,
+        rewards: guidance.rewards,
         attempts: [],
       });
     }
@@ -79,6 +82,8 @@ export async function GET(request: Request) {
       history: guidance.history,
       mini_progress: guidance.mini_progress,
       term_tests: guidance.term_tests,
+      rewards: guidance.rewards,
+      awards: await getAwardsForPrompt(studentId, promptId),
       attempts: attempts.rows,
     });
   } catch (error) {
@@ -239,14 +244,25 @@ export async function POST(request: Request) {
       ],
     );
 
+    const award = await awardWritingSeeds({
+      studentId,
+      promptId,
+      kind: isTest ? 'test' : 'practice',
+      draftNumber,
+      overallScore: scored.overall_score,
+      wordCount: scored.word_count,
+      timeSpentSeconds: timeSpent,
+    });
     const guidance = await getGuidanceForStudent(studentId);
 
     return NextResponse.json(
       {
         attempt: inserted.rows[0],
+        award,
         progress: guidance.progress,
         unlocked_unit: guidance.unlocked_unit,
         recommendation: guidance.recommendation,
+        rewards: guidance.rewards,
       },
       { status: 201 },
     );
