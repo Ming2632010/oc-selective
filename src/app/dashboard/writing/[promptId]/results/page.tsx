@@ -11,6 +11,7 @@ import {
   RadarChart,
   ResponsiveContainer,
 } from 'recharts';
+import { SeedAwardBanner } from '@/components/writing/seed-patch';
 import { getStudentId, getToken } from '@/lib/client-auth';
 
 type Attempt = {
@@ -40,6 +41,7 @@ type Prompt = {
   hint_points: string[];
   sample_answer_high?: string;
   sample_answer_medium?: string;
+  kind?: 'practice' | 'test';
 };
 
 export default function WritingResultsPage() {
@@ -57,6 +59,7 @@ export default function WritingResultsPage() {
     next_draft: number;
     reason: string;
   } | null>(null);
+  const [awards, setAwards] = useState<{ seeds: number; label: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -97,8 +100,15 @@ export default function WritingResultsPage() {
           hint_points: Array.isArray(promptData.prompt.hint_points)
             ? promptData.prompt.hint_points
             : [],
+          kind:
+            promptData.prompt.kind === 'test' || promptData.kind === 'test'
+              ? 'test'
+              : 'practice',
         });
         setSamplesUnlocked(Boolean(promptData.samples_unlocked));
+        setAwards(
+          ((attemptsData.awards as { seeds: number; label: string }[]) || []).slice(),
+        );
         setNextTask(
           attemptsData.recommendation
             ? {
@@ -165,14 +175,30 @@ export default function WritingResultsPage() {
     grammar: 0,
   };
 
+  const isTest = prompt.kind === 'test';
+
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-6">
       <header className="border-b border-stone-300 pb-4">
         <p className="text-sm uppercase tracking-wide text-stone-500">
-          Results · Draft {attempt.draft_number}/3
+          {isTest
+            ? 'Results · Term review · one sitting'
+            : `Results · Draft ${attempt.draft_number}/3`}
         </p>
         <h1 className="text-3xl font-semibold">{prompt.title}</h1>
+        {isTest ? (
+          <p className="mt-2 text-sm text-stone-600">
+            This test cannot be sat again.
+          </p>
+        ) : null}
       </header>
+
+      {awards.length > 0 ? (
+        <SeedAwardBanner
+          total={awards.reduce((sum, row) => sum + row.seeds, 0)}
+          lines={awards}
+        />
+      ) : null}
 
       <section className="grid gap-3 sm:grid-cols-3">
         <ScoreCard label="Set A" value={`${attempt.score_set_a}/15`} />
@@ -234,7 +260,7 @@ export default function WritingResultsPage() {
       </section>
 
       <div className="flex flex-wrap gap-3">
-        {attempt.draft_number < 3 ? (
+        {!isTest && attempt.draft_number < 3 ? (
           <Link
             href={`/dashboard/writing/${promptId}`}
             className="rounded-md bg-stone-900 px-4 py-2 text-white"
@@ -244,7 +270,7 @@ export default function WritingResultsPage() {
         ) : null}
 
         {nextTask &&
-        (nextTask.prompt_id !== promptId || attempt.draft_number >= 3) ? (
+        (nextTask.prompt_id !== promptId || isTest || attempt.draft_number >= 3) ? (
           <Link
             href={`/dashboard/writing/${nextTask.prompt_id}`}
             className="rounded-md border border-indigo-200 bg-indigo-50 px-4 py-2 text-indigo-900"
@@ -253,7 +279,7 @@ export default function WritingResultsPage() {
           </Link>
         ) : null}
 
-        {samplesUnlocked ? (
+        {isTest ? null : samplesUnlocked ? (
           <button
             type="button"
             onClick={() => setShowSamples((v) => !v)}
@@ -276,7 +302,7 @@ export default function WritingResultsPage() {
         <p className="text-sm text-stone-600">{nextTask.reason}</p>
       ) : null}
 
-      {showSamples && samplesUnlocked ? (
+      {showSamples && samplesUnlocked && !isTest ? (
         <section className="space-y-4 rounded-lg border border-stone-200 p-4">
           <div>
             <h3 className="font-medium">High-scoring sample</h3>

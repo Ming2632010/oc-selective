@@ -4,11 +4,11 @@ import { query } from '@/lib/db';
 import { scoreWritingAttempt } from '@/lib/scoring';
 import {
   assertOwnedStudent,
+  awardWritingSeeds,
   ensureWritingEnhancements,
+  getAwardsForPrompt,
   getGuidanceForStudent,
-  getUnitProgress,
 } from '@/lib/writing-state';
-import { completedUnitIds, highestUnlockedUnit } from '@/lib/writing-guidance';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -57,6 +57,9 @@ export async function GET(request: Request) {
         unlocked_unit: guidance.unlocked_unit,
         recommendation: guidance.recommendation,
         history: guidance.history,
+        mini_progress: guidance.mini_progress,
+        term_tests: guidance.term_tests,
+        rewards: guidance.rewards,
         attempts: [],
       });
     }
@@ -77,6 +80,10 @@ export async function GET(request: Request) {
       unlocked_unit: guidance.unlocked_unit,
       recommendation: guidance.recommendation,
       history: guidance.history,
+      mini_progress: guidance.mini_progress,
+      term_tests: guidance.term_tests,
+      rewards: guidance.rewards,
+      awards: await getAwardsForPrompt(studentId, promptId),
       attempts: attempts.rows,
     });
   } catch (error) {
@@ -142,9 +149,10 @@ export async function POST(request: Request) {
       hint_points: unknown;
       is_locked: boolean;
       is_active: boolean;
+      kind: string;
     }>(
       `SELECT id, title, description, prompt_type, module_id, hint_points,
-              is_locked, is_active
+              is_locked, is_active, COALESCE(kind, 'practice') AS kind
        FROM prompts WHERE id = $1 LIMIT 1`,
       [promptId],
     );
@@ -153,16 +161,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
     }
 
-    const progressBefore = await getUnitProgress(studentId);
-    const unlockedUnit = highestUnlockedUnit(completedUnitIds(progressBefore));
-    if (prompt.module_id > unlockedUnit) {
-      return NextResponse.json(
-        {
-          error: `Unit ${prompt.module_id} unlocks after you finish unit ${prompt.module_id - 1}`,
-        },
-        { status: 403 },
-      );
-    }
+    const isTest = prompt.kind === 'test';
 
     const existing = await query<{ draft_number: number }>(
       `SELECT draft_number FROM writing_attempts
@@ -172,23 +171,32 @@ export async function POST(request: Request) {
     );
     const maxDraft = existing.rows[0]?.draft_number ?? 0;
 
-    if (existing.rows.some((row) => row.draft_number === draftNumber)) {
-      return NextResponse.json(
-        { error: `Draft ${draftNumber} already exists for this prompt` },
-        { status: 409 },
-      );
-    }
+    if (isTest) {
+      if (existing.rows.length > 0 || draftNumber !== 1) {
+        return NextResponse.json(
+          { error: 'This test can only be sat once.' },
+          { status: 409 },
+        );
+      }
+    } else {
+      if (existing.rows.some((row) => row.draft_number === draftNumber)) {
+        return NextResponse.json(
+          { error: `Draft ${draftNumber} already exists for this prompt` },
+          { status: 409 },
+        );
+      }
 
-    if (draftNumber !== maxDraft + 1) {
-      return NextResponse.json(
-        {
-          error:
-            maxDraft === 0
-              ? 'Start with draft_number 1'
-              : `Next draft must be ${maxDraft + 1}`,
-        },
-        { status: 400 },
-      );
+      if (draftNumber !== maxDraft + 1) {
+        return NextResponse.json(
+          {
+            error:
+              maxDraft === 0
+                ? 'Start with draft_number 1'
+                : `Next draft must be ${maxDraft + 1}`,
+          },
+          { status: 400 },
+        );
+      }
     }
 
     const hintPoints = Array.isArray(prompt.hint_points)
@@ -236,14 +244,25 @@ export async function POST(request: Request) {
       ],
     );
 
+    const award = await awardWritingSeeds({
+      studentId,
+      promptId,
+      kind: isTest ? 'test' : 'practice',
+      draftNumber,
+      overallScore: scored.overall_score,
+      wordCount: scored.word_count,
+      timeSpentSeconds: timeSpent,
+    });
     const guidance = await getGuidanceForStudent(studentId);
 
     return NextResponse.json(
       {
         attempt: inserted.rows[0],
+        award,
         progress: guidance.progress,
         unlocked_unit: guidance.unlocked_unit,
         recommendation: guidance.recommendation,
+        rewards: guidance.rewards,
       },
       { status: 201 },
     );

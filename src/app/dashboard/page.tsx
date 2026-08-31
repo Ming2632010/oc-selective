@@ -12,6 +12,7 @@ import {
 } from '@/lib/client-auth';
 import { UNIT_GROUPS, unitsByGroup, type UnitGroup } from '@/lib/units';
 import { WritingProgressLine, type HistoryPoint } from '@/components/writing/progress-line';
+import { SeedPatch, type SeedPatchData } from '@/components/writing/seed-patch';
 import { SubjectChat } from '@/components/writing/subject-chat';
 
 type Student = {
@@ -38,6 +39,21 @@ type SubscriptionItem = {
 type SubscriptionState = {
   subscriptions: SubscriptionItem[];
   has_active: boolean;
+};
+
+type MiniProgressRow = {
+  module_id: number;
+  drill_count: number;
+  completed_count: number;
+};
+
+type TermTest = {
+  id: string;
+  title: string;
+  prompt_type: string;
+  module_id: number;
+  overall_score: number | null;
+  sat: boolean;
 };
 
 type Recommendation = {
@@ -116,8 +132,10 @@ export default function DashboardPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [progress, setProgress] = useState<ProgressRow[]>([]);
+  const [miniProgress, setMiniProgress] = useState<MiniProgressRow[]>([]);
+  const [termTests, setTermTests] = useState<TermTest[]>([]);
+  const [rewards, setRewards] = useState<SeedPatchData | null>(null);
   const [history, setHistory] = useState<HistoryPoint[]>([]);
-  const [unlockedUnit, setUnlockedUnit] = useState(1);
   const [recommendation, setRecommendation] = useState<Recommendation | null>(
     null,
   );
@@ -182,9 +200,11 @@ export default function DashboardPage() {
     async function loadProgress() {
       if (!selectedStudentId) {
         setProgress([]);
+        setMiniProgress([]);
+        setTermTests([]);
+        setRewards(null);
         setHistory([]);
         setRecommendation(null);
-        setUnlockedUnit(1);
         return;
       }
       const res = await apiFetch(
@@ -192,8 +212,10 @@ export default function DashboardPage() {
       );
       if (res.response.ok) {
         setProgress((res.data.progress as ProgressRow[]) || []);
+        setMiniProgress((res.data.mini_progress as MiniProgressRow[]) || []);
+        setTermTests((res.data.term_tests as TermTest[]) || []);
+        setRewards((res.data.rewards as SeedPatchData | null) ?? null);
         setHistory((res.data.history as HistoryPoint[]) || []);
-        setUnlockedUnit(Number(res.data.unlocked_unit) || 1);
         setRecommendation(
           (res.data.recommendation as Recommendation | null) ?? null,
         );
@@ -385,6 +407,8 @@ export default function DashboardPage() {
             </section>
           ) : null}
 
+          <SeedPatch patch={rewards} />
+
           <div className="grid gap-4 lg:grid-cols-2">
             <WritingProgressLine history={history} />
             {selectedStudentId ? (
@@ -396,11 +420,18 @@ export default function DashboardPage() {
             <div>
               <h2 className="text-lg font-medium text-stone-900">Writing units</h2>
               <p className="mt-1 text-sm text-stone-600">
-                Unit 1 is open. Finish every task in a unit (at least one draft)
-                to unlock the next.
+                Start any unit. Each one has mini practice and three full
+                writing tasks. After each group, sit the term review — one test
+                per unit, one attempt only.
               </p>
             </div>
-            {UNIT_GROUPS.map((group) => (
+            {UNIT_GROUPS.map((group) => {
+              const groupUnits = unitsByGroup(group);
+              const groupTests = termTests.filter((test) =>
+                groupUnits.some((unit) => unit.id === test.module_id),
+              );
+
+              return (
               <div key={group} className="space-y-4">
                 <div className="flex items-baseline gap-3">
                   <h3 className="text-sm font-semibold uppercase tracking-wide text-stone-900">
@@ -411,14 +442,16 @@ export default function DashboardPage() {
                   </p>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {unitsByGroup(group).map((unit) => {
+                  {groupUnits.map((unit) => {
                     const row = progress.find((p) => p.module_id === unit.id);
                     const status = moduleStatus(row);
                     const total = row?.prompt_count ?? 0;
                     const done = row?.completed_count ?? 0;
                     const pct =
                       total > 0 ? Math.round((done / total) * 100) : 0;
-                    const locked = unit.id > unlockedUnit;
+                    const mini = miniProgress.find((p) => p.module_id === unit.id);
+                    const miniTotal = mini?.drill_count ?? 0;
+                    const miniDone = mini?.completed_count ?? 0;
 
                     const card = (
                       <>
@@ -428,30 +461,24 @@ export default function DashboardPage() {
                               Unit {unit.id}
                             </span>
                             <span
-                              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                locked
-                                  ? 'bg-stone-200 text-stone-600'
-                                  : statusBadgeClasses(status)
-                              }`}
+                              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBadgeClasses(
+                                status,
+                              )}`}
                             >
-                              {locked ? 'Locked' : status}
+                              {status}
                             </span>
                           </div>
                           <h4 className="text-lg font-semibold text-stone-900">
                             {unit.title}
                           </h4>
                           <p className="text-sm text-stone-600">{unit.blurb}</p>
-                          {locked ? (
-                            <p className="text-xs text-stone-500">
-                              Finish unit {unit.id - 1} to unlock.
-                            </p>
-                          ) : null}
                         </div>
 
                         <div className="mt-5 space-y-1.5">
                           <div className="flex items-center justify-between text-xs text-stone-500">
                             <span>
-                              {done}/{total || '—'} prompts
+                              Mini {miniDone}/{miniTotal || '—'} · Writing{' '}
+                              {done}/{total || '—'}
                             </span>
                             <span>{pct}%</span>
                           </div>
@@ -465,17 +492,6 @@ export default function DashboardPage() {
                       </>
                     );
 
-                    if (locked) {
-                      return (
-                        <div
-                          key={unit.id}
-                          className="flex flex-col justify-between rounded-xl border border-stone-200 bg-stone-50 p-5 opacity-70"
-                        >
-                          {card}
-                        </div>
-                      );
-                    }
-
                     return (
                       <Link
                         key={unit.id}
@@ -487,8 +503,57 @@ export default function DashboardPage() {
                     );
                   })}
                 </div>
+                {groupTests.length > 0 ? (
+                  <div className="space-y-3 rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
+                    <div>
+                      <h4 className="text-sm font-semibold uppercase tracking-wide text-indigo-800">
+                        Term review
+                      </h4>
+                      <p className="mt-1 text-sm text-stone-700">
+                        {groupTests.length} test
+                        {groupTests.length === 1 ? '' : 's'} — one for each{' '}
+                        {group.toLowerCase()} unit. Exam-style: one sitting, AI
+                        marking, no re-attempt.
+                      </p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {groupTests.map((test) => {
+                        const unit = groupUnits.find(
+                          (row) => row.id === test.module_id,
+                        );
+                        const href = test.sat
+                          ? `/dashboard/writing/${test.id}/results`
+                          : `/dashboard/writing/${test.id}`;
+                        return (
+                          <Link
+                            key={test.id}
+                            href={href}
+                            className="flex flex-col justify-between rounded-lg border border-indigo-100 bg-white p-4 transition hover:border-indigo-300 hover:shadow-sm"
+                          >
+                            <div className="space-y-1.5">
+                              <span className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
+                                {unit?.title ?? `Unit ${test.module_id}`}
+                              </span>
+                              <p className="font-medium text-stone-900">
+                                {test.title}
+                              </p>
+                            </div>
+                            <p className="mt-3 text-sm text-stone-600">
+                              {test.sat
+                                ? typeof test.overall_score === 'number'
+                                  ? `Sat · ${test.overall_score}/25`
+                                  : 'Sat · marked'
+                                : 'Not started'}
+                            </p>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
               </div>
-            ))}
+              );
+            })}
           </section>
         </>
       )}

@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
-import { completedUnitIds, highestUnlockedUnit } from '@/lib/writing-guidance';
 import {
   assertOwnedStudent,
   ensureWritingEnhancements,
-  getUnitProgress,
 } from '@/lib/writing-state';
 
 export const runtime = 'nodejs';
@@ -23,11 +21,21 @@ type PromptRow = {
   is_locked: boolean;
   time_limit_minutes: number;
   is_active: boolean;
+  kind: string;
 };
+
+const PROMPT_COLUMNS = `id, title, description, prompt_type, module_id, hint_points,
+                sample_answer_high, sample_answer_medium, is_locked,
+                time_limit_minutes, is_active,
+                COALESCE(kind, 'practice') AS kind`;
 
 function stripSamples(prompt: PromptRow) {
   const { sample_answer_high: _h, sample_answer_medium: _m, ...rest } = prompt;
   return rest;
+}
+
+function isTestKind(kind: string | null | undefined): boolean {
+  return kind === 'test';
 }
 
 export async function GET(request: Request) {
@@ -43,12 +51,11 @@ export async function GET(request: Request) {
     const moduleIdRaw = searchParams.get('module_id');
     const promptId = searchParams.get('id');
     const studentId = searchParams.get('student_id');
+    const kindParam = searchParams.get('kind');
 
     if (promptId) {
       const result = await query<PromptRow>(
-        `SELECT id, title, description, prompt_type, module_id, hint_points,
-                sample_answer_high, sample_answer_medium, is_locked,
-                time_limit_minutes, is_active
+        `SELECT ${PROMPT_COLUMNS}
          FROM prompts
          WHERE id = $1 AND is_active = TRUE
          LIMIT 1`,
@@ -60,20 +67,15 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
       }
 
+      const isTest = isTestKind(prompt.kind);
       let includeSamples = false;
       let maxDraft = 0;
-      let unlockedUnit = 1;
-      let unitLocked = false;
 
       if (studentId) {
         const owned = await assertOwnedStudent(userId, studentId);
         if (!owned) {
           return NextResponse.json({ error: 'Student not found' }, { status: 404 });
         }
-
-        const progress = await getUnitProgress(studentId);
-        unlockedUnit = highestUnlockedUnit(completedUnitIds(progress));
-        unitLocked = prompt.module_id > unlockedUnit;
 
         const attempts = await query<{ draft_number: number }>(
           `SELECT draft_number
@@ -83,17 +85,18 @@ export async function GET(request: Request) {
           [studentId, promptId],
         );
         maxDraft = attempts.rows[0]?.draft_number ?? 0;
-        includeSamples = maxDraft >= 3;
+        includeSamples = !isTest && maxDraft >= 3;
       }
 
       return NextResponse.json({
         prompt: includeSamples
-          ? { ...prompt, is_locked: unitLocked }
-          : { ...stripSamples(prompt), is_locked: unitLocked },
+          ? { ...prompt, is_locked: false }
+          : { ...stripSamples(prompt), is_locked: false },
         samples_unlocked: includeSamples,
         max_draft: maxDraft,
-        unlocked_unit: unlockedUnit,
-        unit_locked: unitLocked,
+        max_attempts: isTest ? 1 : 3,
+        kind: isTest ? 'test' : 'practice',
+        unit_locked: false,
       });
     }
 
@@ -112,35 +115,39 @@ export async function GET(request: Request) {
       );
     }
 
-    let unlockedUnit = 1;
     if (studentId) {
       const owned = await assertOwnedStudent(userId, studentId);
       if (!owned) {
         return NextResponse.json({ error: 'Student not found' }, { status: 404 });
       }
-      const progress = await getUnitProgress(studentId);
-      unlockedUnit = highestUnlockedUnit(completedUnitIds(progress));
     }
 
-    const result = await query<PromptRow>(
-      `SELECT id, title, description, prompt_type, module_id, hint_points,
-              sample_answer_high, sample_answer_medium, is_locked,
-              time_limit_minutes, is_active
-       FROM prompts
-       WHERE module_id = $1 AND is_active = TRUE
-       ORDER BY title ASC`,
-      [moduleId],
-    );
+    const kind =
+      kindParam === 'test' || kindParam === 'practice' || kindParam === 'all'
+        ? kindParam
+        : 'practice';
 
-    const unitLocked = Boolean(studentId) && moduleId > unlockedUnit;
+    const result = await query<PromptRow>(
+      kind === 'all'
+        ? `SELECT ${PROMPT_COLUMNS}
+           FROM prompts
+           WHERE module_id = $1 AND is_active = TRUE
+           ORDER BY kind ASC, title ASC`
+        : `SELECT ${PROMPT_COLUMNS}
+           FROM prompts
+           WHERE module_id = $1 AND is_active = TRUE
+             AND COALESCE(kind, 'practice') = $2
+           ORDER BY title ASC`,
+      kind === 'all' ? [moduleId] : [moduleId, kind],
+    );
 
     return NextResponse.json({
       module_id: moduleId,
-      unlocked_unit: unlockedUnit,
-      unit_locked: unitLocked,
+      unit_locked: false,
+      kind,
       prompts: result.rows.map((row) => ({
         ...stripSamples(row),
-        is_locked: unitLocked,
+        is_locked: false,
       })),
     });
   } catch (error) {

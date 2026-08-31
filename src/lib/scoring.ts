@@ -1,4 +1,4 @@
-import { getOpenAIClient, getOpenAIModel } from '@/lib/openai';
+import { createJsonCompletion, isOpenAIConfigured } from '@/lib/openai';
 
 export type ScoresBreakdown = {
   structure: number;
@@ -209,65 +209,44 @@ export function scoreWritingAttemptHeuristic(input: ScoreInput): ScoringResult {
 }
 
 async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
-  const client = getOpenAIClient();
-  const model = getOpenAIModel();
   const hints = [...input.hintPoints, '', '', ''].slice(0, 3);
   const wc = wordCount(input.content);
 
-  const completion = await client.chat.completions.create({
-    model,
+  const raw = await createJsonCompletion({
     temperature: 0.2,
-    response_format: { type: 'json_object' },
-    messages: [
-      {
-        role: 'system',
-        content: [
-          'You are an expert marker for the NSW Selective High School Placement Test Writing section.',
-          'Score student practice responses consistently and constructively.',
-          'Return ONLY valid JSON matching the required schema.',
-          '',
-          SELECTIVE_MARKING_CRITERIA,
-        ].join('\n'),
+    system: [
+      'You are an expert marker for the NSW Selective High School Placement Test Writing section.',
+      'Score student practice responses consistently and constructively.',
+      'Return ONLY valid JSON matching the required schema.',
+      '',
+      SELECTIVE_MARKING_CRITERIA,
+    ].join('\n'),
+    user: {
+      prompt_type: input.promptType,
+      prompt_title: input.promptTitle ?? null,
+      prompt_description: input.promptDescription ?? null,
+      hint_points: hints,
+      word_count: wc,
+      student_writing: input.content,
+      required_json_schema: {
+        score_set_a: 'integer 0-15',
+        score_set_b: 'integer 0-10',
+        overall_score: 'integer 0-25 (= score_set_a + score_set_b)',
+        scores_breakdown: {
+          structure: 'integer 0-5',
+          vocabulary: 'integer 0-5',
+          audience: 'integer 0-5',
+          grammar: 'integer 0-5',
+        },
+        ai_feedback:
+          'string: 3-6 short paragraphs/bullets with strengths, gaps, and next-draft advice',
+        checked_hint_1: 'boolean',
+        checked_hint_2: 'boolean',
+        checked_hint_3: 'boolean',
+        word_count: 'integer',
       },
-      {
-        role: 'user',
-        content: JSON.stringify(
-          {
-            prompt_type: input.promptType,
-            prompt_title: input.promptTitle ?? null,
-            prompt_description: input.promptDescription ?? null,
-            hint_points: hints,
-            word_count: wc,
-            student_writing: input.content,
-            required_json_schema: {
-              score_set_a: 'integer 0-15',
-              score_set_b: 'integer 0-10',
-              overall_score: 'integer 0-25 (= score_set_a + score_set_b)',
-              scores_breakdown: {
-                structure: 'integer 0-5',
-                vocabulary: 'integer 0-5',
-                audience: 'integer 0-5',
-                grammar: 'integer 0-5',
-              },
-              ai_feedback:
-                'string: 3-6 short paragraphs/bullets with strengths, gaps, and next-draft advice',
-              checked_hint_1: 'boolean',
-              checked_hint_2: 'boolean',
-              checked_hint_3: 'boolean',
-              word_count: 'integer',
-            },
-          },
-          null,
-          2,
-        ),
-      },
-    ],
+    },
   });
-
-  const raw = completion.choices[0]?.message?.content;
-  if (!raw) {
-    throw new Error('OpenAI returned empty scoring content');
-  }
 
   const parsed = JSON.parse(raw) as Partial<ScoringResult> & {
     scores_breakdown?: Partial<ScoresBreakdown>;
@@ -281,7 +260,7 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
  */
 export async function scoreWritingAttempt(input: ScoreInput): Promise<ScoringResult> {
   try {
-    if (!process.env.OPENAI_API_KEY) {
+    if (!isOpenAIConfigured()) {
       throw new Error('OPENAI_API_KEY is not set');
     }
     return await scoreWithOpenAI(input);

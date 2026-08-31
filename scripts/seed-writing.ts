@@ -42,6 +42,7 @@ async function main() {
         prompt.is_locked,
         prompt.time_limit_minutes,
         prompt.is_active,
+        prompt.kind ?? 'practice',
       ];
 
       const existing = await pool.query<{ id: string }>(
@@ -55,7 +56,7 @@ async function main() {
              description = $2, prompt_type = $3, module_id = $4,
              hint_points = $5::jsonb, sample_answer_high = $6,
              sample_answer_medium = $7, is_locked = $8,
-             time_limit_minutes = $9, is_active = $10
+             time_limit_minutes = $9, is_active = $10, kind = $11
            WHERE title = $1`,
           values,
         );
@@ -65,8 +66,8 @@ async function main() {
           `INSERT INTO prompts (
              title, description, prompt_type, module_id, hint_points,
              sample_answer_high, sample_answer_medium, is_locked,
-             time_limit_minutes, is_active
-           ) VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10)`,
+             time_limit_minutes, is_active, kind
+           ) VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10,$11)`,
           values,
         );
         inserted += 1;
