@@ -25,6 +25,7 @@ export default function MiniPracticePage() {
 
   const [drill, setDrill] = useState<Drill | null>(null);
   const [chosen, setChosen] = useState<number | null>(null);
+  const [nextSlug, setNextSlug] = useState<string | null>(null);
   const [result, setResult] = useState<{
     is_correct: boolean;
     correct_index: number;
@@ -54,6 +55,9 @@ export default function MiniPracticePage() {
           throw new Error(res.data.error || 'Failed to load question');
         }
         setDrill(res.data.drill as Drill);
+        setNextSlug(
+          typeof res.data.next_slug === 'string' ? res.data.next_slug : null,
+        );
         if (res.data.last_attempt && res.data.reveal) {
           setChosen(res.data.last_attempt.answer_index as number);
           setResult({
@@ -95,6 +99,9 @@ export default function MiniPracticePage() {
         correct_index: res.data.correct_index as number,
         explanation: res.data.explanation as string,
       });
+      setNextSlug(
+        typeof res.data.next_slug === 'string' ? res.data.next_slug : null,
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save answer');
       setChosen(null);
@@ -188,12 +195,22 @@ export default function MiniPracticePage() {
         <p className="text-sm text-stone-500">Choose an answer. You will see why it is right or wrong straight away.</p>
       )}
 
-      <Link
-        href={`/dashboard/unit/${unitId}`}
-        className="inline-flex rounded-md border border-stone-300 px-4 py-2 text-sm"
-      >
-        Back to unit
-      </Link>
+      <div className="flex flex-wrap gap-3">
+        {result && nextSlug ? (
+          <Link
+            href={`/dashboard/unit/${unitId}/practice/${nextSlug}`}
+            className="inline-flex rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            Next question
+          </Link>
+        ) : null}
+        <Link
+          href={`/dashboard/unit/${unitId}`}
+          className="inline-flex rounded-md border border-stone-300 px-4 py-2 text-sm"
+        >
+          Back to unit
+        </Link>
+      </div>
     </main>
   );
 }

@@ -144,7 +144,7 @@ export default function UnitPage() {
             tried.
           </p>
         </div>
-        <ul className="grid gap-3 sm:grid-cols-2">
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {drills.map((drill) => (
             <li key={drill.slug}>
               <Link

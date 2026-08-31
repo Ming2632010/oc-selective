@@ -9,9 +9,10 @@ import {
 } from '@/lib/writing-guidance';
 
 let schemaReady = false;
+let seededLength = 0;
 
 export async function ensureWritingEnhancements(): Promise<void> {
-  if (schemaReady) return;
+  if (schemaReady && seededLength === SEED_MINI_DRILLS.length) return;
 
   await query(`
     CREATE TABLE IF NOT EXISTS subject_messages (
@@ -102,6 +103,7 @@ export async function ensureWritingEnhancements(): Promise<void> {
   }
 
   schemaReady = true;
+  seededLength = SEED_MINI_DRILLS.length;
 }
 
 export async function getUnitProgress(

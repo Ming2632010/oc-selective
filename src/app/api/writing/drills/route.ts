@@ -38,6 +38,17 @@ function publicDrill(row: DrillRow) {
   };
 }
 
+async function nextDrillSlug(moduleId: number, sortOrder: number) {
+  const result = await query<{ slug: string }>(
+    `SELECT slug FROM mini_drills
+     WHERE module_id = $1 AND is_active = TRUE AND sort_order > $2
+     ORDER BY sort_order ASC
+     LIMIT 1`,
+    [moduleId, sortOrder],
+  );
+  return result.rows[0]?.slug ?? null;
+}
+
 export async function GET(request: Request) {
   try {
     const userId = await getAuthUserId(request);
@@ -92,6 +103,7 @@ export async function GET(request: Request) {
       return NextResponse.json({
         drill: publicDrill(drill),
         last_attempt: last,
+        next_slug: await nextDrillSlug(drill.module_id, drill.sort_order),
         reveal: last
           ? {
               correct_index: drill.correct_index,
@@ -202,6 +214,7 @@ export async function POST(request: Request) {
       is_correct: isCorrect,
       correct_index: drill.correct_index,
       explanation: drill.explanation,
+      next_slug: await nextDrillSlug(drill.module_id, drill.sort_order),
       drill: publicDrill(drill),
     });
   } catch (error) {

@@ -111,11 +111,25 @@ describe('recommendNextTask', () => {
 });
 
 describe('mini drills', () => {
-  it('seeds five drills for each of the eleven units', () => {
-    assert.equal(SEED_MINI_DRILLS.length, 55);
+  it('seeds ten drills for each of the eleven units', () => {
+    assert.equal(SEED_MINI_DRILLS.length, 110);
     for (let unit = 1; unit <= 11; unit += 1) {
       const inUnit = SEED_MINI_DRILLS.filter((d) => d.module_id === unit);
-      assert.equal(inUnit.length, 5, `unit ${unit}`);
+      assert.equal(inUnit.length, 10, `unit ${unit}`);
+      const skills = new Set(inUnit.map((d) => d.skill));
+      assert.equal(skills.size, 5, `unit ${unit} skills`);
+    }
+  });
+
+  it('uses unique slugs and valid answer indexes', () => {
+    const slugs = SEED_MINI_DRILLS.map((d) => d.slug);
+    assert.equal(new Set(slugs).size, slugs.length);
+    for (const drill of SEED_MINI_DRILLS) {
+      assert.ok(drill.options.length >= 3, drill.slug);
+      assert.ok(
+        drill.correct_index >= 0 && drill.correct_index < drill.options.length,
+        drill.slug,
+      );
     }
   });
 
