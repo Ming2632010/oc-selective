@@ -8,6 +8,10 @@ import { PromptDecode } from '@/components/writing/prompt-decode';
 import { getStudentId, getToken } from '@/lib/client-auth';
 import { parseDecodeGuide, type DecodeGuide } from '@/lib/decode-guide';
 import { examPhase, EXAM_PHASE_COPY } from '@/lib/exam-phases';
+import {
+  NSW_SELECTIVE_ONLINE_PRACTICE,
+  NSW_SELECTIVE_PRACTICE_TESTS,
+} from '@/lib/keyboard-fluency';
 import { typeLabel } from '@/lib/units';
 
 type Prompt = {
@@ -356,6 +360,27 @@ export default function WritingPracticePage() {
           {error ? (
             <p className="rounded-md bg-red-50 p-3 text-red-800">{error}</p>
           ) : null}
+          <p className="text-sm text-stone-600">
+            On another day, sit the{' '}
+            <a
+              href={NSW_SELECTIVE_ONLINE_PRACTICE}
+              target="_blank"
+              rel="noreferrer"
+              className="text-indigo-700 underline"
+            >
+              official NSW computer practice test
+            </a>{' '}
+            once so the real typing screen is familiar (
+            <a
+              href={NSW_SELECTIVE_PRACTICE_TESTS}
+              target="_blank"
+              rel="noreferrer"
+              className="text-indigo-700 underline"
+            >
+              Department page
+            </a>
+            ).
+          </p>
           <button
             type="button"
             onClick={() => beginPaper(prompt)}
