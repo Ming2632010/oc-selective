@@ -19,6 +19,7 @@ export type PromptSummary = {
   title: string;
   prompt_type: string;
   module_id: number;
+  kind?: 'practice' | 'test';
 };
 
 export type AttemptSummary = {
@@ -111,6 +112,7 @@ export function recommendNextTask(
 ): NextTaskRecommendation | null {
   const available = prompts
     .filter((prompt) => prompt.module_id <= unlockedUnit)
+    .filter((prompt) => prompt.kind !== 'test')
     .slice()
     .sort((a, b) => {
       if (a.module_id !== b.module_id) return a.module_id - b.module_id;

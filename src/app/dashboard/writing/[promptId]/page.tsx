@@ -14,6 +14,7 @@ type Prompt = {
   hint_points: string[];
   time_limit_minutes: number;
   is_locked: boolean;
+  kind?: 'practice' | 'test';
 };
 
 type AttemptRow = {
@@ -46,6 +47,7 @@ export default function WritingPracticePage() {
   const [submitting, setSubmitting] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [alreadyFinished, setAlreadyFinished] = useState(false);
+  const [isTest, setIsTest] = useState(false);
 
   const contentRef = useRef(content);
   const planRef = useRef(plan);
@@ -100,6 +102,9 @@ export default function WritingPracticePage() {
 
         const p = promptData.prompt as Prompt;
         const hints = Array.isArray(p.hint_points) ? p.hint_points : [];
+        const testTask =
+          p.kind === 'test' || promptData.kind === 'test';
+        setIsTest(testTask);
         setPrompt({ ...p, hint_points: hints });
 
         const attempts = (attemptsData.attempts as AttemptRow[] | undefined) ?? [];
@@ -107,8 +112,9 @@ export default function WritingPracticePage() {
           (max, a) => Math.max(max, a.draft_number),
           0,
         );
+        const maxAttempts = testTask ? 1 : 3;
 
-        if (maxDraft >= 3) {
+        if (maxDraft >= maxAttempts) {
           setAlreadyFinished(true);
           return;
         }
@@ -222,7 +228,9 @@ export default function WritingPracticePage() {
     return (
       <main className="mx-auto max-w-4xl space-y-4 p-6">
         <p className="text-stone-700">
-          All three drafts are done for this task.
+          {isTest
+            ? 'This term review has been sat. You cannot re-attempt.'
+            : 'All three drafts are done for this task.'}
         </p>
         <Link
           href={`/dashboard/writing/${promptId}/results`}
@@ -247,7 +255,9 @@ export default function WritingPracticePage() {
       <header className="flex flex-wrap items-end justify-between gap-3 border-b border-stone-300 pb-4">
         <div>
           <p className="text-sm uppercase tracking-wide text-stone-500">
-            Unit {prompt.module_id} · Draft {draftNumber}/3 · {prompt.prompt_type}
+            {isTest
+              ? `Term review · one attempt · ${prompt.prompt_type}`
+              : `Unit ${prompt.module_id} · Draft ${draftNumber}/3 · ${prompt.prompt_type}`}
           </p>
           <h1 className="text-3xl font-semibold text-stone-900">{prompt.title}</h1>
           {draftNumber > 1 ? (
@@ -276,6 +286,7 @@ export default function WritingPracticePage() {
       <section className="space-y-3 rounded-lg border border-stone-200 bg-white p-4">
         <h2 className="text-lg font-medium">Prompt</h2>
         <p className="whitespace-pre-wrap text-stone-800">{prompt.description}</p>
+        {!isTest ? (
         <div>
           <h3 className="mb-2 font-medium">Hint points</h3>
           <ul className="list-disc space-y-1 pl-5 text-stone-700">
@@ -284,6 +295,12 @@ export default function WritingPracticePage() {
             ))}
           </ul>
         </div>
+        ) : (
+          <p className="text-sm text-stone-600">
+            One sitting only. Plan in the notes box, then write. This paper is
+            marked by AI and cannot be sat again.
+          </p>
+        )}
       </section>
 
       <form onSubmit={onSubmit} className="space-y-4">

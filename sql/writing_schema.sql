@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS prompts (
   is_locked BOOLEAN NOT NULL DEFAULT TRUE,
   time_limit_minutes INTEGER NOT NULL DEFAULT 30,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  kind TEXT NOT NULL DEFAULT 'practice' CHECK (kind IN ('practice', 'test')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -45,6 +46,10 @@ CREATE TABLE IF NOT EXISTS writing_attempts (
   UNIQUE (student_id, prompt_id, draft_number)
 );
 
+ALTER TABLE prompts
+  ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'practice';
+
 CREATE INDEX IF NOT EXISTS idx_prompts_module_active ON prompts (module_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_prompts_kind_module ON prompts (kind, module_id, is_active);
 CREATE INDEX IF NOT EXISTS idx_writing_attempts_student_prompt
   ON writing_attempts (student_id, prompt_id);

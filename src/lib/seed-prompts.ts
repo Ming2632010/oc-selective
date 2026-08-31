@@ -2,7 +2,10 @@
  * Seed prompts for the per-type Units. Each prompt's `module_id` is the Unit id
  * (see src/lib/units.ts) and `prompt_type` matches that Unit's text type.
  */
+import { EXTRA_WRITING_PROMPTS } from './seed-prompts-extra';
 import type { WritingType } from './units';
+
+export type PromptKind = 'practice' | 'test';
 
 export type SeedPrompt = {
   title: string;
@@ -15,9 +18,10 @@ export type SeedPrompt = {
   is_locked: boolean;
   time_limit_minutes: number;
   is_active: boolean;
+  kind?: PromptKind;
 };
 
-export const SEED_PROMPTS: SeedPrompt[] = [
+export const CORE_WRITING_PROMPTS: SeedPrompt[] = [
   // ─────────────── Unit 1 · Narrative ───────────────
   {
     title: 'The locked door',
@@ -325,3 +329,15 @@ export const SEED_PROMPTS: SeedPrompt[] = [
     is_active: true,
   },
 ];
+
+export const SEED_PROMPTS: SeedPrompt[] = [
+  ...CORE_WRITING_PROMPTS,
+  ...EXTRA_WRITING_PROMPTS,
+].map((prompt) => ({
+  ...prompt,
+  kind: prompt.kind ?? 'practice',
+}));
+
+export function isTestPrompt(kind: string | null | undefined): boolean {
+  return kind === 'test';
+}

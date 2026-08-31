@@ -46,6 +46,15 @@ type MiniProgressRow = {
   completed_count: number;
 };
 
+type TermTest = {
+  id: string;
+  title: string;
+  prompt_type: string;
+  module_id: number;
+  overall_score: number | null;
+  sat: boolean;
+};
+
 type Recommendation = {
   prompt_id: string;
   title: string;
@@ -123,6 +132,7 @@ export default function DashboardPage() {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [progress, setProgress] = useState<ProgressRow[]>([]);
   const [miniProgress, setMiniProgress] = useState<MiniProgressRow[]>([]);
+  const [termTests, setTermTests] = useState<TermTest[]>([]);
   const [history, setHistory] = useState<HistoryPoint[]>([]);
   const [recommendation, setRecommendation] = useState<Recommendation | null>(
     null,
@@ -189,6 +199,7 @@ export default function DashboardPage() {
       if (!selectedStudentId) {
         setProgress([]);
         setMiniProgress([]);
+        setTermTests([]);
         setHistory([]);
         setRecommendation(null);
         return;
@@ -199,6 +210,7 @@ export default function DashboardPage() {
       if (res.response.ok) {
         setProgress((res.data.progress as ProgressRow[]) || []);
         setMiniProgress((res.data.mini_progress as MiniProgressRow[]) || []);
+        setTermTests((res.data.term_tests as TermTest[]) || []);
         setHistory((res.data.history as HistoryPoint[]) || []);
         setRecommendation(
           (res.data.recommendation as Recommendation | null) ?? null,
@@ -402,11 +414,18 @@ export default function DashboardPage() {
             <div>
               <h2 className="text-lg font-medium text-stone-900">Writing units</h2>
               <p className="mt-1 text-sm text-stone-600">
-                Start any unit. Each one has short mini practice, then a full
-                writing task.
+                Start any unit. Each one has mini practice and three full
+                writing tasks. After each group, sit the term review — one test
+                per unit, one attempt only.
               </p>
             </div>
-            {UNIT_GROUPS.map((group) => (
+            {UNIT_GROUPS.map((group) => {
+              const groupUnits = unitsByGroup(group);
+              const groupTests = termTests.filter((test) =>
+                groupUnits.some((unit) => unit.id === test.module_id),
+              );
+
+              return (
               <div key={group} className="space-y-4">
                 <div className="flex items-baseline gap-3">
                   <h3 className="text-sm font-semibold uppercase tracking-wide text-stone-900">
@@ -417,7 +436,7 @@ export default function DashboardPage() {
                   </p>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {unitsByGroup(group).map((unit) => {
+                  {groupUnits.map((unit) => {
                     const row = progress.find((p) => p.module_id === unit.id);
                     const status = moduleStatus(row);
                     const total = row?.prompt_count ?? 0;
@@ -478,8 +497,57 @@ export default function DashboardPage() {
                     );
                   })}
                 </div>
+                {groupTests.length > 0 ? (
+                  <div className="space-y-3 rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
+                    <div>
+                      <h4 className="text-sm font-semibold uppercase tracking-wide text-indigo-800">
+                        Term review
+                      </h4>
+                      <p className="mt-1 text-sm text-stone-700">
+                        {groupTests.length} test
+                        {groupTests.length === 1 ? '' : 's'} — one for each{' '}
+                        {group.toLowerCase()} unit. Exam-style: one sitting, AI
+                        marking, no re-attempt.
+                      </p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {groupTests.map((test) => {
+                        const unit = groupUnits.find(
+                          (row) => row.id === test.module_id,
+                        );
+                        const href = test.sat
+                          ? `/dashboard/writing/${test.id}/results`
+                          : `/dashboard/writing/${test.id}`;
+                        return (
+                          <Link
+                            key={test.id}
+                            href={href}
+                            className="flex flex-col justify-between rounded-lg border border-indigo-100 bg-white p-4 transition hover:border-indigo-300 hover:shadow-sm"
+                          >
+                            <div className="space-y-1.5">
+                              <span className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
+                                {unit?.title ?? `Unit ${test.module_id}`}
+                              </span>
+                              <p className="font-medium text-stone-900">
+                                {test.title}
+                              </p>
+                            </div>
+                            <p className="mt-3 text-sm text-stone-600">
+                              {test.sat
+                                ? typeof test.overall_score === 'number'
+                                  ? `Sat · ${test.overall_score}/25`
+                                  : 'Sat · marked'
+                                : 'Not started'}
+                            </p>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
               </div>
-            ))}
+              );
+            })}
           </section>
         </>
       )}

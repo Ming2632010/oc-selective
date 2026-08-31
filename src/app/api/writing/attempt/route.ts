@@ -56,6 +56,7 @@ export async function GET(request: Request) {
         recommendation: guidance.recommendation,
         history: guidance.history,
         mini_progress: guidance.mini_progress,
+        term_tests: guidance.term_tests,
         attempts: [],
       });
     }
@@ -77,6 +78,7 @@ export async function GET(request: Request) {
       recommendation: guidance.recommendation,
       history: guidance.history,
       mini_progress: guidance.mini_progress,
+      term_tests: guidance.term_tests,
       attempts: attempts.rows,
     });
   } catch (error) {
@@ -142,9 +144,10 @@ export async function POST(request: Request) {
       hint_points: unknown;
       is_locked: boolean;
       is_active: boolean;
+      kind: string;
     }>(
       `SELECT id, title, description, prompt_type, module_id, hint_points,
-              is_locked, is_active
+              is_locked, is_active, COALESCE(kind, 'practice') AS kind
        FROM prompts WHERE id = $1 LIMIT 1`,
       [promptId],
     );
@@ -152,6 +155,8 @@ export async function POST(request: Request) {
     if (!prompt || !prompt.is_active) {
       return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
     }
+
+    const isTest = prompt.kind === 'test';
 
     const existing = await query<{ draft_number: number }>(
       `SELECT draft_number FROM writing_attempts
@@ -161,23 +166,32 @@ export async function POST(request: Request) {
     );
     const maxDraft = existing.rows[0]?.draft_number ?? 0;
 
-    if (existing.rows.some((row) => row.draft_number === draftNumber)) {
-      return NextResponse.json(
-        { error: `Draft ${draftNumber} already exists for this prompt` },
-        { status: 409 },
-      );
-    }
+    if (isTest) {
+      if (existing.rows.length > 0 || draftNumber !== 1) {
+        return NextResponse.json(
+          { error: 'This test can only be sat once.' },
+          { status: 409 },
+        );
+      }
+    } else {
+      if (existing.rows.some((row) => row.draft_number === draftNumber)) {
+        return NextResponse.json(
+          { error: `Draft ${draftNumber} already exists for this prompt` },
+          { status: 409 },
+        );
+      }
 
-    if (draftNumber !== maxDraft + 1) {
-      return NextResponse.json(
-        {
-          error:
-            maxDraft === 0
-              ? 'Start with draft_number 1'
-              : `Next draft must be ${maxDraft + 1}`,
-        },
-        { status: 400 },
-      );
+      if (draftNumber !== maxDraft + 1) {
+        return NextResponse.json(
+          {
+            error:
+              maxDraft === 0
+                ? 'Start with draft_number 1'
+                : `Next draft must be ${maxDraft + 1}`,
+          },
+          { status: 400 },
+        );
+      }
     }
 
     const hintPoints = Array.isArray(prompt.hint_points)

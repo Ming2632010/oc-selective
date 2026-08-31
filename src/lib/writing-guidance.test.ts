@@ -108,6 +108,22 @@ describe('recommendNextTask', () => {
     assert.equal(rec.next_draft, 1);
     assert.equal(maxDraftForPrompt(attempts, 'p1'), 3);
   });
+
+  it('does not recommend term-review tests as the next practice task', () => {
+    const withTest: PromptSummary[] = [
+      {
+        id: 't1',
+        title: 'Term review: The last bus home',
+        prompt_type: 'narrative',
+        module_id: 1,
+        kind: 'test',
+      },
+      ...prompts,
+    ];
+    const rec = recommendNextTask(withTest, [], 11);
+    assert.ok(rec);
+    assert.equal(rec.prompt_id, 'p1');
+  });
 });
 
 describe('mini drills', () => {

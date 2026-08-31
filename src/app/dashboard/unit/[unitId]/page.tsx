@@ -13,6 +13,7 @@ type Prompt = {
   prompt_type: string;
   module_id: number;
   is_locked: boolean;
+  kind?: 'practice' | 'test';
 };
 
 type PromptWithStatus = Prompt & {
@@ -89,7 +90,7 @@ export default function UnitPage() {
 
       try {
         const [promptRes, drillRes] = await Promise.all([
-          apiFetch(`/api/prompts?module_id=${unitId}&student_id=${studentId}`),
+          apiFetch(`/api/prompts?module_id=${unitId}&kind=practice&student_id=${studentId}`),
           apiFetch(`/api/writing/drills?module_id=${unitId}&student_id=${studentId}`),
         ]);
         if (!promptRes.response.ok) {
@@ -200,7 +201,7 @@ export default function UnitPage() {
             </button>
           ) : extra && extra.remaining_unit <= 0 ? (
             <p className="max-w-xs text-right text-xs text-stone-500">
-              Enough extra questions for this unit. Try the full writing task.
+              Enough extra questions for this unit. Try the full writing tasks.
             </p>
           ) : extra ? (
             <p className="max-w-xs text-right text-xs text-stone-500">
@@ -244,9 +245,10 @@ export default function UnitPage() {
 
       <section className="space-y-3">
         <div>
-          <h2 className="text-lg font-semibold text-stone-900">Full writing task</h2>
+          <h2 className="text-lg font-semibold text-stone-900">Full writing tasks</h2>
           <p className="mt-1 text-sm text-stone-600">
-            30-minute Selective-style task, up to three drafts.
+            Three 30-minute Selective-style tasks. Each one allows up to three
+            drafts. Term review tests sit on the dashboard under this group.
           </p>
         </div>
         {prompts.length === 0 && !error ? (

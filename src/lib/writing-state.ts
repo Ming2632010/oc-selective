@@ -1,6 +1,7 @@
 import { query } from '@/lib/db';
 import { extraCapacity, pickMiniFocus, type SkillStat } from '@/lib/mini-weakness';
 import { MINI_SKILLS, SEED_MINI_DRILLS, type MiniSkill } from '@/lib/seed-mini-drills';
+import { SEED_PROMPTS } from '@/lib/seed-prompts';
 import { getUnitInfo } from '@/lib/units';
 import {
   recommendNextTask,
@@ -13,13 +14,15 @@ import {
 
 let schemaReady = false;
 let seededLength = 0;
-const WRITING_SCHEMA = 2;
+let seededPrompts = 0;
+const WRITING_SCHEMA = 3;
 let appliedSchema = 0;
 
 export async function ensureWritingEnhancements(): Promise<void> {
   if (
     schemaReady &&
     seededLength === SEED_MINI_DRILLS.length &&
+    seededPrompts === SEED_PROMPTS.length &&
     appliedSchema === WRITING_SCHEMA
   ) {
     return;
@@ -101,6 +104,58 @@ export async function ensureWritingEnhancements(): Promise<void> {
       ON mini_drills (student_id, module_id, sort_order)
   `);
 
+  await query(`
+    ALTER TABLE prompts
+      ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'practice'
+  `);
+  await query(`
+    UPDATE prompts SET kind = 'practice' WHERE kind IS NULL OR kind = ''
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_prompts_kind_module
+      ON prompts (kind, module_id, is_active)
+  `);
+
+  for (const prompt of SEED_PROMPTS) {
+    const values = [
+      prompt.title,
+      prompt.description,
+      prompt.prompt_type,
+      prompt.module_id,
+      JSON.stringify(prompt.hint_points),
+      prompt.sample_answer_high,
+      prompt.sample_answer_medium,
+      prompt.is_locked,
+      prompt.time_limit_minutes,
+      prompt.is_active,
+      prompt.kind ?? 'practice',
+    ];
+    const existing = await query<{ id: string }>(
+      'SELECT id FROM prompts WHERE title = $1',
+      [prompt.title],
+    );
+    if ((existing.rowCount ?? existing.rows.length) > 0) {
+      await query(
+        `UPDATE prompts SET
+           description = $2, prompt_type = $3, module_id = $4,
+           hint_points = $5::jsonb, sample_answer_high = $6,
+           sample_answer_medium = $7, is_locked = FALSE,
+           time_limit_minutes = $9, is_active = $10, kind = $11
+         WHERE title = $1`,
+        values,
+      );
+    } else {
+      await query(
+        `INSERT INTO prompts (
+           title, description, prompt_type, module_id, hint_points,
+           sample_answer_high, sample_answer_medium, is_locked,
+           time_limit_minutes, is_active, kind
+         ) VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10,$11)`,
+        values,
+      );
+    }
+  }
+
   for (const drill of SEED_MINI_DRILLS) {
     await query(
       `INSERT INTO mini_drills (
@@ -137,6 +192,7 @@ export async function ensureWritingEnhancements(): Promise<void> {
 
   schemaReady = true;
   seededLength = SEED_MINI_DRILLS.length;
+  seededPrompts = SEED_PROMPTS.length;
   appliedSchema = WRITING_SCHEMA;
 }
 
@@ -157,6 +213,7 @@ export async function getUnitProgress(
       AND a.student_id = $1
       AND a.draft_number >= 1
      WHERE p.is_active = TRUE
+       AND COALESCE(p.kind, 'practice') = 'practice'
      GROUP BY p.module_id
      ORDER BY p.module_id ASC`,
     [studentId],
@@ -233,21 +290,69 @@ export async function getMiniProgress(studentId: string) {
   }));
 }
 
+export type TermTestRow = {
+  id: string;
+  title: string;
+  prompt_type: string;
+  module_id: number;
+  overall_score: number | null;
+  sat: boolean;
+};
+
+export async function getTermTests(studentId: string): Promise<TermTestRow[]> {
+  const result = await query<{
+    id: string;
+    title: string;
+    prompt_type: string;
+    module_id: number;
+    overall_score: number | null;
+    attempt_id: string | null;
+  }>(
+    `SELECT p.id, p.title, p.prompt_type, p.module_id,
+            a.overall_score, a.id AS attempt_id
+     FROM prompts p
+     LEFT JOIN LATERAL (
+       SELECT id, overall_score
+       FROM writing_attempts
+       WHERE student_id = $1 AND prompt_id = p.id
+       ORDER BY draft_number DESC
+       LIMIT 1
+     ) a ON TRUE
+     WHERE p.is_active = TRUE
+       AND COALESCE(p.kind, 'practice') = 'test'
+     ORDER BY p.module_id ASC, p.title ASC`,
+    [studentId],
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    prompt_type: row.prompt_type,
+    module_id: row.module_id,
+    overall_score: row.overall_score,
+    sat: Boolean(row.attempt_id),
+  }));
+}
+
 export async function getGuidanceForStudent(studentId: string): Promise<{
   progress: UnitProgressRow[];
   unlocked_unit: number;
   recommendation: NextTaskRecommendation | null;
   history: Awaited<ReturnType<typeof getScoreHistory>>;
   mini_progress: Awaited<ReturnType<typeof getMiniProgress>>;
+  term_tests: TermTestRow[];
 }> {
   const progress = await getUnitProgress(studentId);
   const unlocked_unit = 11;
   const mini_progress = await getMiniProgress(studentId);
+  const term_tests = await getTermTests(studentId);
 
   const promptRows = await query<PromptSummary>(
-    `SELECT id, title, prompt_type, module_id
+    `SELECT id, title, prompt_type, module_id,
+            COALESCE(kind, 'practice') AS kind
      FROM prompts
      WHERE is_active = TRUE
+       AND COALESCE(kind, 'practice') = 'practice'
      ORDER BY module_id ASC, title ASC`,
   );
 
@@ -268,7 +373,14 @@ export async function getGuidanceForStudent(studentId: string): Promise<{
   );
   const history = await getScoreHistory(studentId);
 
-  return { progress, unlocked_unit, recommendation, history, mini_progress };
+  return {
+    progress,
+    unlocked_unit,
+    recommendation,
+    history,
+    mini_progress,
+    term_tests,
+  };
 }
 
 function emptySkillStats(): SkillStat[] {
