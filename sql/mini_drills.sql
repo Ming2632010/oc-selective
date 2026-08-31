@@ -11,11 +11,18 @@ CREATE TABLE IF NOT EXISTS mini_drills (
   correct_index INTEGER NOT NULL,
   explanation TEXT NOT NULL,
   sort_order INTEGER NOT NULL DEFAULT 1,
-  is_active BOOLEAN NOT NULL DEFAULT TRUE
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  student_id UUID REFERENCES students (id) ON DELETE CASCADE,
+  source TEXT NOT NULL DEFAULT 'seed',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  focus_note TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_mini_drills_module
   ON mini_drills (module_id, sort_order);
+
+CREATE INDEX IF NOT EXISTS idx_mini_drills_student
+  ON mini_drills (student_id, module_id, sort_order);
 
 CREATE TABLE IF NOT EXISTS mini_drill_attempts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

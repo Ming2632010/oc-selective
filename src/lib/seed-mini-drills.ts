@@ -10,6 +10,10 @@ export const MINI_SKILLS = [
 
 export type MiniSkill = (typeof MINI_SKILLS)[number];
 
+export function isMiniSkill(value: string): value is MiniSkill {
+  return (MINI_SKILLS as readonly string[]).includes(value);
+}
+
 export const MINI_SKILL_LABELS: Record<MiniSkill, string> = {
   format: 'Format',
   audience: 'Audience',

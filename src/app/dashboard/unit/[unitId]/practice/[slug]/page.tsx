@@ -14,6 +14,7 @@ type Drill = {
   title: string;
   stem: string;
   options: string[];
+  source?: 'seed' | 'ai';
 };
 
 export default function MiniPracticePage() {
@@ -37,6 +38,12 @@ export default function MiniPracticePage() {
 
   useEffect(() => {
     async function load() {
+      setLoading(true);
+      setError(null);
+      setChosen(null);
+      setResult(null);
+      setDrill(null);
+      setNextSlug(null);
       const token = getToken();
       const studentId = getStudentId();
       if (!token) {
@@ -135,7 +142,9 @@ export default function MiniPracticePage() {
           ← Back to {unitInfo.title}
         </Link>
         <p className="mt-2 text-sm uppercase tracking-wide text-indigo-700">
-          Mini practice · {MINI_SKILL_LABELS[drill.skill] ?? drill.skill}
+          Mini practice
+          {drill.source === 'ai' ? ' · Extra' : ''} ·{' '}
+          {MINI_SKILL_LABELS[drill.skill] ?? drill.skill}
         </p>
         <h1 className="text-3xl font-semibold text-stone-900">{drill.title}</h1>
       </header>

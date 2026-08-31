@@ -25,6 +25,15 @@ type MiniDrillCard = {
   skill: MiniSkill;
   title: string;
   attempted: boolean;
+  source?: 'seed' | 'ai';
+};
+
+type ExtraMeta = {
+  can_generate: boolean;
+  remaining_today: number;
+  remaining_unit: number;
+  suggested_skills: MiniSkill[];
+  reason: string;
 };
 
 function draftStatusLabel(maxDraft: number): string {
@@ -54,8 +63,11 @@ export default function UnitPage() {
 
   const [prompts, setPrompts] = useState<PromptWithStatus[]>([]);
   const [drills, setDrills] = useState<MiniDrillCard[]>([]);
+  const [extra, setExtra] = useState<ExtraMeta | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [generateNote, setGenerateNote] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -85,6 +97,7 @@ export default function UnitPage() {
         }
         const list = (promptRes.data.prompts as Prompt[]) || [];
         setDrills((drillRes.data.drills as MiniDrillCard[]) || []);
+        setExtra((drillRes.data.extra as ExtraMeta | null) ?? null);
 
         const withStatus = await Promise.all(
           list.map(async (prompt) => {
@@ -112,6 +125,37 @@ export default function UnitPage() {
     void load();
   }, [unitId, router]);
 
+  async function generateMore() {
+    const studentId = getStudentId();
+    if (!studentId || generating) return;
+    setGenerating(true);
+    setError(null);
+    try {
+      const res = await apiFetch('/api/writing/drills/generate', {
+        method: 'POST',
+        body: JSON.stringify({ student_id: studentId, module_id: unitId }),
+      });
+      if (!res.response.ok) {
+        throw new Error(res.data.error || 'Could not make extra questions');
+      }
+      const fresh = (res.data.drills as MiniDrillCard[]) || [];
+      setDrills((prev) => {
+        const have = new Set(prev.map((row) => row.slug));
+        return [...prev, ...fresh.filter((row) => !have.has(row.slug))];
+      });
+      setExtra((res.data.extra as ExtraMeta | null) ?? extra);
+      setGenerateNote(
+        typeof res.data.reason === 'string' ? res.data.reason : 'Extra questions added.',
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Could not make extra questions',
+      );
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   if (loading) {
     return <main className="mx-auto max-w-4xl p-6">Loading unit…</main>;
   }
@@ -136,14 +180,41 @@ export default function UnitPage() {
       ) : null}
 
       <section className="space-y-3">
-        <div>
-          <h2 className="text-lg font-semibold text-stone-900">Mini practice</h2>
-          <p className="mt-1 text-sm text-stone-600">
-            Short questions on format, audience, word choice, punctuation, and
-            structure — at Selective Year 5–6 level. {miniDone}/{drills.length}{' '}
-            tried.
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-stone-900">Mini practice</h2>
+            <p className="mt-1 text-sm text-stone-600">
+              Short questions on format, audience, word choice, punctuation, and
+              structure — at Selective Year 5–6 level. {miniDone}/{drills.length}{' '}
+              tried.
+            </p>
+          </div>
+          {extra?.can_generate ? (
+            <button
+              type="button"
+              onClick={() => void generateMore()}
+              disabled={generating}
+              className="shrink-0 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+            >
+              {generating ? 'Making questions…' : 'More practice for me'}
+            </button>
+          ) : extra && extra.remaining_unit <= 0 ? (
+            <p className="max-w-xs text-right text-xs text-stone-500">
+              Enough extra questions for this unit. Try the full writing task.
+            </p>
+          ) : extra ? (
+            <p className="max-w-xs text-right text-xs text-stone-500">
+              Come back tomorrow for more extra questions.
+            </p>
+          ) : null}
         </div>
+        {generateNote ? (
+          <p className="rounded-md border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
+            {generateNote}
+          </p>
+        ) : extra?.reason ? (
+          <p className="text-sm text-stone-600">{extra.reason}</p>
+        ) : null}
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {drills.map((drill) => (
             <li key={drill.slug}>
@@ -153,6 +224,7 @@ export default function UnitPage() {
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                    {drill.source === 'ai' ? 'Extra · ' : ''}
                     {MINI_SKILL_LABELS[drill.skill] ?? drill.skill}
                   </span>
                   <span
