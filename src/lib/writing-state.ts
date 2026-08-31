@@ -139,7 +139,7 @@ export async function ensureWritingEnhancements(): Promise<void> {
         `UPDATE prompts SET
            description = $2, prompt_type = $3, module_id = $4,
            hint_points = $5::jsonb, sample_answer_high = $6,
-           sample_answer_medium = $7, is_locked = FALSE,
+           sample_answer_medium = $7, is_locked = $8,
            time_limit_minutes = $9, is_active = $10, kind = $11
          WHERE title = $1`,
         values,
