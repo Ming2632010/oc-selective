@@ -1,4 +1,5 @@
 import { GROWTH_STAGES } from '@/lib/rewards';
+import { SeedGardenPath, SeedGardenScene } from '@/components/writing/seed-garden';
 
 export type SeedPatchData = {
   lifetime_seeds: number;
@@ -41,26 +42,35 @@ export function SeedPatch({ patch }: { patch: SeedPatchData | null }) {
 
   return (
     <section className="rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-lime-50 p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
-            Seed Patch
-          </p>
-          <h2 className="mt-1 text-2xl font-semibold text-stone-900">
-            {patch.lifetime_seeds} seed{patch.lifetime_seeds === 1 ? '' : 's'}
-          </h2>
-          <p className="mt-1 text-sm text-stone-700">
-            {patch.stage.label} — {patch.stage.blurb}
-          </p>
-        </div>
-        <div className="rounded-lg bg-white/80 px-3 py-2 text-right">
-          <p className="text-xs uppercase tracking-wide text-stone-500">On-plot</p>
-          <p className="text-lg font-semibold text-emerald-900">
-            {patch.plot_days} day{patch.plot_days === 1 ? '' : 's'}
-          </p>
-          <p className="text-xs text-stone-600">
-            {patch.rain_cheques} rain cheque{patch.rain_cheques === 1 ? '' : 's'}
-          </p>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,17rem)_1fr]">
+        <SeedGardenScene
+          stageId={patch.stage.id}
+          className="h-auto w-full rounded-xl border border-emerald-100 shadow-sm"
+        />
+        <div className="flex flex-col justify-between gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
+                Seed Patch
+              </p>
+              <h2 className="mt-1 text-2xl font-semibold text-stone-900">
+                {patch.lifetime_seeds} seed{patch.lifetime_seeds === 1 ? '' : 's'}
+              </h2>
+              <p className="mt-1 text-sm text-stone-700">
+                {patch.stage.label} — {patch.stage.blurb}
+              </p>
+            </div>
+            <div className="rounded-lg bg-white/80 px-3 py-2 text-right">
+              <p className="text-xs uppercase tracking-wide text-stone-500">On-plot</p>
+              <p className="text-lg font-semibold text-emerald-900">
+                {patch.plot_days} day{patch.plot_days === 1 ? '' : 's'}
+              </p>
+              <p className="text-xs text-stone-600">
+                {patch.rain_cheques} rain cheque{patch.rain_cheques === 1 ? '' : 's'}
+              </p>
+            </div>
+          </div>
+          <SeedGardenPath currentId={patch.stage.id} />
         </div>
       </div>
 
