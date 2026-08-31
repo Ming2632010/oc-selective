@@ -206,10 +206,11 @@ export async function POST(request: Request) {
 
     const scored = await scoreWritingAttempt({
       content,
-      hintPoints,
+      hintPoints: isTest ? [] : hintPoints,
       promptType: prompt.prompt_type,
       promptTitle: prompt.title,
       promptDescription: prompt.description,
+      examStyle: isTest,
     });
 
     const inserted = await query(
