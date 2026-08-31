@@ -4,6 +4,7 @@ import { query } from '@/lib/db';
 import {
   assertOwnedStudent,
   ensureWritingEnhancements,
+  hasCompletedWarmup,
 } from '@/lib/writing-state';
 
 export const runtime = 'nodejs';
@@ -22,12 +23,18 @@ type PromptRow = {
   time_limit_minutes: number;
   is_active: boolean;
   kind: string;
+  stimulus_image: string | null;
+  stimulus_quote: string | null;
+  purposes: string[] | null;
+  purpose_note: string | null;
+  decode_guide: unknown;
 };
 
 const PROMPT_COLUMNS = `id, title, description, prompt_type, module_id, hint_points,
                 sample_answer_high, sample_answer_medium, is_locked,
                 time_limit_minutes, is_active,
-                COALESCE(kind, 'practice') AS kind`;
+                COALESCE(kind, 'practice') AS kind,
+                stimulus_image, stimulus_quote, purposes, purpose_note, decode_guide`;
 
 function stripSamples(prompt: PromptRow) {
   const { sample_answer_high: _h, sample_answer_medium: _m, ...rest } = prompt;
@@ -70,6 +77,7 @@ export async function GET(request: Request) {
       const isTest = isTestKind(prompt.kind);
       let includeSamples = false;
       let maxDraft = 0;
+      let warmupCompleted = false;
 
       if (studentId) {
         const owned = await assertOwnedStudent(userId, studentId);
@@ -86,6 +94,9 @@ export async function GET(request: Request) {
         );
         maxDraft = attempts.rows[0]?.draft_number ?? 0;
         includeSamples = !isTest && maxDraft >= 3;
+        warmupCompleted = isTest
+          ? await hasCompletedWarmup(studentId, promptId)
+          : true;
       }
 
       return NextResponse.json({
@@ -97,6 +108,7 @@ export async function GET(request: Request) {
         max_attempts: isTest ? 1 : 3,
         kind: isTest ? 'test' : 'practice',
         unit_locked: false,
+        warmup_completed: warmupCompleted,
       });
     }
 

@@ -14,6 +14,8 @@ import { UNIT_GROUPS, unitsByGroup, type UnitGroup } from '@/lib/units';
 import { WritingProgressLine, type HistoryPoint } from '@/components/writing/progress-line';
 import { SeedPatch, type SeedPatchData } from '@/components/writing/seed-patch';
 import { SubjectChat } from '@/components/writing/subject-chat';
+import { WeekNote } from '@/components/writing/week-note';
+import type { WeekNoteData } from '@/lib/week-note';
 
 type Student = {
   id: string;
@@ -135,6 +137,7 @@ export default function DashboardPage() {
   const [miniProgress, setMiniProgress] = useState<MiniProgressRow[]>([]);
   const [termTests, setTermTests] = useState<TermTest[]>([]);
   const [rewards, setRewards] = useState<SeedPatchData | null>(null);
+  const [weekNote, setWeekNote] = useState<WeekNoteData | null>(null);
   const [history, setHistory] = useState<HistoryPoint[]>([]);
   const [recommendation, setRecommendation] = useState<Recommendation | null>(
     null,
@@ -203,6 +206,7 @@ export default function DashboardPage() {
         setMiniProgress([]);
         setTermTests([]);
         setRewards(null);
+        setWeekNote(null);
         setHistory([]);
         setRecommendation(null);
         return;
@@ -215,6 +219,7 @@ export default function DashboardPage() {
         setMiniProgress((res.data.mini_progress as MiniProgressRow[]) || []);
         setTermTests((res.data.term_tests as TermTest[]) || []);
         setRewards((res.data.rewards as SeedPatchData | null) ?? null);
+        setWeekNote((res.data.week_note as WeekNoteData | null) ?? null);
         setHistory((res.data.history as HistoryPoint[]) || []);
         setRecommendation(
           (res.data.recommendation as Recommendation | null) ?? null,
@@ -408,6 +413,7 @@ export default function DashboardPage() {
           ) : null}
 
           <SeedPatch patch={rewards} />
+          <WeekNote note={weekNote} />
 
           <div className="grid gap-4 lg:grid-cols-2">
             <WritingProgressLine history={history} />

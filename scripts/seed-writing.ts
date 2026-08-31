@@ -1,5 +1,6 @@
 import { readFileSync } from 'fs';
 import { Pool } from 'pg';
+import { buildDecodeGuide, defaultPurposes } from '../src/lib/decode-guide';
 import { SEED_PROMPTS } from '../src/lib/seed-prompts';
 
 function loadEnv() {
@@ -31,6 +32,10 @@ async function main() {
     let updated = 0;
 
     for (const prompt of SEED_PROMPTS) {
+      const purposes =
+        prompt.purposes && prompt.purposes.length > 0
+          ? prompt.purposes
+          : defaultPurposes(prompt.prompt_type);
       const values = [
         prompt.title,
         prompt.description,
@@ -43,6 +48,11 @@ async function main() {
         prompt.time_limit_minutes,
         prompt.is_active,
         prompt.kind ?? 'practice',
+        purposes,
+        prompt.purpose_note ?? null,
+        prompt.stimulus_image ?? null,
+        prompt.stimulus_quote ?? null,
+        JSON.stringify(buildDecodeGuide(prompt)),
       ];
 
       const existing = await pool.query<{ id: string }>(
@@ -56,7 +66,9 @@ async function main() {
              description = $2, prompt_type = $3, module_id = $4,
              hint_points = $5::jsonb, sample_answer_high = $6,
              sample_answer_medium = $7, is_locked = $8,
-             time_limit_minutes = $9, is_active = $10, kind = $11
+             time_limit_minutes = $9, is_active = $10, kind = $11,
+             purposes = $12::text[], purpose_note = $13,
+             stimulus_image = $14, stimulus_quote = $15, decode_guide = $16::jsonb
            WHERE title = $1`,
           values,
         );
@@ -66,8 +78,9 @@ async function main() {
           `INSERT INTO prompts (
              title, description, prompt_type, module_id, hint_points,
              sample_answer_high, sample_answer_medium, is_locked,
-             time_limit_minutes, is_active, kind
-           ) VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10,$11)`,
+             time_limit_minutes, is_active, kind,
+             purposes, purpose_note, stimulus_image, stimulus_quote, decode_guide
+           ) VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10,$11,$12::text[],$13,$14,$15,$16::jsonb)`,
           values,
         );
         inserted += 1;

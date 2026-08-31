@@ -2,6 +2,7 @@
  * Seed prompts for the per-type Units. Each prompt's `module_id` is the Unit id
  * (see src/lib/units.ts) and `prompt_type` matches that Unit's text type.
  */
+import type { DecodeGuide } from './decode-guide';
 import { EXTRA_WRITING_PROMPTS } from './seed-prompts-extra';
 import type { WritingType } from './units';
 
@@ -19,6 +20,15 @@ export type SeedPrompt = {
   time_limit_minutes: number;
   is_active: boolean;
   kind?: PromptKind;
+  stimulus_image?: string | null;
+  stimulus_quote?: string | null;
+  purposes?: string[];
+  purpose_note?: string | null;
+  decode_topic?: string | null;
+  decode_audience?: string | null;
+  decode_topic_options?: string[] | null;
+  decode_audience_options?: string[] | null;
+  decode_guide?: DecodeGuide | null;
 };
 
 export const CORE_WRITING_PROMPTS: SeedPrompt[] = [
@@ -272,7 +282,7 @@ export const CORE_WRITING_PROMPTS: SeedPrompt[] = [
   {
     title: 'A speech to your school',
     description:
-      'You have been asked to give a speech at a school assembly about something you believe would make your school even better.\n\nWrite the speech you would deliver.\n\nIn your writing, you could:\n• open in a way that grabs attention\n• give reasons that inspire your audience\n• end with a memorable call to action.',
+      'You have been asked to give a speech at a school assembly about something you believe would make your school even better.\n\nUse this line as a starting idea if you wish:\n“Nobody should eat lunch alone.”\n\nWrite the speech you would deliver.\n\nIn your writing, you could:\n• open in a way that grabs attention\n• give reasons that inspire your audience\n• end with a memorable call to action.',
     prompt_type: 'speech',
     module_id: 10,
     hint_points: [
@@ -287,6 +297,8 @@ export const CORE_WRITING_PROMPTS: SeedPrompt[] = [
     is_locked: false,
     time_limit_minutes: 30,
     is_active: true,
+    stimulus_quote: 'Nobody should eat lunch alone.',
+    decode_topic: 'a change that would make the school better, spoken to assembly',
   },
 
   // ─────────────── Unit 11 · Email ───────────────
@@ -312,7 +324,7 @@ export const CORE_WRITING_PROMPTS: SeedPrompt[] = [
   {
     title: 'Community garden proposal',
     description:
-      'Your local council is deciding whether to turn an empty lot into a community garden. They have asked young people for ideas.\n\nWrite an email to the council explaining why a community garden would help your neighbourhood and how students could be involved.',
+      'Your local council is deciding whether to turn an empty lot into a community garden. They have asked young people for ideas.\n\nWrite an email to the council that does two jobs: explain why a community garden would help your neighbourhood, and describe how students could be involved.',
     prompt_type: 'email',
     module_id: 11,
     hint_points: [
@@ -327,6 +339,9 @@ export const CORE_WRITING_PROMPTS: SeedPrompt[] = [
     is_locked: false,
     time_limit_minutes: 30,
     is_active: true,
+    purposes: ['inform', 'persuade'],
+    purpose_note: 'Explain why a garden would help, then say how students could take part.',
+    decode_topic: 'why a community garden would help, and how students could be involved',
   },
 ];
 

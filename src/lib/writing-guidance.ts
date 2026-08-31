@@ -8,10 +8,10 @@ export const SCORE_DIMENSIONS = [
 export type ScoreDimension = (typeof SCORE_DIMENSIONS)[number];
 
 export const DIMENSION_LABELS: Record<ScoreDimension, string> = {
-  structure: 'structure',
-  vocabulary: 'vocabulary',
-  audience: 'audience and purpose',
-  grammar: 'grammar',
+  structure: 'organisation',
+  vocabulary: 'vocabulary and style',
+  audience: 'purpose and form',
+  grammar: 'sentences, punctuation and spelling',
 };
 
 export type PromptSummary = {

@@ -25,6 +25,7 @@ type ScoreInput = {
   promptType: string;
   promptTitle?: string;
   promptDescription?: string;
+  examStyle?: boolean;
 };
 
 const SELECTIVE_MARKING_CRITERIA = `
@@ -179,6 +180,7 @@ export function scoreWritingAttemptHeuristic(input: ScoreInput): ScoringResult {
     .map((ok, i) => (ok ? `✓ Hint ${i + 1} covered` : `✗ Hint ${i + 1} not clearly covered`))
     .join('\n');
 
+  const examStyle = Boolean(input.examStyle);
   const ai_feedback = [
     `Overall ${overall_score}/25 (Set A ${score_set_a}/15, Set B ${score_set_b}/10).`,
     '(Heuristic fallback scoring — OpenAI unavailable.)',
@@ -190,9 +192,9 @@ export function scoreWritingAttemptHeuristic(input: ScoreInput): ScoringResult {
     hasParagraphs
       ? 'Organisation shows paragraphing — keep using clear sections for each idea.'
       : 'Try clearer paragraph breaks so structure and audience purpose stand out.',
-    'Hint checklist:',
-    covered,
-    'Next draft: strengthen any missing hint, polish word choice, and re-check opening/closing for audience.',
+    examStyle
+      ? 'On the day there is one sitting and no second draft. Check that you answered the question, kept the right form, and left time to proofread.'
+      : ['Hint checklist:', covered, 'Next draft: strengthen any missing hint, polish word choice, and re-check opening/closing for audience.'].join('\n'),
   ].join('\n');
 
   return {
@@ -220,12 +222,16 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
       'Return ONLY valid JSON matching the required schema.',
       '',
       SELECTIVE_MARKING_CRITERIA,
-    ].join('\n'),
+      input.examStyle
+        ? 'This is a one-sitting exam-style paper. Do not mention hint points or a next draft. Comment on task, form, and accuracy only.'
+        : '',
+    ].filter(Boolean).join('\n'),
     user: {
       prompt_type: input.promptType,
       prompt_title: input.promptTitle ?? null,
       prompt_description: input.promptDescription ?? null,
-      hint_points: hints,
+      hint_points: input.examStyle ? [] : hints,
+      exam_style: Boolean(input.examStyle),
       word_count: wc,
       student_writing: input.content,
       required_json_schema: {
@@ -238,8 +244,9 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
           audience: 'integer 0-5',
           grammar: 'integer 0-5',
         },
-        ai_feedback:
-          'string: 3-6 short paragraphs/bullets with strengths, gaps, and next-draft advice',
+        ai_feedback: input.examStyle
+          ? 'string: 3-6 short paragraphs/bullets with strengths and gaps for a one-sitting paper; do not mention hints or a next draft'
+          : 'string: 3-6 short paragraphs/bullets with strengths, gaps, and next-draft advice',
         checked_hint_1: 'boolean',
         checked_hint_2: 'boolean',
         checked_hint_3: 'boolean',
