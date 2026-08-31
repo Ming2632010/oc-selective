@@ -12,7 +12,6 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { SeedAwardBanner } from '@/components/writing/seed-patch';
-import { KeyboardFluencyNote } from '@/components/writing/keyboard-fluency';
 import { getStudentId, getToken } from '@/lib/client-auth';
 
 type Attempt = {
@@ -33,7 +32,6 @@ type Attempt = {
   checked_hint_2: boolean;
   checked_hint_3: boolean;
   word_count: number;
-  time_spent_seconds?: number;
   has_seen_sample: boolean;
 };
 
@@ -258,11 +256,6 @@ export default function WritingResultsPage() {
         </div>
         <p className="mt-3 text-sm text-stone-600">{attempt.word_count} words</p>
       </section>
-
-      <KeyboardFluencyNote
-        wordCount={attempt.word_count}
-        timeSpentSeconds={attempt.time_spent_seconds}
-      />
 
       <section className="rounded-lg border border-stone-200 p-4">
         <h2 className="mb-2 text-lg font-medium">AI feedback</h2>
