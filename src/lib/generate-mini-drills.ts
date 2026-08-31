@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { getOpenAIClient, getOpenAIModel } from '@/lib/openai';
+import { createJsonCompletion, isOpenAIConfigured } from '@/lib/openai';
 import {
   EXTRA_PACK_SIZE,
   type MiniFocus,
@@ -129,48 +129,30 @@ async function generateWithOpenAI(input: {
   missedStems: string[];
   packSize: number;
 }): Promise<ReturnType<typeof parseGeneratedPack>> {
-  const client = getOpenAIClient();
-  const model = getOpenAIModel();
   const examples = exampleSeeds(input.moduleId, input.focus.skills);
 
-  const completion = await client.chat.completions.create({
-    model,
+  const raw = await createJsonCompletion({
     temperature: 0.5,
-    response_format: { type: 'json_object' },
-    messages: [
-      {
-        role: 'system',
-        content: [
-          'You write extra multiple-choice mini questions for NSW Selective Writing practice.',
-          'Year 5–6 only. Short, clear, not extra-hard. No rare words. No tricks.',
-          'Target the requested skills for this text type (format, audience, word choice, punctuation, or structure).',
-          'Each question has exactly 3 options and one obviously best answer.',
-          'Wrong options should be common student mix-ups (wrong text type, slang, missing punctuation).',
-          'Explanations are one or two short sentences a student can use on the next draft.',
-          'Return ONLY JSON: { "questions": [ { "skill", "title", "stem", "options", "correct_index", "explanation" } ] }',
-        ].join('\n'),
-      },
-      {
-        role: 'user',
-        content: JSON.stringify(
-          {
-            text_type: input.promptType,
-            unit_label: input.unitLabel,
-            target_skills: input.focus.skills,
-            why: input.focus.reason,
-            how_many: input.packSize,
-            missed_question_stems: input.missedStems.slice(0, 8),
-            style_examples: examples,
-          },
-          null,
-          2,
-        ),
-      },
-    ],
+    system: [
+      'You write extra multiple-choice mini questions for NSW Selective Writing practice.',
+      'Year 5–6 only. Short, clear, not extra-hard. No rare words. No tricks.',
+      'Target the requested skills for this text type (format, audience, word choice, punctuation, or structure).',
+      'Each question has exactly 3 options and one obviously best answer.',
+      'Wrong options should be common student mix-ups (wrong text type, slang, missing punctuation).',
+      'Explanations are one or two short sentences a student can use on the next draft.',
+      'Return ONLY JSON: { "questions": [ { "skill", "title", "stem", "options", "correct_index", "explanation" } ] }',
+    ].join('\n'),
+    user: {
+      text_type: input.promptType,
+      unit_label: input.unitLabel,
+      target_skills: input.focus.skills,
+      why: input.focus.reason,
+      how_many: input.packSize,
+      missed_question_stems: input.missedStems.slice(0, 8),
+      style_examples: examples,
+    },
   });
 
-  const raw = completion.choices[0]?.message?.content;
-  if (!raw) throw new Error('OpenAI returned empty drill content');
   return parseGeneratedPack(JSON.parse(raw), input.focus.skills);
 }
 
@@ -432,14 +414,12 @@ export async function generateMiniPack(input: {
     })),
   });
 
-  if (process.env.OPENAI_API_KEY) {
-    try {
-      const fromAi = await generateWithOpenAI(input);
-      if (fromAi.length >= 2) return attach(fromAi, 'openai');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown OpenAI error';
-      console.error('[generate-mini-drills] OpenAI failed, using fallback:', message);
+  if (isOpenAIConfigured()) {
+    const fromAi = await generateWithOpenAI(input);
+    if (fromAi.length < 2) {
+      throw new Error('OpenAI did not return enough valid mini questions');
     }
+    return attach(fromAi, 'openai');
   }
 
   return {

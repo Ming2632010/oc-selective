@@ -57,16 +57,28 @@ export async function POST(request: Request) {
     }
 
     const missedStems = await getMissedMiniStems(studentId, moduleId);
-    const generated = await generateMiniPack({
-      moduleId,
-      promptType: extra.prompt_type,
-      unitLabel: extra.unit_label,
-      focus: extra.focus,
-      missedStems,
-      packSize: extra.pack_size,
-      startOrder: extra.counts.maxSortOrder,
-      variation: extra.counts.existing,
-    });
+    let generated;
+    try {
+      generated = await generateMiniPack({
+        moduleId,
+        promptType: extra.prompt_type,
+        unitLabel: extra.unit_label,
+        focus: extra.focus,
+        missedStems,
+        packSize: extra.pack_size,
+        startOrder: extra.counts.maxSortOrder,
+        variation: extra.counts.existing,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'OpenAI generate failed';
+      console.error('[writing/drills/generate]', message);
+      return NextResponse.json(
+        {
+          error: 'Could not make extra questions just now. Try again in a minute.',
+        },
+        { status: 503 },
+      );
+    }
 
     if (generated.drills.length === 0) {
       return NextResponse.json(
