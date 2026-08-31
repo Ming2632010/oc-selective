@@ -9,6 +9,7 @@ import {
   type AttemptSummary,
   type PromptSummary,
 } from './writing-guidance';
+import { markMiniChoice, SEED_MINI_DRILLS } from './seed-mini-drills';
 
 const prompts: PromptSummary[] = [
   { id: 'p1', title: 'The locked door', prompt_type: 'narrative', module_id: 1 },
@@ -18,18 +19,12 @@ const prompts: PromptSummary[] = [
 ];
 
 describe('highestUnlockedUnit', () => {
-  it('always opens unit 1', () => {
-    assert.equal(highestUnlockedUnit([]), 1);
-    assert.equal(isUnitUnlocked(1, []), true);
-    assert.equal(isUnitUnlocked(2, []), false);
-  });
-
-  it('opens the next unit only after earlier ones are finished', () => {
-    assert.equal(highestUnlockedUnit([1]), 2);
-    assert.equal(highestUnlockedUnit([1, 2]), 3);
-    assert.equal(highestUnlockedUnit([2]), 1);
-    assert.equal(highestUnlockedUnit([1, 3]), 2);
-    assert.equal(highestUnlockedUnit([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]), 11);
+  it('keeps every unit open', () => {
+    assert.equal(highestUnlockedUnit([]), 11);
+    assert.equal(isUnitUnlocked(1), true);
+    assert.equal(isUnitUnlocked(2), true);
+    assert.equal(isUnitUnlocked(11), true);
+    assert.equal(isUnitUnlocked(0), false);
   });
 });
 
@@ -82,21 +77,20 @@ describe('recommendNextTask', () => {
         },
       },
     ];
-    const rec = recommendNextTask(prompts, attempts, 1);
+    const rec = recommendNextTask(prompts, attempts, 11);
     assert.ok(rec);
     assert.equal(rec.prompt_id, 'p1');
     assert.equal(rec.next_draft, 2);
     assert.match(rec.reason, /structure/);
   });
 
-  it('does not recommend a later unit that is still locked', () => {
-    const rec = recommendNextTask(prompts, [], 1);
+  it('can recommend a later unit when all units are open', () => {
+    const rec = recommendNextTask(prompts, [], 11);
     assert.ok(rec);
     assert.equal(rec.prompt_id, 'p1');
-    assert.equal(rec.module_id, 1);
   });
 
-  it('moves to the next open unit after the first is finished', () => {
+  it('moves to the next unit after the first prompt is fully drafted', () => {
     const attempts: AttemptSummary[] = [1, 2, 3].map((draft) => ({
       prompt_id: 'p1',
       draft_number: draft,
@@ -108,10 +102,25 @@ describe('recommendNextTask', () => {
         grammar: 4,
       },
     }));
-    const rec = recommendNextTask(prompts, attempts, 2);
+    const rec = recommendNextTask(prompts, attempts, 11);
     assert.ok(rec);
     assert.equal(rec.module_id, 2);
     assert.equal(rec.next_draft, 1);
     assert.equal(maxDraftForPrompt(attempts, 'p1'), 3);
+  });
+});
+
+describe('mini drills', () => {
+  it('seeds five drills for each of the eleven units', () => {
+    assert.equal(SEED_MINI_DRILLS.length, 55);
+    for (let unit = 1; unit <= 11; unit += 1) {
+      const inUnit = SEED_MINI_DRILLS.filter((d) => d.module_id === unit);
+      assert.equal(inUnit.length, 5, `unit ${unit}`);
+    }
+  });
+
+  it('marks a matching choice as correct', () => {
+    assert.equal(markMiniChoice(1, 1), true);
+    assert.equal(markMiniChoice(1, 0), false);
   });
 });

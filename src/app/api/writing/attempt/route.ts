@@ -6,9 +6,7 @@ import {
   assertOwnedStudent,
   ensureWritingEnhancements,
   getGuidanceForStudent,
-  getUnitProgress,
 } from '@/lib/writing-state';
-import { completedUnitIds, highestUnlockedUnit } from '@/lib/writing-guidance';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -57,6 +55,7 @@ export async function GET(request: Request) {
         unlocked_unit: guidance.unlocked_unit,
         recommendation: guidance.recommendation,
         history: guidance.history,
+        mini_progress: guidance.mini_progress,
         attempts: [],
       });
     }
@@ -77,6 +76,7 @@ export async function GET(request: Request) {
       unlocked_unit: guidance.unlocked_unit,
       recommendation: guidance.recommendation,
       history: guidance.history,
+      mini_progress: guidance.mini_progress,
       attempts: attempts.rows,
     });
   } catch (error) {
@@ -151,17 +151,6 @@ export async function POST(request: Request) {
     const prompt = promptResult.rows[0];
     if (!prompt || !prompt.is_active) {
       return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
-    }
-
-    const progressBefore = await getUnitProgress(studentId);
-    const unlockedUnit = highestUnlockedUnit(completedUnitIds(progressBefore));
-    if (prompt.module_id > unlockedUnit) {
-      return NextResponse.json(
-        {
-          error: `Unit ${prompt.module_id} unlocks after you finish unit ${prompt.module_id - 1}`,
-        },
-        { status: 403 },
-      );
     }
 
     const existing = await query<{ draft_number: number }>(

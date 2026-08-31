@@ -1,7 +1,6 @@
 import { query } from '@/lib/db';
+import { SEED_MINI_DRILLS } from '@/lib/seed-mini-drills';
 import {
-  completedUnitIds,
-  highestUnlockedUnit,
   recommendNextTask,
   type AttemptSummary,
   type NextTaskRecommendation,
@@ -34,6 +33,73 @@ export async function ensureWritingEnhancements(): Promise<void> {
   await query(
     `UPDATE prompts SET is_locked = FALSE WHERE is_active = TRUE AND is_locked = TRUE`,
   );
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS mini_drills (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      slug TEXT NOT NULL UNIQUE,
+      module_id INTEGER NOT NULL CHECK (module_id BETWEEN 1 AND 11),
+      prompt_type TEXT NOT NULL,
+      skill TEXT NOT NULL,
+      title TEXT NOT NULL,
+      stem TEXT NOT NULL,
+      options JSONB NOT NULL,
+      correct_index INTEGER NOT NULL,
+      explanation TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 1,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE
+    )
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_mini_drills_module
+      ON mini_drills (module_id, sort_order)
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS mini_drill_attempts (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      student_id UUID NOT NULL REFERENCES students (id) ON DELETE CASCADE,
+      drill_id UUID NOT NULL REFERENCES mini_drills (id) ON DELETE CASCADE,
+      answer_index INTEGER NOT NULL,
+      is_correct BOOLEAN NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_mini_drill_attempts_student
+      ON mini_drill_attempts (student_id, drill_id, created_at DESC)
+  `);
+
+  for (const drill of SEED_MINI_DRILLS) {
+    await query(
+      `INSERT INTO mini_drills (
+         slug, module_id, prompt_type, skill, title, stem, options,
+         correct_index, explanation, sort_order, is_active
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10, TRUE)
+       ON CONFLICT (slug) DO UPDATE SET
+         module_id = EXCLUDED.module_id,
+         prompt_type = EXCLUDED.prompt_type,
+         skill = EXCLUDED.skill,
+         title = EXCLUDED.title,
+         stem = EXCLUDED.stem,
+         options = EXCLUDED.options,
+         correct_index = EXCLUDED.correct_index,
+         explanation = EXCLUDED.explanation,
+         sort_order = EXCLUDED.sort_order,
+         is_active = TRUE`,
+      [
+        drill.slug,
+        drill.module_id,
+        drill.prompt_type,
+        drill.skill,
+        drill.title,
+        drill.stem,
+        JSON.stringify(drill.options),
+        drill.correct_index,
+        drill.explanation,
+        drill.sort_order,
+      ],
+    );
+  }
 
   schemaReady = true;
 }
@@ -102,14 +168,44 @@ export async function getScoreHistory(studentId: string) {
   }));
 }
 
+export async function getMiniProgress(studentId: string) {
+  const result = await query<{
+    module_id: number;
+    drill_count: string;
+    completed_count: string;
+  }>(
+    `SELECT d.module_id,
+            COUNT(DISTINCT d.id)::text AS drill_count,
+            COUNT(DISTINCT CASE WHEN a.drill_id IS NOT NULL THEN d.id END)::text AS completed_count
+     FROM mini_drills d
+     LEFT JOIN (
+       SELECT DISTINCT drill_id
+       FROM mini_drill_attempts
+       WHERE student_id = $1
+     ) a ON a.drill_id = d.id
+     WHERE d.is_active = TRUE
+     GROUP BY d.module_id
+     ORDER BY d.module_id ASC`,
+    [studentId],
+  );
+
+  return result.rows.map((row) => ({
+    module_id: row.module_id,
+    drill_count: Number(row.drill_count),
+    completed_count: Number(row.completed_count),
+  }));
+}
+
 export async function getGuidanceForStudent(studentId: string): Promise<{
   progress: UnitProgressRow[];
   unlocked_unit: number;
   recommendation: NextTaskRecommendation | null;
   history: Awaited<ReturnType<typeof getScoreHistory>>;
+  mini_progress: Awaited<ReturnType<typeof getMiniProgress>>;
 }> {
   const progress = await getUnitProgress(studentId);
-  const unlocked_unit = highestUnlockedUnit(completedUnitIds(progress));
+  const unlocked_unit = 11;
+  const mini_progress = await getMiniProgress(studentId);
 
   const promptRows = await query<PromptSummary>(
     `SELECT id, title, prompt_type, module_id
@@ -135,7 +231,7 @@ export async function getGuidanceForStudent(studentId: string): Promise<{
   );
   const history = await getScoreHistory(studentId);
 
-  return { progress, unlocked_unit, recommendation, history };
+  return { progress, unlocked_unit, recommendation, history, mini_progress };
 }
 
 export async function assertOwnedStudent(userId: string, studentId: string) {

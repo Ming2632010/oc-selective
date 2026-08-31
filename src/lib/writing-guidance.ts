@@ -46,24 +46,18 @@ export type NextTaskRecommendation = {
 };
 
 /**
- * Unit 1 is always open. Unit N+1 opens after every prompt in unit N
- * has at least one submitted draft.
+ * All writing units are open. Students may start any unit.
  */
-export function highestUnlockedUnit(completedUnitIds: Iterable<number>): number {
-  const done = new Set(completedUnitIds);
-  let unlocked = 1;
-  for (let unit = 1; unit < 11; unit += 1) {
-    if (!done.has(unit)) break;
-    unlocked = unit + 1;
-  }
-  return unlocked;
+export const ALL_UNITS_OPEN = 11;
+
+export function highestUnlockedUnit(
+  _completedUnitIds?: Iterable<number>,
+): number {
+  return ALL_UNITS_OPEN;
 }
 
-export function isUnitUnlocked(
-  unitId: number,
-  completedUnitIds: Iterable<number>,
-): boolean {
-  return unitId >= 1 && unitId <= highestUnlockedUnit(completedUnitIds);
+export function isUnitUnlocked(unitId: number): boolean {
+  return unitId >= 1 && unitId <= ALL_UNITS_OPEN;
 }
 
 export function weakestDimension(
@@ -173,8 +167,8 @@ export function recommendNextTask(
       next_draft: 1,
       weakest_dimension: weak,
       reason: weakLabel
-        ? `Start “${pick.title}” next. Recent writing is weakest on ${weakLabel}. Finish every task in this unit to unlock the next one.`
-        : `Start “${pick.title}” next. Finish every task in this unit to unlock the next one.`,
+        ? `Start “${pick.title}” next. Recent writing is weakest on ${weakLabel}. Mini practice in that unit can help before the full task.`
+        : `Start “${pick.title}” next. Mini practice in that unit can help before the full task.`,
     };
   }
 

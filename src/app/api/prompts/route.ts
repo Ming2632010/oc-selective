@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
-import { completedUnitIds, highestUnlockedUnit } from '@/lib/writing-guidance';
 import {
   assertOwnedStudent,
   ensureWritingEnhancements,
-  getUnitProgress,
 } from '@/lib/writing-state';
 
 export const runtime = 'nodejs';
@@ -62,18 +60,12 @@ export async function GET(request: Request) {
 
       let includeSamples = false;
       let maxDraft = 0;
-      let unlockedUnit = 1;
-      let unitLocked = false;
 
       if (studentId) {
         const owned = await assertOwnedStudent(userId, studentId);
         if (!owned) {
           return NextResponse.json({ error: 'Student not found' }, { status: 404 });
         }
-
-        const progress = await getUnitProgress(studentId);
-        unlockedUnit = highestUnlockedUnit(completedUnitIds(progress));
-        unitLocked = prompt.module_id > unlockedUnit;
 
         const attempts = await query<{ draft_number: number }>(
           `SELECT draft_number
@@ -88,12 +80,11 @@ export async function GET(request: Request) {
 
       return NextResponse.json({
         prompt: includeSamples
-          ? { ...prompt, is_locked: unitLocked }
-          : { ...stripSamples(prompt), is_locked: unitLocked },
+          ? { ...prompt, is_locked: false }
+          : { ...stripSamples(prompt), is_locked: false },
         samples_unlocked: includeSamples,
         max_draft: maxDraft,
-        unlocked_unit: unlockedUnit,
-        unit_locked: unitLocked,
+        unit_locked: false,
       });
     }
 
@@ -112,14 +103,11 @@ export async function GET(request: Request) {
       );
     }
 
-    let unlockedUnit = 1;
     if (studentId) {
       const owned = await assertOwnedStudent(userId, studentId);
       if (!owned) {
         return NextResponse.json({ error: 'Student not found' }, { status: 404 });
       }
-      const progress = await getUnitProgress(studentId);
-      unlockedUnit = highestUnlockedUnit(completedUnitIds(progress));
     }
 
     const result = await query<PromptRow>(
@@ -132,15 +120,12 @@ export async function GET(request: Request) {
       [moduleId],
     );
 
-    const unitLocked = Boolean(studentId) && moduleId > unlockedUnit;
-
     return NextResponse.json({
       module_id: moduleId,
-      unlocked_unit: unlockedUnit,
-      unit_locked: unitLocked,
+      unit_locked: false,
       prompts: result.rows.map((row) => ({
         ...stripSamples(row),
-        is_locked: unitLocked,
+        is_locked: false,
       })),
     });
   } catch (error) {

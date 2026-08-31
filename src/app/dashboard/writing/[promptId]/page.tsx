@@ -45,7 +45,6 @@ export default function WritingPracticePage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
-  const [unitLocked, setUnitLocked] = useState(false);
   const [alreadyFinished, setAlreadyFinished] = useState(false);
 
   const contentRef = useRef(content);
@@ -97,12 +96,6 @@ export default function WritingPracticePage() {
         }
         if (!attemptsRes.ok) {
           throw new Error(attemptsData.error || 'Failed to load attempts');
-        }
-
-        if (promptData.unit_locked) {
-          setUnitLocked(true);
-          setPrompt(promptData.prompt as Prompt);
-          return;
         }
 
         const p = promptData.prompt as Prompt;
@@ -194,7 +187,7 @@ export default function WritingPracticePage() {
   }
 
   useEffect(() => {
-    if (!prompt || loading || unitLocked || alreadyFinished) return;
+    if (!prompt || loading || alreadyFinished) return;
     const timer = window.setInterval(() => {
       setSecondsLeft((prev) => {
         if (prev <= 1) {
@@ -211,7 +204,7 @@ export default function WritingPracticePage() {
     return () => window.clearInterval(timer);
     // submitAttempt is stable enough via refs; we only start the clock once loaded.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prompt, loading, unitLocked, alreadyFinished]);
+  }, [prompt, loading, alreadyFinished]);
 
   const mm = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
   const ss = String(secondsLeft % 60).padStart(2, '0');
@@ -223,20 +216,6 @@ export default function WritingPracticePage() {
 
   if (loading) {
     return <main className="mx-auto max-w-4xl p-6">Loading writing task…</main>;
-  }
-
-  if (unitLocked && prompt) {
-    return (
-      <main className="mx-auto max-w-4xl space-y-4 p-6">
-        <h1 className="text-2xl font-semibold text-stone-900">{prompt.title}</h1>
-        <p className="text-stone-700">
-          This task is in a locked unit. Finish unit {prompt.module_id - 1} first.
-        </p>
-        <Link href="/dashboard" className="text-sm text-indigo-700 underline">
-          Back to dashboard
-        </Link>
-      </main>
-    );
   }
 
   if (alreadyFinished) {
