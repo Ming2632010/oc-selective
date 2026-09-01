@@ -25,6 +25,8 @@ const PUBLIC_PAGES = new Set([
   '/privacy',
   '/oc-trial',
   '/selective-trial',
+  '/sitemap.xml',
+  '/robots.txt',
 ]);
 const PUBLIC_API_PREFIXES = ['/api/auth', '/api/subscription', '/api/health'];
 
@@ -110,6 +112,6 @@ export const config = {
   // Run on everything except Next internals and static assets; the allowlist
   // above handles per-path exclusions.
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|css|js|map|txt|woff2?)).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|css|js|map|txt|xml|woff2?)).*)',
   ],
 };

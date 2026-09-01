@@ -21,7 +21,7 @@ export const SELECTIVE_SUBJECTS: TrialSubject[] = [
     icon: Calculator,
     available: false,
     blurb:
-      'Timed problem sets across the Selective maths syllabus. AI will flag the question types that cost marks.',
+      'Timed problem sets across the Selective maths syllabus. AI will highlight the question types to practise next.',
   },
   {
     name: 'Thinking Skills',
@@ -52,13 +52,13 @@ export const OC_SUBJECTS: TrialSubject[] = [
     icon: Brain,
     available: false,
     blurb:
-      'Reasoning practice for the OC paper. Strengths and weaknesses guide what comes next.',
+      'Reasoning practice for the OC paper. Notes on what is going well, and what to try next.',
   },
   {
     name: 'Reading',
     icon: BookOpen,
     available: false,
     blurb:
-      'Short passages and questions at OC difficulty. Notes on what the student understood and what they skipped.',
+      'Short passages and questions at OC difficulty. Notes on what they understood, and where to look again.',
   },
 ];

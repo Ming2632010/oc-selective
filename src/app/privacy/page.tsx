@@ -1,7 +1,9 @@
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Privacy · TrialSeed',
+  title: 'Privacy',
+  description: 'How TrialSeed stores account, practice, and payment information.',
+  alternates: { canonical: '/privacy' },
 };
 
 export default function PrivacyPage() {
@@ -13,7 +15,7 @@ export default function PrivacyPage() {
       <h1 className="text-3xl font-semibold text-slate-900">Privacy</h1>
       <p>
         TrialSeed stores the account email and name you register with, student
-        profiles you add, writing attempts, and subscription records needed to
+        profiles you add, practice work, and subscription records needed to
         provide access. We use this to run the service — login, practice,
         marking, and payments — not to sell personal information.
       </p>

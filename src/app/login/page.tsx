@@ -42,7 +42,7 @@ export default function LoginPage() {
         <div>
           <h1 className="text-2xl font-semibold text-stone-900">Log in</h1>
           <p className="mt-1 text-sm text-stone-600">
-            Continue to your writing practice dashboard.
+            Welcome back. Continue to your dashboard.
           </p>
         </div>
 
