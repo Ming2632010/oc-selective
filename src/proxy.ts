@@ -21,6 +21,8 @@ const PUBLIC_PAGES = new Set([
   '/',
   '/login',
   '/register',
+  '/forgot-password',
+  '/reset-password',
   '/subscription',
   '/privacy',
   '/oc-trial',
