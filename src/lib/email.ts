@@ -55,3 +55,52 @@ export async function sendPaymentFailedReminder(to: string | null): Promise<void
     console.error('[email] failed to send payment reminder:', error);
   }
 }
+
+function resetFromAddress(): string {
+  return process.env.RESEND_FROM_EMAIL || 'TrialSeed <onboarding@resend.dev>';
+}
+
+/**
+ * Best-effort password-reset email. Missing Resend config logs the reset URL
+ * instead of throwing so the request API can still return a generic success.
+ */
+export async function sendPasswordResetEmail(options: {
+  to: string;
+  name: string;
+  resetUrl: string;
+}): Promise<boolean> {
+  const client = getResend();
+  if (!client) {
+    console.warn(
+      `[email] RESEND_API_KEY not set; password reset URL for ${options.to}: ${options.resetUrl}`,
+    );
+    return false;
+  }
+
+  const greetingName = options.name.trim() || 'there';
+
+  try {
+    await client.emails.send({
+      from: resetFromAddress(),
+      to: options.to,
+      subject: 'Reset your TrialSeed password',
+      text: [
+        `Hi ${greetingName},`,
+        '',
+        'We received a request to reset the password for this TrialSeed account.',
+        '',
+        'Reset your password (this link expires in 1 hour):',
+        options.resetUrl,
+        '',
+        'If you did not request this, you can ignore this email. Your password will stay the same.',
+        '',
+        'Thanks,',
+        'The TrialSeed team',
+      ].join('\n'),
+    });
+    return true;
+  } catch (error) {
+    console.error('[email] failed to send password reset:', error);
+    return false;
+  }
+}

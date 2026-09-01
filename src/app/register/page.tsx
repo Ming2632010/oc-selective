@@ -108,6 +108,14 @@ export default function RegisterPage() {
             Log in
           </Link>
         </p>
+        <p className="text-center text-sm text-stone-600">
+          <Link
+            href="/forgot-password"
+            className="font-medium text-stone-900 underline"
+          >
+            Forgot password?
+          </Link>
+        </p>
       </div>
     </main>
   );

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { setToken } from '@/lib/client-auth';
 
 export default function LoginPage() {
@@ -11,6 +11,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [resetNotice, setResetNotice] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setResetNotice(params.get('reset') === '1');
+  }, []);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -59,18 +65,34 @@ export default function LoginPage() {
             />
           </label>
 
-          <label className="block space-y-1 text-sm">
-            <span className="font-medium text-stone-800">Password</span>
-            <input
-              type="password"
-              required
-              minLength={6}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-md border border-stone-300 px-3 py-2"
-              placeholder="••••••••"
-            />
-          </label>
+          <div className="space-y-1">
+            <label className="block space-y-1 text-sm">
+              <span className="font-medium text-stone-800">Password</span>
+              <input
+                type="password"
+                required
+                minLength={6}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-md border border-stone-300 px-3 py-2"
+                placeholder="••••••••"
+              />
+            </label>
+            <p className="text-right text-sm">
+              <Link
+                href="/forgot-password"
+                className="font-medium text-stone-900 underline"
+              >
+                Forgot password?
+              </Link>
+            </p>
+          </div>
+
+          {resetNotice ? (
+            <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              Password updated. Log in with your new password.
+            </p>
+          ) : null}
 
           {error ? (
             <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
