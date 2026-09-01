@@ -25,6 +25,8 @@ const PUBLIC_PAGES = new Set([
   '/privacy',
   '/oc-trial',
   '/selective-trial',
+  '/sitemap.xml',
+  '/robots.txt',
 ]);
 const PUBLIC_API_PREFIXES = ['/api/auth', '/api/subscription', '/api/health'];
 
