@@ -9,85 +9,64 @@ import {
   Sparkles,
   Target,
 } from 'lucide-react';
+import { JsonLd } from '@/components/marketing/json-ld';
 import { MarketingFooter } from '@/components/marketing/footer';
 import { MarketingHeader } from '@/components/marketing/header';
+import {
+  HOME_FAQS,
+  HOME_FEATURES,
+  HOME_WHY_PARENTS,
+} from '@/lib/marketing-home';
+import { getSiteUrl, SITE_DESCRIPTION, SITE_NAME } from '@/lib/site';
 import { SUBJECT_PRICE_AUD } from '@/lib/subjects';
 
 const ACCENT = 'text-indigo-600';
 const ACCENT_BG = 'bg-indigo-600 hover:bg-indigo-700';
 const ACCENT_RING = 'ring-indigo-100';
 
-const whyParents = [
-  {
-    icon: Target,
-    title: 'Practice that follows the student',
-    body: 'AI looks at where your child is strong and where they lose marks, then points the next task at those gaps — instead of the same worksheet for everyone.',
-  },
-  {
-    icon: ClipboardCheck,
-    title: 'Selective and OC, as they actually sit them',
-    body: 'Selective Trials cover Writing, Math, Thinking Skills, and Reading. OC Trials cover Math, Thinking Skills, and Reading. Buy only the exam and subjects you need.',
-  },
-  {
-    icon: CreditCard,
-    title: 'Pay once. One year. No surprise renewals.',
-    body: `$${SUBJECT_PRICE_AUD} AUD per subject, charged once. Access ends after 12 months. Promotion codes can be entered at checkout.`,
-  },
-];
-
-const features = [
-  {
-    icon: Sparkles,
-    title: 'Strengths and weaknesses, not a single score',
-    body: 'After each task, AI feedback shows what is already working and what to fix next. Writing does this today on structure, vocabulary, audience, and grammar. Other subjects will use the same idea.',
-  },
-  {
-    icon: LineChart,
-    title: 'A progress line for every subject',
-    body: 'Writing already shows scores over time so parent and student can watch the line move — the improvement, not just the last mark. Other subjects will use the same chart when they open.',
-  },
-  {
-    icon: MessageCircle,
-    title: 'A chat that stays with that subject',
-    body: 'Writing already has a chat so you can talk about that paper together — what went well, what to practise next, and how the line is climbing. Other subjects will get their own chat when they open.',
-  },
-  {
-    icon: Brain,
-    title: 'Exam-style conditions',
-    body: 'Timed tasks, clear marks, and a chance to try again. Writing includes three drafts and sample answers after the last draft. Other subjects will follow the same practice loop.',
-  },
-];
-
-const faqs = [
-  {
-    q: 'What is the difference between Selective Trials and OC Trials?',
-    a: 'Selective Trials are for the NSW Selective High School test: Writing, Math, Thinking Skills, and Reading. OC Trials are for Opportunity Class: Math, Thinking Skills, and Reading. You choose the track that matches the exam your child is sitting.',
-  },
-  {
-    q: 'How does the AI help my child?',
-    a: 'It does not replace a tutor. It marks the work and highlights strengths and weaknesses, then points the next writing task at those gaps. Writing already returns notes on structure, vocabulary, audience, and grammar. Math, Thinking Skills, and Reading will use the same approach as those courses open.',
-  },
-  {
-    q: 'How does payment work?',
-    a: `Each subject is a one-off $${SUBJECT_PRICE_AUD} AUD payment for 12 months. Nothing renews automatically. You only pay for subjects you add. A second child is a separate purchase.`,
-  },
-  {
-    q: 'Which subjects can I use today?',
-    a: 'Selective Writing is open now. Selective Math, Thinking Skills, and Reading, and all OC Trial subjects, will open as those courses are ready. You are not charged for a subject until you buy it.',
-  },
-  {
-    q: 'Can parent and student follow progress together?',
-    a: 'Yes. Writing has a progress line so you can watch scores move, and a chat so parent and student can talk about that subject in one place. After each draft the next task is chosen from the weakest recent scores. Other subjects will get the same tools when they open.',
-  },
-  {
-    q: 'Can I use a promotion code?',
-    a: 'Yes. Enter it on the Stripe checkout page after you choose a subject.',
-  },
-];
+const whyIcons = [Target, ClipboardCheck, CreditCard];
+const featureIcons = [Sparkles, LineChart, MessageCircle, Brain];
 
 export default function Home() {
+  const siteUrl = getSiteUrl();
+
   return (
     <div className="min-h-screen bg-[#FAFAFA] text-slate-800">
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'EducationalOrganization',
+          name: SITE_NAME,
+          url: siteUrl,
+          description: SITE_DESCRIPTION,
+          areaServed: 'AU',
+          email: 'hello@trialseed.com.au',
+        }}
+      />
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'WebSite',
+          name: SITE_NAME,
+          url: siteUrl,
+          description: SITE_DESCRIPTION,
+          inLanguage: 'en-AU',
+        }}
+      />
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'FAQPage',
+          mainEntity: HOME_FAQS.map((item) => ({
+            '@type': 'Question',
+            name: item.q,
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: item.a,
+            },
+          })),
+        }}
+      />
       <MarketingHeader current="home" />
 
       <main>
@@ -97,22 +76,21 @@ export default function Home() {
               NSW Selective &amp; Opportunity Class
             </p>
             <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
-              AI practice that follows your child&apos;s strengths and weaknesses
+              NSW Selective and Opportunity Class practice, made for your child
             </h1>
             <p className="mt-5 text-lg leading-relaxed text-slate-600">
-              Two exam tracks — Selective Trials and OC Trials — covering
-              Writing, Math, Thinking Skills, and Reading. AI shows where a
-              student is already strong and where they need work, then aims
-              the next task at those gaps. Writing already has a progress
-              line and a chat so parent and student can see the improvement
-              together. Other subjects will get the same when they open.
+              TrialSeed is a calm place to practise Writing, Math, Thinking
+              Skills, and Reading. Feedback shows what is already going well
+              and what to try next, so the work can follow your child.
+              Writing is open now, with a progress line and a chat you can
+              use together. Other subjects will join as they are ready.
             </p>
             <div className="mt-8 flex flex-col items-stretch gap-3 sm:flex-row">
               <Link
                 href="/register"
                 className={`inline-flex items-center justify-center rounded-md px-6 py-3 text-sm font-medium text-white ${ACCENT_BG}`}
               >
-                Get started
+                Create an account
               </Link>
               <Link
                 href="/selective-trial"
@@ -125,7 +103,7 @@ export default function Home() {
           <div className="relative aspect-[16/10] overflow-hidden rounded-2xl bg-slate-100 shadow-sm">
             <Image
               src="/marketing/hero-progress-chat.png"
-              alt="A smiling parent and child looking at a rising progress line and subject chat on a laptop"
+              alt="A parent and child looking at TrialSeed practice progress together"
               fill
               className="object-cover"
               sizes="(min-width: 1024px) 50vw, 100vw"
@@ -137,23 +115,27 @@ export default function Home() {
         <section className="border-y border-slate-200 bg-white py-20">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <h2 className="text-center text-3xl font-semibold text-slate-900">
-              Why parents choose TrialSeed
+              Why families choose TrialSeed
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600">
-              Built for families sitting two different exams.
+              Built for two NSW exams, with room for every subject your child
+              will need.
             </p>
             <div className="mt-12 grid gap-8 sm:grid-cols-3">
-              {whyParents.map(({ icon: Icon, title, body }) => (
-                <div key={title} className="space-y-3">
-                  <div
-                    className={`inline-flex rounded-lg bg-indigo-50 p-2.5 ring-8 ${ACCENT_RING}`}
-                  >
-                    <Icon className={`h-5 w-5 ${ACCENT}`} aria-hidden />
+              {HOME_WHY_PARENTS.map(({ title, body }, index) => {
+                const Icon = whyIcons[index];
+                return (
+                  <div key={title} className="space-y-3">
+                    <div
+                      className={`inline-flex rounded-lg bg-indigo-50 p-2.5 ring-8 ${ACCENT_RING}`}
+                    >
+                      <Icon className={`h-5 w-5 ${ACCENT}`} aria-hidden />
+                    </div>
+                    <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+                    <p className="text-sm leading-relaxed text-slate-600">{body}</p>
                   </div>
-                  <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-                  <p className="text-sm leading-relaxed text-slate-600">{body}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </section>
@@ -164,19 +146,27 @@ export default function Home() {
               How TrialSeed helps
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600">
-              See the pattern, practise the gap, and watch the line move.
+              See how they are going, practise the next step, and watch
+              progress over time.
             </p>
             <div className="mt-12 grid gap-6 sm:grid-cols-2">
-              {features.map(({ icon: Icon, title, body }) => (
-                <article
-                  key={title}
-                  className="rounded-2xl border border-slate-200 bg-white p-6"
-                >
-                  <Icon className={`h-6 w-6 ${ACCENT}`} aria-hidden />
-                  <h3 className="mt-4 text-lg font-semibold text-slate-900">{title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-600">{body}</p>
-                </article>
-              ))}
+              {HOME_FEATURES.map(({ title, body }, index) => {
+                const Icon = featureIcons[index];
+                return (
+                  <article
+                    key={title}
+                    className="rounded-2xl border border-slate-200 bg-white p-6"
+                  >
+                    <Icon className={`h-6 w-6 ${ACCENT}`} aria-hidden />
+                    <h3 className="mt-4 text-lg font-semibold text-slate-900">
+                      {title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                      {body}
+                    </p>
+                  </article>
+                );
+              })}
             </div>
           </div>
         </section>
@@ -187,7 +177,8 @@ export default function Home() {
               Choose the exam they are sitting
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600">
-              Open a trial to see subjects in blocks — only buy what you need.
+              Open a trial to see each subject. You can start with one and add
+              more later.
             </p>
             <div className="mt-12 grid gap-8 lg:grid-cols-2">
               <Link
@@ -197,7 +188,7 @@ export default function Home() {
                 <div className="relative aspect-[16/9]">
                   <Image
                     src="/marketing/selective-progress-chat.png"
-                    alt="A happy Selective student with a writing progress line and chat on a tablet"
+                    alt="A student reviewing Selective exam practice progress on a tablet"
                     fill
                     className="object-cover transition duration-300 group-hover:scale-[1.02]"
                     sizes="(min-width: 1024px) 50vw, 100vw"
@@ -223,7 +214,7 @@ export default function Home() {
                 <div className="relative aspect-[16/9]">
                   <Image
                     src="/marketing/oc-progress-chat.png"
-                    alt="A happy parent and child looking at a reading progress line and chat on a tablet"
+                    alt="A parent and child looking at Opportunity Class practice progress on a tablet"
                     fill
                     className="object-cover transition duration-300 group-hover:scale-[1.02]"
                     sizes="(min-width: 1024px) 50vw, 100vw"
@@ -237,7 +228,7 @@ export default function Home() {
                     Opportunity Class
                   </h3>
                   <p className="mt-2 text-sm text-slate-600">
-                    Math, Thinking Skills, and Reading. No writing paper.
+                    Math, Thinking Skills, and Reading.
                   </p>
                 </div>
               </Link>
@@ -249,8 +240,10 @@ export default function Home() {
           <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
             <h2 className="text-3xl font-semibold text-slate-900">Simple pricing</h2>
             <p className="mt-3 text-slate-600">
-              ${SUBJECT_PRICE_AUD} AUD per subject, one year. Pay only for the
-              exam track and subjects you add. Nothing auto-renews.
+              ${SUBJECT_PRICE_AUD} AUD per subject for a full year. Choose the
+              exam and the subjects you would like. Access lasts twelve months
+              from the day you buy, and we will not charge again unless you
+              decide to come back.
             </p>
             <p className="mt-8 text-5xl font-semibold text-slate-900">
               ${SUBJECT_PRICE_AUD}
@@ -261,7 +254,7 @@ export default function Home() {
               href="/register"
               className={`mt-8 inline-flex rounded-md px-6 py-3 text-sm font-medium text-white ${ACCENT_BG}`}
             >
-              Get started with Selective Writing
+              Create an account
             </Link>
             <p className="mt-4 text-sm text-slate-500">
               Selective Writing is available now. Other Selective and OC
@@ -273,10 +266,10 @@ export default function Home() {
         <section id="faq" className="border-t border-slate-200 bg-white py-20">
           <div className="mx-auto max-w-3xl px-4 sm:px-6">
             <h2 className="text-center text-3xl font-semibold text-slate-900">
-              Questions parents ask
+              Questions families ask
             </h2>
             <div className="mt-10 divide-y divide-slate-200">
-              {faqs.map((item) => (
+              {HOME_FAQS.map((item) => (
                 <details key={item.q} className="group py-4">
                   <summary className="cursor-pointer list-none text-left font-medium text-slate-900 marker:content-none [&::-webkit-details-marker]:hidden">
                     <span className="flex items-start justify-between gap-4">

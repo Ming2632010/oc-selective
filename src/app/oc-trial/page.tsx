@@ -6,9 +6,10 @@ import { OC_SUBJECTS } from '@/lib/trials';
 import { SUBJECT_PRICE_AUD } from '@/lib/subjects';
 
 export const metadata = {
-  title: 'OC Trials · TrialSeed',
+  title: 'OC Trials',
   description:
-    'NSW Opportunity Class practice: Math, Thinking Skills, and Reading. $99 AUD per subject for one year.',
+    'TrialSeed Opportunity Class practice for Math, Thinking Skills, and Reading. $99 AUD per subject for one year.',
+  alternates: { canonical: '/oc-trial' },
 };
 
 export default function OcTrialPage() {
@@ -25,19 +26,18 @@ export default function OcTrialPage() {
               Opportunity Class
             </h1>
             <p className="mt-4 text-lg leading-relaxed text-slate-600">
-              Math, Thinking Skills, and Reading — the OC test has no writing
-              paper. Practice is built around those three subjects, with AI
-              aimed at each student’s strengths and weaknesses. Each subject
-              will have a progress line and a chat so parent and student can
-              see the improvement together when those courses open. $
-              {SUBJECT_PRICE_AUD} AUD per
-              subject, one year, no auto-renewal.
+              Math, Thinking Skills, and Reading, with practice built around
+              those three subjects. Feedback is aimed at what is already going
+              well and what to try next. Each subject will have a progress
+              line and a chat so parent and student can follow along when
+              those courses open. ${SUBJECT_PRICE_AUD} AUD per subject for one
+              year.
             </p>
           </div>
           <div className="relative aspect-[16/10] overflow-hidden rounded-2xl bg-slate-100">
             <Image
               src="/marketing/oc-progress-chat.png"
-              alt="A happy parent and child looking at a reading progress line and chat on a tablet"
+              alt="A parent and child looking at Opportunity Class practice progress on a tablet"
               fill
               className="object-cover"
               sizes="(min-width: 1024px) 50vw, 100vw"
@@ -50,7 +50,7 @@ export default function OcTrialPage() {
           <h2 className="text-2xl font-semibold text-slate-900">Subjects</h2>
           <p className="mt-2 max-w-2xl text-sm text-slate-600">
             All three OC subjects will open at the same ${SUBJECT_PRICE_AUD}{' '}
-            yearly price. None are charged until you buy them.
+            yearly price. You can add a subject when you are ready.
           </p>
           <div className="mt-8">
             <SubjectBlocks subjects={OC_SUBJECTS} />
