@@ -23,7 +23,7 @@ export default function OcTrialPage() {
               OC Trial
             </p>
             <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900">
-              Opportunity Class
+              Opportunity Class practice
             </h1>
             <p className="mt-4 text-lg leading-relaxed text-slate-600">
               Math, Thinking Skills, and Reading, with practice built around

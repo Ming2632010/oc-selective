@@ -2,10 +2,17 @@ export const SITE_NAME = 'TrialSeed';
 
 const DEFAULT_SITE_URL = 'https://www.trialseed.com.au';
 
+function isLocalHost(url: string): boolean {
+  return /localhost|127\.0\.0\.1/i.test(url);
+}
+
 export function getSiteUrl(): string {
   const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
   if (configured) {
-    return configured.replace(/\/$/, '');
+    const cleaned = configured.replace(/\/$/, '');
+    if (!isLocalHost(cleaned)) {
+      return cleaned;
+    }
   }
   return DEFAULT_SITE_URL;
 }

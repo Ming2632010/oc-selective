@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { HOME_FAQS, HOME_FEATURES, HOME_WHY_PARENTS } from './marketing-home';
-import { SITE_DESCRIPTION, SITE_TITLE } from './site';
+import { SITE_DESCRIPTION, SITE_TITLE, getSiteUrl } from './site';
 
 const publicCopy = [
   SITE_TITLE,
@@ -27,5 +27,21 @@ describe('public marketing copy', () => {
     assert.match(SITE_DESCRIPTION, /Selective/);
     assert.match(SITE_DESCRIPTION, /Opportunity Class/);
     assert.match(SITE_DESCRIPTION, /Writing, Math, Thinking Skills, and Reading/);
+  });
+});
+
+describe('getSiteUrl', () => {
+  it('does not publish localhost URLs for search engines', () => {
+    const previous = process.env.NEXT_PUBLIC_APP_URL;
+    process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000';
+    try {
+      assert.equal(getSiteUrl(), 'https://www.trialseed.com.au');
+    } finally {
+      if (previous === undefined) {
+        delete process.env.NEXT_PUBLIC_APP_URL;
+      } else {
+        process.env.NEXT_PUBLIC_APP_URL = previous;
+      }
+    }
   });
 });

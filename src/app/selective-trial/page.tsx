@@ -23,7 +23,7 @@ export default function SelectiveTrialPage() {
               Selective Trial
             </p>
             <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900">
-              NSW Selective High School
+              NSW Selective High School practice
             </h1>
             <p className="mt-4 text-lg leading-relaxed text-slate-600">
               Four subjects: Writing, Math, Thinking Skills, and Reading.
