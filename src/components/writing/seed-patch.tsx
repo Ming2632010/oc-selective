@@ -1,5 +1,5 @@
 import { GROWTH_STAGES } from '@/lib/rewards';
-import { SeedGardenPath, SeedGardenScene } from '@/components/writing/seed-garden';
+import { SeedGardenScene } from '@/components/writing/seed-garden';
 
 export type SeedPatchData = {
   lifetime_seeds: number;
@@ -22,7 +22,7 @@ export type SeedPatchData = {
 export function SeedPatch({ patch }: { patch: SeedPatchData | null }) {
   if (!patch) {
     return (
-      <section className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-5">
+      <section className="rounded-xl border border-amber-200/80 bg-[#f6f1e6] p-5">
         <h2 className="text-lg font-semibold text-stone-900">Seed Patch</h2>
         <p className="mt-1 text-sm text-stone-600">
           Seeds appear after the first mini question or writing task.
@@ -41,38 +41,31 @@ export function SeedPatch({ patch }: { patch: SeedPatchData | null }) {
   );
 
   return (
-    <section className="rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-lime-50 p-5">
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,17rem)_1fr]">
-        <SeedGardenScene
-          stageId={patch.stage.id}
-          className="h-auto w-full rounded-xl border border-emerald-100 shadow-sm"
-        />
-        <div className="flex flex-col justify-between gap-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
-                Seed Patch
-              </p>
-              <h2 className="mt-1 text-2xl font-semibold text-stone-900">
-                {patch.lifetime_seeds} seed{patch.lifetime_seeds === 1 ? '' : 's'}
-              </h2>
-              <p className="mt-1 text-sm text-stone-700">
-                {patch.stage.label} — {patch.stage.blurb}
-              </p>
-            </div>
-            <div className="rounded-lg bg-white/80 px-3 py-2 text-right">
-              <p className="text-xs uppercase tracking-wide text-stone-500">On-plot</p>
-              <p className="text-lg font-semibold text-emerald-900">
-                {patch.plot_days} day{patch.plot_days === 1 ? '' : 's'}
-              </p>
-              <p className="text-xs text-stone-600">
-                {patch.rain_cheques} rain cheque{patch.rain_cheques === 1 ? '' : 's'}
-              </p>
-            </div>
-          </div>
-          <SeedGardenPath currentId={patch.stage.id} />
+    <section className="rounded-xl border border-amber-200/80 bg-[#f6f1e6] p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-rose-800">
+            Seed Patch
+          </p>
+          <h2 className="mt-1 text-2xl font-semibold text-stone-900">
+            {patch.lifetime_seeds} seed{patch.lifetime_seeds === 1 ? '' : 's'}
+          </h2>
+          <p className="mt-1 text-sm text-stone-700">
+            {patch.stage.label} — {patch.stage.blurb}
+          </p>
+        </div>
+        <div className="rounded-lg border border-amber-100 bg-white/80 px-3 py-2 text-right">
+          <p className="text-xs uppercase tracking-wide text-stone-500">On-plot</p>
+          <p className="text-lg font-semibold text-stone-900">
+            {patch.plot_days} day{patch.plot_days === 1 ? '' : 's'}
+          </p>
+          <p className="text-xs text-stone-600">
+            {patch.rain_cheques} rain cheque{patch.rain_cheques === 1 ? '' : 's'}
+          </p>
         </div>
       </div>
+
+      <SeedGardenScene stageId={patch.stage.id} className="mt-4" />
 
       <div className="mt-4 space-y-1.5">
         <div className="flex justify-between text-xs text-stone-600">
@@ -88,7 +81,7 @@ export function SeedPatch({ patch }: { patch: SeedPatchData | null }) {
         </div>
         <div className="h-2 overflow-hidden rounded-full bg-white/80">
           <div
-            className="h-full rounded-full bg-emerald-700"
+            className="h-full rounded-full bg-rose-500"
             style={{ width: `${stagePct}%` }}
           />
         </div>
@@ -103,9 +96,9 @@ export function SeedPatch({ patch }: { patch: SeedPatchData | null }) {
             {patch.week_seeds}/{patch.week_goal} seeds
             {patch.harvest_claimed ? ' · Harvest in' : ''}
           </p>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-emerald-100">
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-rose-100">
             <div
-              className="h-full rounded-full bg-emerald-600"
+              className="h-full rounded-full bg-rose-400"
               style={{ width: `${weekPct}%` }}
             />
           </div>
