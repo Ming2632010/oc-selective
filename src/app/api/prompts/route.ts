@@ -28,6 +28,7 @@ type PromptRow = {
   purposes: string[] | null;
   purpose_note: string | null;
   decode_guide: unknown;
+  max_draft?: number;
 };
 
 const PROMPT_COLUMNS = `id, title, description, prompt_type, module_id, hint_points,
@@ -139,18 +140,27 @@ export async function GET(request: Request) {
         ? kindParam
         : 'practice';
 
+    const conditions = ['module_id = $1', 'is_active = TRUE'];
+    const params: unknown[] = [moduleId];
+    if (kind !== 'all') {
+      params.push(kind);
+      conditions.push(`COALESCE(kind, 'practice') = $${params.length}`);
+    }
+    let draftSelect = '0';
+    if (studentId) {
+      params.push(studentId);
+      draftSelect = `COALESCE((
+        SELECT MAX(a.draft_number) FROM writing_attempts a
+        WHERE a.student_id = $${params.length} AND a.prompt_id = prompts.id
+      ), 0)`;
+    }
+
     const result = await query<PromptRow>(
-      kind === 'all'
-        ? `SELECT ${PROMPT_COLUMNS}
-           FROM prompts
-           WHERE module_id = $1 AND is_active = TRUE
-           ORDER BY kind ASC, title ASC`
-        : `SELECT ${PROMPT_COLUMNS}
-           FROM prompts
-           WHERE module_id = $1 AND is_active = TRUE
-             AND COALESCE(kind, 'practice') = $2
-           ORDER BY title ASC`,
-      kind === 'all' ? [moduleId] : [moduleId, kind],
+      `SELECT ${PROMPT_COLUMNS}, ${draftSelect} AS max_draft
+       FROM prompts
+       WHERE ${conditions.join(' AND ')}
+       ORDER BY ${kind === 'all' ? 'kind ASC, title ASC' : 'title ASC'}`,
+      params,
     );
 
     return NextResponse.json({
@@ -160,6 +170,7 @@ export async function GET(request: Request) {
       prompts: result.rows.map((row) => ({
         ...stripSamples(row),
         is_locked: false,
+        max_draft: Number(row.max_draft ?? 0),
       })),
     });
   } catch (error) {

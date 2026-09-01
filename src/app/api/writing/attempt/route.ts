@@ -8,6 +8,7 @@ import {
   ensureWritingEnhancements,
   getAwardsForPrompt,
   getGuidanceForStudent,
+  getNextRecommendation,
 } from '@/lib/writing-state';
 
 export const runtime = 'nodejs';
@@ -49,9 +50,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
 
-    const guidance = await getGuidanceForStudent(studentId);
-
     if (!promptId) {
+      const guidance = await getGuidanceForStudent(studentId);
       return NextResponse.json({
         progress: guidance.progress,
         unlocked_unit: guidance.unlocked_unit,
@@ -65,27 +65,25 @@ export async function GET(request: Request) {
       });
     }
 
-    const attempts = await query(
-      `SELECT id, student_id, prompt_id, draft_number, content, plan_content,
-              score_set_a, score_set_b, overall_score, scores_breakdown,
-              ai_feedback, checked_hint_1, checked_hint_2, checked_hint_3,
-              word_count, time_spent_seconds, has_seen_sample, created_at
-       FROM writing_attempts
-       WHERE student_id = $1 AND prompt_id = $2
-       ORDER BY draft_number ASC`,
-      [studentId, promptId],
-    );
+    const [attempts, awards, recommendation] = await Promise.all([
+      query(
+        `SELECT id, student_id, prompt_id, draft_number, content, plan_content,
+                score_set_a, score_set_b, overall_score, scores_breakdown,
+                ai_feedback, checked_hint_1, checked_hint_2, checked_hint_3,
+                word_count, time_spent_seconds, has_seen_sample, created_at
+         FROM writing_attempts
+         WHERE student_id = $1 AND prompt_id = $2
+         ORDER BY draft_number ASC`,
+        [studentId, promptId],
+      ),
+      getAwardsForPrompt(studentId, promptId),
+      getNextRecommendation(studentId),
+    ]);
 
     return NextResponse.json({
-      progress: guidance.progress,
-      unlocked_unit: guidance.unlocked_unit,
-      recommendation: guidance.recommendation,
-      history: guidance.history,
-      mini_progress: guidance.mini_progress,
-      term_tests: guidance.term_tests,
-      rewards: guidance.rewards,
-      awards: await getAwardsForPrompt(studentId, promptId),
+      awards,
       attempts: attempts.rows,
+      recommendation,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load attempts';
