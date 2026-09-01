@@ -24,7 +24,7 @@ export function SeedGardenScene({
     <figure className={className}>
       <div className="relative overflow-hidden rounded-xl border border-amber-200/80 bg-[#efe6d4] shadow-sm">
         <Image
-          src="/marketing/seed-patch-botanical.jpg"
+          src="/marketing/seed-patch-garden.jpg"
           alt={`Seed Patch garden at the ${label} stage, with pink blossoms when the plot is in flower`}
           width={1536}
           height={1024}
