@@ -14,6 +14,7 @@ type Prompt = {
   module_id: number;
   is_locked: boolean;
   kind?: 'practice' | 'test';
+  max_draft?: number;
 };
 
 type PromptWithStatus = Prompt & {
@@ -99,23 +100,12 @@ export default function UnitPage() {
         const list = (promptRes.data.prompts as Prompt[]) || [];
         setDrills((drillRes.data.drills as MiniDrillCard[]) || []);
         setExtra((drillRes.data.extra as ExtraMeta | null) ?? null);
-
-        const withStatus = await Promise.all(
-          list.map(async (prompt) => {
-            const attemptsRes = await apiFetch(
-              `/api/writing/attempt?student_id=${studentId}&prompt_id=${prompt.id}`,
-            );
-            const attempts =
-              (attemptsRes.data.attempts as { draft_number: number }[]) || [];
-            const maxDraft = attempts.reduce(
-              (max, a) => Math.max(max, a.draft_number),
-              0,
-            );
-            return { ...prompt, maxDraft };
-          }),
+        setPrompts(
+          list.map((prompt) => ({
+            ...prompt,
+            maxDraft: Number(prompt.max_draft) || 0,
+          })),
         );
-
-        setPrompts(withStatus);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load unit');
       } finally {

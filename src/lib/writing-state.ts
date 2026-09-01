@@ -33,6 +33,13 @@ let seededPrompts = 0;
 const WRITING_SCHEMA = 5;
 let appliedSchema = 0;
 
+function markSchemaReady() {
+  schemaReady = true;
+  seededLength = SEED_MINI_DRILLS.length;
+  seededPrompts = SEED_PROMPTS.length;
+  appliedSchema = WRITING_SCHEMA;
+}
+
 export async function ensureWritingEnhancements(): Promise<void> {
   if (
     schemaReady &&
@@ -40,6 +47,34 @@ export async function ensureWritingEnhancements(): Promise<void> {
     seededPrompts === SEED_PROMPTS.length &&
     appliedSchema === WRITING_SCHEMA
   ) {
+    return;
+  }
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS writing_schema_meta (
+      id SMALLINT PRIMARY KEY CHECK (id = 1),
+      version INTEGER NOT NULL,
+      seeded_prompts INTEGER NOT NULL DEFAULT 0,
+      seeded_drills INTEGER NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  const meta = await query<{
+    version: number;
+    seeded_prompts: number;
+    seeded_drills: number;
+  }>(
+    `SELECT version, seeded_prompts, seeded_drills
+     FROM writing_schema_meta WHERE id = 1`,
+  );
+  const row = meta.rows[0];
+  if (
+    row &&
+    row.version === WRITING_SCHEMA &&
+    row.seeded_prompts === SEED_PROMPTS.length &&
+    row.seeded_drills === SEED_MINI_DRILLS.length
+  ) {
+    markSchemaReady();
     return;
   }
 
@@ -265,10 +300,18 @@ export async function ensureWritingEnhancements(): Promise<void> {
     );
   }
 
-  schemaReady = true;
-  seededLength = SEED_MINI_DRILLS.length;
-  seededPrompts = SEED_PROMPTS.length;
-  appliedSchema = WRITING_SCHEMA;
+  await query(
+    `INSERT INTO writing_schema_meta (id, version, seeded_prompts, seeded_drills)
+     VALUES (1, $1, $2, $3)
+     ON CONFLICT (id) DO UPDATE SET
+       version = EXCLUDED.version,
+       seeded_prompts = EXCLUDED.seeded_prompts,
+       seeded_drills = EXCLUDED.seeded_drills,
+       updated_at = NOW()`,
+    [WRITING_SCHEMA, SEED_PROMPTS.length, SEED_MINI_DRILLS.length],
+  );
+
+  markSchemaReady();
 }
 
 export async function getUnitProgress(
@@ -446,39 +489,47 @@ export async function getGuidanceForStudent(studentId: string): Promise<{
   rewards: SeedPatchView;
   week_note: WeekNoteData;
 }> {
-  const progress = await getUnitProgress(studentId);
   const unlocked_unit = 11;
-  const mini_progress = await getMiniProgress(studentId);
-  const term_tests = await getTermTests(studentId);
-
-  const promptRows = await query<PromptSummary>(
-    `SELECT id, title, prompt_type, module_id,
-            COALESCE(kind, 'practice') AS kind
-     FROM prompts
-     WHERE is_active = TRUE
-       AND COALESCE(kind, 'practice') = 'practice'
-     ORDER BY module_id ASC, title ASC`,
-  );
-
-  const attemptRows = await query<
-    AttemptSummary & { scores_breakdown: AttemptSummary['scores_breakdown'] }
-  >(
-    `SELECT prompt_id, draft_number, overall_score, scores_breakdown
-     FROM writing_attempts
-     WHERE student_id = $1
-     ORDER BY created_at ASC`,
-    [studentId],
-  );
+  const [
+    progress,
+    mini_progress,
+    term_tests,
+    promptRows,
+    attemptRows,
+    history,
+    rewards,
+    lastTest,
+  ] = await Promise.all([
+    getUnitProgress(studentId),
+    getMiniProgress(studentId),
+    getTermTests(studentId),
+    query<PromptSummary>(
+      `SELECT id, title, prompt_type, module_id,
+              COALESCE(kind, 'practice') AS kind
+       FROM prompts
+       WHERE is_active = TRUE
+         AND COALESCE(kind, 'practice') = 'practice'
+       ORDER BY module_id ASC, title ASC`,
+    ),
+    query<
+      AttemptSummary & { scores_breakdown: AttemptSummary['scores_breakdown'] }
+    >(
+      `SELECT prompt_id, draft_number, overall_score, scores_breakdown
+       FROM writing_attempts
+       WHERE student_id = $1
+       ORDER BY created_at ASC`,
+      [studentId],
+    ),
+    getScoreHistory(studentId),
+    getSeedPatchView(studentId),
+    getLastSatTest(studentId),
+  ]);
 
   const recommendation = recommendNextTask(
     promptRows.rows,
     attemptRows.rows,
     unlocked_unit,
   );
-  const history = await getScoreHistory(studentId);
-
-  const rewards = await getSeedPatchView(studentId);
-  const lastTest = await getLastSatTest(studentId);
   const week_note = buildWeekNote({
     plot_days: rewards.plot_days,
     focused_minutes: rewards.focused_minutes_week,
@@ -497,6 +548,27 @@ export async function getGuidanceForStudent(studentId: string): Promise<{
     rewards,
     week_note,
   };
+}
+
+export async function getNextRecommendation(studentId: string) {
+  const [promptRows, attemptRows] = await Promise.all([
+    query<PromptSummary>(
+      `SELECT id, title, prompt_type, module_id,
+              COALESCE(kind, 'practice') AS kind
+       FROM prompts
+       WHERE is_active = TRUE
+         AND COALESCE(kind, 'practice') = 'practice'
+       ORDER BY module_id ASC, title ASC`,
+    ),
+    query<AttemptSummary>(
+      `SELECT prompt_id, draft_number, overall_score, scores_breakdown
+       FROM writing_attempts
+       WHERE student_id = $1
+       ORDER BY created_at ASC`,
+      [studentId],
+    ),
+  ]);
+  return recommendNextTask(promptRows.rows, attemptRows.rows, 11);
 }
 
 function emptySkillStats(): SkillStat[] {
