@@ -109,9 +109,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Run on everything except Next internals and static assets; the allowlist
-  // above handles per-path exclusions.
+  // Skip Next internals. Static chunks, HMR, and other /_next/* endpoints
+  // should not go through the subscription gate.
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|css|js|map|txt|woff2?)).*)',
+    '/((?!_next/|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|css|js|map|txt|woff2?)).*)',
   ],
 };
