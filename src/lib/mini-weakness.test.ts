@@ -7,6 +7,7 @@ import {
 } from './mini-weakness';
 import {
   buildFallbackPack,
+  generateMiniPack,
   parseGeneratedPack,
   parseGeneratedQuestion,
 } from './generate-mini-drills';
@@ -97,10 +98,25 @@ describe('parseGeneratedPack', () => {
     assert.equal(parsed[0].skill, 'punctuation');
   });
 
-  it('rejects a skill outside the requested set', () => {
+  it('keeps labelled skills such as Word choice', () => {
     const question = parseGeneratedQuestion(
       {
-        skill: 'audience',
+        skill: 'Word choice',
+        title: 'A clearer verb',
+        stem: 'Which verb is stronger than “went” in a story opening?',
+        options: ['hurried', 'went', 'did stuff'],
+        correct_index: 0,
+        explanation: 'A precise everyday verb is clearer than a vague one.',
+      },
+      ['audience', 'format'],
+    );
+    assert.equal(question?.skill, 'vocabulary');
+  });
+
+  it('still keeps a valid question if the skill is not the focus', () => {
+    const question = parseGeneratedQuestion(
+      {
+        skill: 'Audience',
         title: 'Tone',
         stem: 'Which tone fits a letter to the council this week?',
         options: ['Polite and clear', 'Insults', 'Only slang'],
@@ -109,7 +125,54 @@ describe('parseGeneratedPack', () => {
       },
       ['punctuation'],
     );
-    assert.equal(question, null);
+    assert.equal(question?.skill, 'audience');
+  });
+
+  it('accepts typical model labels for Audience, Format, and Word choice', () => {
+    const parsed = parseGeneratedPack(
+      {
+        questions: [
+          {
+            skill: 'Word choice',
+            title: 'Stronger verb',
+            stem: 'Which verb is clearer than “went” for a narrative?',
+            options: ['hurried', 'went', 'did stuff'],
+            correct_index: 0,
+            explanation: 'Precise everyday verbs are stronger than vague ones.',
+          },
+          {
+            skill: 'Format',
+            title: 'Story shape',
+            stem: 'Which line belongs in a Selective narrative?',
+            options: [
+              'A beginning, a problem, and an ending',
+              'BUY NOW OR ELSE!!!!',
+              'Subject: hello',
+            ],
+            correct_index: 0,
+            explanation: 'Keep the story form. Ads and email fields belong elsewhere.',
+          },
+          {
+            skill: 'Audience',
+            title: 'Who is reading',
+            stem: 'Which tone fits a school story a marker will read?',
+            options: [
+              'Clear sentences the reader can follow',
+              'yo this slaps ngl',
+              'OMG worst thing ever!!!!',
+            ],
+            correct_index: 0,
+            explanation: 'Markers need readable, respectful language, not chat slang.',
+          },
+        ],
+      },
+      ['audience', 'format'],
+    );
+    assert.equal(parsed.length, 3);
+    assert.deepEqual(
+      parsed.map((question) => question.skill),
+      ['format', 'audience', 'vocabulary'],
+    );
   });
 });
 
@@ -134,5 +197,33 @@ describe('buildFallbackPack', () => {
       pack.map((drill) => drill.sort_order),
       [11, 12, 13],
     );
+  });
+});
+
+describe('generateMiniPack', () => {
+  it('uses the local pack when OpenAI is not configured', async () => {
+    const previous = process.env.OPENAI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    try {
+      const pack = await generateMiniPack({
+        moduleId: 1,
+        promptType: 'narrative',
+        unitLabel: 'Narrative',
+        focus: {
+          skills: ['audience', 'format'],
+          reason: 'test',
+        },
+        missedStems: [],
+        packSize: 3,
+        startOrder: 10,
+        variation: 1,
+      });
+      assert.equal(pack.via, 'fallback');
+      assert.equal(pack.drills.length, 3);
+      assert.ok(pack.drills.every((drill) => drill.options.length === 3));
+    } finally {
+      if (previous === undefined) delete process.env.OPENAI_API_KEY;
+      else process.env.OPENAI_API_KEY = previous;
+    }
   });
 });

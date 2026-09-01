@@ -5,8 +5,8 @@ import {
   type MiniFocus,
 } from '@/lib/mini-weakness';
 import {
+  MINI_SKILL_LABELS,
   SEED_MINI_DRILLS,
-  isMiniSkill,
   type MiniSkill,
 } from '@/lib/seed-mini-drills';
 import { typeLabel, type WritingType } from '@/lib/units';
@@ -48,38 +48,79 @@ function uniqueOptions(options: string[]) {
   return out;
 }
 
+const SKILL_ALIASES: Record<string, MiniSkill> = {
+  format: 'format',
+  audience: 'audience',
+  vocabulary: 'vocabulary',
+  'word choice': 'vocabulary',
+  wordchoice: 'vocabulary',
+  'word_choice': 'vocabulary',
+  punctuation: 'punctuation',
+  grammar: 'punctuation',
+  structure: 'structure',
+};
+
+export function normalizeMiniSkill(value: string): MiniSkill | null {
+  const key = value
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ');
+  return SKILL_ALIASES[key] ?? SKILL_ALIASES[key.replace(/\s+/g, '')] ?? null;
+}
+
+function threeOptions(options: string[], correctIndex: number) {
+  const unique = uniqueOptions(options);
+  if (unique.length === 3) {
+    const mapped = unique.indexOf(options[correctIndex] ?? '');
+    return {
+      options: unique,
+      correctIndex: mapped >= 0 ? mapped : correctIndex,
+    };
+  }
+  if (unique.length > 3 && Number.isInteger(correctIndex) && correctIndex >= 0) {
+    const originalCorrect = options[correctIndex];
+    const correct = unique.includes(originalCorrect)
+      ? originalCorrect
+      : unique[0];
+    const rest = unique.filter((option) => option !== correct).slice(0, 2);
+    return { options: [correct, ...rest], correctIndex: 0 };
+  }
+  return { options: unique, correctIndex };
+}
+
 export function parseGeneratedQuestion(
   raw: RawQuestion,
-  allowedSkills: MiniSkill[],
+  _allowedSkills: MiniSkill[] = [],
 ): Omit<GeneratedMiniDrill, 'slug' | 'module_id' | 'prompt_type' | 'sort_order'> | null {
-  const skillRaw = asTrimmedString(raw.skill);
-  if (!isMiniSkill(skillRaw)) return null;
-  if (allowedSkills.length > 0 && !allowedSkills.includes(skillRaw)) return null;
+  const skill = normalizeMiniSkill(asTrimmedString(raw.skill));
+  if (!skill) return null;
 
   const title = asTrimmedString(raw.title);
   const stem = asTrimmedString(raw.stem);
   const explanation = asTrimmedString(raw.explanation);
-  const options = uniqueOptions(
+  const correctIndex = Number(raw.correct_index);
+  const { options, correctIndex: mappedIndex } = threeOptions(
     Array.isArray(raw.options)
       ? raw.options.map((item) => asTrimmedString(item)).filter(Boolean)
       : [],
+    correctIndex,
   );
-  const correctIndex = Number(raw.correct_index);
 
-  if (title.length < 3 || title.length > 72) return null;
-  if (stem.length < 12 || stem.length > 320) return null;
-  if (explanation.length < 12 || explanation.length > 420) return null;
+  if (title.length < 3 || title.length > 80) return null;
+  if (stem.length < 12 || stem.length > 500) return null;
+  if (explanation.length < 12 || explanation.length > 600) return null;
   if (options.length !== 3) return null;
-  if (!Number.isInteger(correctIndex) || correctIndex < 0 || correctIndex > 2) {
+  if (!Number.isInteger(mappedIndex) || mappedIndex < 0 || mappedIndex > 2) {
     return null;
   }
 
   return {
-    skill: skillRaw,
+    skill,
     title,
     stem,
     options,
-    correct_index: correctIndex,
+    correct_index: mappedIndex,
     explanation,
   };
 }
@@ -99,12 +140,19 @@ export function parseGeneratedPack(
     .filter((question): question is NonNullable<typeof question> => Boolean(question));
 
   const seen = new Set<string>();
-  return parsed.filter((question) => {
+  const unique = parsed.filter((question) => {
     const key = question.stem.toLowerCase();
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
+
+  if (allowedSkills.length === 0) return unique;
+  const preferred = unique.filter((question) =>
+    allowedSkills.includes(question.skill),
+  );
+  const rest = unique.filter((question) => !allowedSkills.includes(question.skill));
+  return [...preferred, ...rest];
 }
 
 function exampleSeeds(moduleId: number, skills: MiniSkill[]) {
@@ -131,15 +179,23 @@ async function generateWithOpenAI(input: {
 }): Promise<ReturnType<typeof parseGeneratedPack>> {
   const examples = exampleSeeds(input.moduleId, input.focus.skills);
 
+  const skillKeys = input.focus.skills.join(', ');
+  const skillLabels = input.focus.skills
+    .map((skill) => `${skill} (${MINI_SKILL_LABELS[skill]})`)
+    .join(', ');
+
   const raw = await createJsonCompletion({
     temperature: 0.5,
     system: [
       'You write extra multiple-choice mini questions for NSW Selective Writing practice.',
       'Year 5–6 only. Short, clear, not extra-hard. No rare words. No tricks.',
-      'Target the requested skills for this text type (format, audience, word choice, punctuation, or structure).',
-      'Each question has exactly 3 options and one obviously best answer.',
+      `Write questions only for these skill keys: ${skillKeys}.`,
+      `Human labels: ${skillLabels}.`,
+      'The "skill" field MUST be one of exactly: format, audience, vocabulary, punctuation, structure.',
+      'Use "vocabulary" for word-choice questions. Never write "word choice" in the skill field.',
+      'Each question has exactly 3 short options and one obviously best answer (correct_index 0, 1, or 2).',
       'Wrong options should be common student mix-ups (wrong text type, slang, missing punctuation).',
-      'Explanations are one or two short sentences a student can use on the next draft.',
+      'Titles 3-60 characters. Stems one or two sentences. Explanations one or two short sentences.',
       'Return ONLY JSON: { "questions": [ { "skill", "title", "stem", "options", "correct_index", "explanation" } ] }',
     ].join('\n'),
     user: {
@@ -153,7 +209,13 @@ async function generateWithOpenAI(input: {
     },
   });
 
-  return parseGeneratedPack(JSON.parse(raw), input.focus.skills);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    throw new Error('OpenAI returned invalid JSON');
+  }
+  return parseGeneratedPack(parsed, input.focus.skills);
 }
 
 function fallbackQuestions(
@@ -415,11 +477,28 @@ export async function generateMiniPack(input: {
   });
 
   if (isOpenAIConfigured()) {
-    const fromAi = await generateWithOpenAI(input);
-    if (fromAi.length < 2) {
-      throw new Error('OpenAI did not return enough valid mini questions');
+    try {
+      const fromAi = await generateWithOpenAI(input);
+      if (fromAi.length >= input.packSize) {
+        return attach(fromAi, 'openai');
+      }
+      if (fromAi.length > 0) {
+        const stems = new Set(fromAi.map((question) => question.stem.toLowerCase()));
+        const padded = [
+          ...fromAi,
+          ...buildFallbackPack(input).filter(
+            (question) => !stems.has(question.stem.toLowerCase()),
+          ),
+        ];
+        return attach(padded, 'openai');
+      }
+      console.error(
+        '[generate-mini-drills] OpenAI returned no valid mini questions; using fallback pack',
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'OpenAI generate failed';
+      console.error('[generate-mini-drills] OpenAI generate failed; using fallback pack:', message);
     }
-    return attach(fromAi, 'openai');
   }
 
   return {
