@@ -27,6 +27,8 @@ const PUBLIC_PAGES = new Set([
   '/privacy',
   '/oc-trial',
   '/selective-trial',
+  '/sitemap.xml',
+  '/robots.txt',
 ]);
 const PUBLIC_API_PREFIXES = ['/api/auth', '/api/subscription', '/api/health'];
 
@@ -109,9 +111,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Skip Next internals. Static chunks, HMR, and other /_next/* endpoints
-  // should not go through the subscription gate.
+  // Skip Next internals and static assets. XML is excluded so sitemap.xml
+  // is not sent through the subscription gate.
   matcher: [
-    '/((?!_next/|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|css|js|map|txt|woff2?)).*)',
+    '/((?!_next/|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|css|js|map|txt|xml|woff2?)).*)',
   ],
 };

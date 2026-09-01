@@ -47,7 +47,7 @@ export default function RegisterPage() {
         <div>
           <h1 className="text-2xl font-semibold text-stone-900">Create account</h1>
           <p className="mt-1 text-sm text-stone-600">
-            Register to practise selective-style writing tasks.
+            Create an account to practise for Selective and OC exams.
           </p>
         </div>
 

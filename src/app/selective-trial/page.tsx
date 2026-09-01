@@ -6,9 +6,10 @@ import { SELECTIVE_SUBJECTS } from '@/lib/trials';
 import { SUBJECT_PRICE_AUD } from '@/lib/subjects';
 
 export const metadata = {
-  title: 'Selective Trials · TrialSeed',
+  title: 'Selective Trials',
   description:
-    'NSW Selective High School practice: Writing, Math, Thinking Skills, and Reading. $99 AUD per subject for one year.',
+    'TrialSeed NSW Selective High School practice for Writing, Math, Thinking Skills, and Reading. $99 AUD per subject for one year.',
+  alternates: { canonical: '/selective-trial' },
 };
 
 export default function SelectiveTrialPage() {
@@ -22,20 +23,20 @@ export default function SelectiveTrialPage() {
               Selective Trial
             </p>
             <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900">
-              NSW Selective High School
+              NSW Selective High School practice
             </h1>
             <p className="mt-4 text-lg leading-relaxed text-slate-600">
-              Four subjects, including Writing. AI feedback shows where the
-              student is strong and where marks are lost, then the next task
-              aims at those gaps. Writing already has a progress line, a
-              subject chat, and a next-task suggestion from recent weak spots. $
-              {SUBJECT_PRICE_AUD} AUD per subject, one year, no auto-renewal.
+              Four subjects: Writing, Math, Thinking Skills, and Reading.
+              Feedback shows what is going well and what to try next. Writing
+              already has a progress line, a subject chat, and a suggestion
+              for the next task. ${SUBJECT_PRICE_AUD} AUD per subject for one
+              year.
             </p>
           </div>
           <div className="relative aspect-[16/10] overflow-hidden rounded-2xl bg-slate-100">
             <Image
               src="/marketing/selective-progress-chat.png"
-              alt="A happy Selective student with a writing progress line and chat on a tablet"
+              alt="A student reviewing Selective exam practice progress on a tablet"
               fill
               className="object-cover"
               sizes="(min-width: 1024px) 50vw, 100vw"

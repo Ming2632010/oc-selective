@@ -115,9 +115,9 @@ export default function SubscriptionPage() {
           <p className="text-sm uppercase tracking-wide text-stone-500">Subscription</p>
           <h1 className="text-3xl font-semibold text-stone-900">Choose your subjects</h1>
           <p className="mt-1 text-sm text-stone-600">
-            Each subject is ${SUBJECT_PRICE_AUD} AUD for one year. Pay once —
-            access ends after 12 months, with no automatic renewal. You can
-            enter a promotion code at checkout.
+            Each subject is ${SUBJECT_PRICE_AUD} AUD for one year. Access lasts
+            twelve months from the day you buy. You can enter a promotion code
+            at checkout.
           </p>
         </div>
         <Link
@@ -130,8 +130,7 @@ export default function SubscriptionPage() {
 
       {expiredNotice ? (
         <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          You don&apos;t have an active subscription. Choose a subject below to
-          continue practising.
+          Choose a subject below to continue practising.
         </p>
       ) : null}
 
@@ -208,9 +207,9 @@ export default function SubscriptionPage() {
       )}
 
       <p className="text-center text-sm text-stone-600">
-        Need access for a second child?{' '}
+        Need access for another child?{' '}
         <span className="font-medium text-stone-800">
-          Pay again — each purchase is independent.
+          Each child needs their own yearly access.
         </span>
         {hasBilling ? (
           <>
