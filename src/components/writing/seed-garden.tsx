@@ -27,20 +27,20 @@ const SEED_CHIP = [
   '/marketing/seed-patch/garden-seed-2.jpg',
 ] as const;
 
-/** Plants sit on the soil in the back — not in a row, not in photo frames. */
-const GARDEN_SLOTS: { left: string; bottom: string; width: string }[] = [
-  { left: '1%', bottom: '34%', width: '18%' },
-  { left: '80%', bottom: '33%', width: '19%' },
-  { left: '14%', bottom: '40%', width: '14%' },
-  { left: '70%', bottom: '42%', width: '14%' },
-  { left: '-2%', bottom: '26%', width: '16%' },
-  { left: '86%', bottom: '25%', width: '16%' },
-  { left: '22%', bottom: '46%', width: '12%' },
-  { left: '64%', bottom: '47%', width: '12%' },
-  { left: '8%', bottom: '48%', width: '11%' },
-  { left: '78%', bottom: '49%', width: '11%' },
-  { left: '28%', bottom: '36%', width: '13%' },
-  { left: '58%', bottom: '37%', width: '13%' },
+/** Back row of the garden — crates rest on the soil line, left and right of the plot. */
+const GARDEN_SLOTS: { left: string; width: string; z: number }[] = [
+  { left: '0%', width: '20%', z: 2 },
+  { left: '79%', width: '21%', z: 2 },
+  { left: '12%', width: '16%', z: 1 },
+  { left: '70%', width: '16%', z: 1 },
+  { left: '-4%', width: '18%', z: 3 },
+  { left: '86%', width: '18%', z: 3 },
+  { left: '20%', width: '13%', z: 1 },
+  { left: '66%', width: '13%', z: 1 },
+  { left: '6%', width: '12%', z: 1 },
+  { left: '81%', width: '12%', z: 1 },
+  { left: '26%', width: '14%', z: 2 },
+  { left: '60%', width: '14%', z: 2 },
 ];
 
 function planterSrc(stageIndex: number): string {
@@ -91,47 +91,47 @@ export function SeedGardenScene({
     lifetimeSeeds,
   });
   const seeds = gardenSeedCount(lifetimeSeeds);
-  const showBasket = weeklyHarvests > 0 || beds.includes(GROWTH_STAGES.length - 1);
+  const showBasket = weeklyHarvests > 0 || currentIndex >= GROWTH_STAGES.length - 1;
 
   return (
     <figure className={className}>
-      <div className="relative overflow-hidden rounded-xl border border-amber-200/80 bg-[#e6d9b8] shadow-sm">
+      <div className="relative overflow-hidden rounded-xl border border-amber-200/70 bg-[#d7c49a] shadow-sm">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/marketing/seed-patch/garden-hills.jpg"
           alt=""
-          className="pointer-events-none absolute inset-x-0 top-0 h-[58%] w-full object-cover object-top"
+          className="pointer-events-none absolute inset-x-0 top-0 h-[46%] w-full object-cover object-top"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-[58%] bg-gradient-to-b from-[#c4ae78] via-[#a88854] to-[#7a6240]"
           aria-hidden
         />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/marketing/seed-patch/garden-soil.jpg"
           alt=""
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-[48%] w-full object-cover object-bottom"
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute inset-x-0 top-[48%] h-16 bg-gradient-to-b from-transparent to-[#cbb98a]/80"
+          className="pointer-events-none absolute inset-x-0 top-[40%] h-[22%] w-full object-cover object-top opacity-90"
           aria-hidden
         />
 
-        <div className="relative aspect-[16/11] min-h-[16.5rem] sm:min-h-[20rem]">
-          <ul className="absolute inset-0" aria-hidden>
+        <div className="relative min-h-[18rem] sm:min-h-[22rem]">
+          <ul className="absolute inset-x-0 top-[18%] h-[42%]" aria-hidden>
             {beds.map((stageIndex, slot) => {
               const place = GARDEN_SLOTS[slot] ?? GARDEN_SLOTS[0];
               return (
                 <li
                   key={`garden-${slot}-${stageIndex}`}
-                  className="absolute"
+                  className="absolute bottom-0"
                   style={{
                     left: place.left,
-                    bottom: place.bottom,
                     width: place.width,
+                    zIndex: place.z,
                   }}
                 >
                   <PlanterPhoto
                     stageIndex={stageIndex}
-                    className="h-auto w-full drop-shadow-[0_8px_10px_rgba(40,40,20,0.28)]"
+                    className="h-auto w-full"
                   />
                 </li>
               );
@@ -143,25 +143,25 @@ export function SeedGardenScene({
             <img
               src="/marketing/seed-patch/garden-basket.jpg"
               alt=""
-              className="pointer-events-none absolute bottom-[22%] right-[6%] w-[12%] drop-shadow-md sm:w-[9%]"
+              className="pointer-events-none absolute bottom-[28%] right-[4%] z-[4] w-[13%] sm:w-[10%]"
               aria-hidden
             />
           ) : null}
 
-          <ul className="absolute inset-x-[6%] bottom-[14%] h-[20%]" aria-hidden>
+          <ul className="absolute inset-x-0 bottom-[8%] h-[24%]" aria-hidden>
             {Array.from({ length: seeds }, (_, index) => {
-              const left = 3 + ((index * 17 + index * index * 3) % 90);
-              const bottom = 6 + ((index * 11 + 5) % 70);
-              const size = 9 + (index % 4) * 2;
+              const side = index % 2 === 0 ? 4 + ((index * 9) % 22) : 74 + ((index * 7) % 22);
+              const bottom = 10 + ((index * 13) % 55);
+              const size = 14 + (index % 3) * 5;
               return (
                 <li
                   key={`seed-${index}`}
-                  className="absolute overflow-hidden rounded-full"
+                  className="absolute overflow-hidden rounded-[40%]"
                   style={{
-                    left: `${left}%`,
+                    left: `${side}%`,
                     bottom: `${bottom}%`,
                     width: size,
-                    height: Math.round(size * 0.82),
+                    height: Math.round(size * 0.78),
                   }}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -175,11 +175,11 @@ export function SeedGardenScene({
             })}
           </ul>
 
-          <div className="absolute bottom-[-6%] left-1/2 z-10 h-[92%] w-[58%] max-w-[19rem] -translate-x-1/2 sm:w-[46%]">
+          <div className="absolute bottom-0 left-1/2 z-10 h-[88%] w-[72%] max-w-[22rem] -translate-x-1/2 sm:w-[54%]">
             <PlanterPhoto
               stageIndex={currentIndex}
               alt={label}
-              className="h-full w-full object-contain object-bottom drop-shadow-[0_16px_18px_rgba(40,40,20,0.35)]"
+              className="h-full w-full object-contain object-bottom"
             />
           </div>
         </div>
@@ -193,9 +193,9 @@ export function SeedGardenScene({
             ? 'This plot sits in front. Seeds and harvested plants gather in the garden behind it.'
             : `${seeds} seed${seeds === 1 ? '' : 's'}${
                 beds.length > 0
-                  ? ` and ${beds.length} plant${beds.length === 1 ? '' : 's'}`
+                  ? ` and ${beds.length} harvested plant${beds.length === 1 ? '' : 's'}`
                   : ''
-              } in the garden behind — harvested plants stay there.`}
+              } in the garden behind this plot.`}
         </p>
       </figcaption>
     </figure>
