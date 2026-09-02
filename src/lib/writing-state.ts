@@ -629,6 +629,52 @@ export async function getMissedMiniStems(studentId: string, moduleId: number) {
   return result.rows.map((row) => row.stem);
 }
 
+export async function getUnitMiniQuestionRefs(studentId: string, moduleId: number) {
+  const result = await query<{ title: string; stem: string; options: unknown }>(
+    `SELECT title, stem, options
+     FROM mini_drills
+     WHERE module_id = $1 AND is_active = TRUE
+       AND (student_id IS NULL OR student_id = $2)`,
+    [moduleId, studentId],
+  );
+  return result.rows.map((row) => ({
+    title: row.title,
+    stem: row.stem,
+    options: Array.isArray(row.options)
+      ? row.options.map((item) => String(item))
+      : [],
+  }));
+}
+
+/** Hide extra questions that copied a starter drill so the student can get new ones. */
+export async function deactivateCopiedExtraDrills(
+  studentId: string,
+  moduleId: number,
+) {
+  const result = await query<{ id: string }>(
+    `UPDATE mini_drills AS extra
+     SET is_active = FALSE
+     WHERE extra.student_id = $1
+       AND extra.module_id = $2
+       AND extra.source = 'ai'
+       AND extra.is_active = TRUE
+       AND EXISTS (
+         SELECT 1
+         FROM mini_drills AS seed
+         WHERE seed.module_id = extra.module_id
+           AND seed.student_id IS NULL
+           AND seed.is_active = TRUE
+           AND (
+             lower(btrim(seed.stem)) = lower(btrim(extra.stem))
+             OR seed.options = extra.options
+           )
+       )
+     RETURNING extra.id`,
+    [studentId, moduleId],
+  );
+  return result.rowCount ?? result.rows.length;
+}
+
 export async function getExtraDrillCounts(studentId: string, moduleId: number) {
   const total = await query<{ n: string }>(
     `SELECT COUNT(*)::text AS n

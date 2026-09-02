@@ -7,6 +7,8 @@ import {
   ensureWritingEnhancements,
   getMiniExtraMeta,
   getMissedMiniStems,
+  getUnitMiniQuestionRefs,
+  deactivateCopiedExtraDrills,
 } from '@/lib/writing-state';
 
 export const runtime = 'nodejs';
@@ -43,6 +45,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
 
+    await deactivateCopiedExtraDrills(studentId, moduleId);
+
     const extra = await getMiniExtraMeta(studentId, moduleId);
     if (!extra.can_generate || extra.pack_size < 1) {
       return NextResponse.json(
@@ -57,7 +61,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const missedStems = await getMissedMiniStems(studentId, moduleId);
+    const [missedStems, existingQuestions] = await Promise.all([
+      getMissedMiniStems(studentId, moduleId),
+      getUnitMiniQuestionRefs(studentId, moduleId),
+    ]);
     let generated;
     try {
       generated = await generateMiniPack({
@@ -66,6 +73,7 @@ export async function POST(request: Request) {
         unitLabel: extra.unit_label,
         focus: extra.focus,
         missedStems,
+        existingQuestions,
         packSize: extra.pack_size,
         startOrder: extra.counts.maxSortOrder,
         variation: extra.counts.existing,

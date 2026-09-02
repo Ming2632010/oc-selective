@@ -129,11 +129,18 @@ export default function UnitPage() {
       if (!res.response.ok) {
         throw new Error(res.data.error || 'Could not make extra questions');
       }
-      const fresh = (res.data.drills as MiniDrillCard[]) || [];
-      setDrills((prev) => {
-        const have = new Set(prev.map((row) => row.slug));
-        return [...prev, ...fresh.filter((row) => !have.has(row.slug))];
-      });
+      const drillRes = await apiFetch(
+        `/api/writing/drills?module_id=${unitId}&student_id=${studentId}`,
+      );
+      if (drillRes.response.ok) {
+        setDrills((drillRes.data.drills as MiniDrillCard[]) || []);
+      } else {
+        const fresh = (res.data.drills as MiniDrillCard[]) || [];
+        setDrills((prev) => {
+          const have = new Set(prev.map((row) => row.slug));
+          return [...prev, ...fresh.filter((row) => !have.has(row.slug))];
+        });
+      }
       setExtra((res.data.extra as ExtraMeta | null) ?? extra);
       setGenerateNote(
         typeof res.data.reason === 'string' ? res.data.reason : 'Extra questions added.',
