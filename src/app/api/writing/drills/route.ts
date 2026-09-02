@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
-import { markMiniChoice } from '@/lib/seed-mini-drills';
+import { markMiniItem } from '@/lib/mark-mini-item';
+import {
+  isMiniItemKind,
+  publicMiniPrompt,
+  type MiniItemKind,
+} from '@/lib/mini-item-kinds';
 import {
   assertOwnedStudent,
   awardMiniSeeds,
@@ -27,9 +32,16 @@ type DrillRow = {
   sort_order: number;
   source: string | null;
   student_id: string | null;
+  item_kind: string | null;
+  prompt: unknown;
 };
 
+function drillKind(row: DrillRow): MiniItemKind {
+  return row.item_kind && isMiniItemKind(row.item_kind) ? row.item_kind : 'choice';
+}
+
 function publicDrill(row: DrillRow) {
+  const itemKind = drillKind(row);
   return {
     id: row.id,
     slug: row.slug,
@@ -41,27 +53,47 @@ function publicDrill(row: DrillRow) {
     options: Array.isArray(row.options) ? row.options : [],
     sort_order: row.sort_order,
     source: row.source === 'seed' || !row.source ? 'seed' : 'ai',
+    item_kind: itemKind,
+    prompt: publicMiniPrompt(itemKind, row.prompt),
   };
+}
+
+const DRILL_COLUMNS = `id, slug, module_id, prompt_type, skill, title, stem, options,
+                correct_index, explanation, sort_order, source, student_id,
+                item_kind, prompt`;
+
+function seedBucket(source: string | null | undefined, studentId: string | null) {
+  return !studentId && (source === 'seed' || !source) ? 0 : 1;
 }
 
 async function nextDrillSlug(
   moduleId: number,
   sortOrder: number,
   studentId: string | null,
+  source?: string | null,
+  ownerId?: string | null,
 ) {
+  const bucket = seedBucket(source, ownerId ?? null);
   const result = await query<{ slug: string }>(
     studentId
       ? `SELECT slug FROM mini_drills d
-         WHERE d.module_id = $1 AND d.is_active = TRUE AND d.sort_order > $2
+         WHERE d.module_id = $1 AND d.is_active = TRUE
            AND (
              (d.student_id IS NULL AND COALESCE(d.source, 'seed') = 'seed')
-             OR d.student_id = $3
+             OR d.student_id = $2
              OR (
                d.student_id IS NULL AND d.source = 'extra'
                AND EXISTS (
                  SELECT 1 FROM mini_drill_unlocks u
-                 WHERE u.student_id = $3 AND u.drill_id = d.id
+                 WHERE u.student_id = $2 AND u.drill_id = d.id
                )
+             )
+           )
+           AND (
+             CASE WHEN d.student_id IS NULL AND COALESCE(d.source, 'seed') = 'seed' THEN 0 ELSE 1 END > $3
+             OR (
+               CASE WHEN d.student_id IS NULL AND COALESCE(d.source, 'seed') = 'seed' THEN 0 ELSE 1 END = $3
+               AND d.sort_order > $4
              )
            )
          ORDER BY CASE WHEN d.student_id IS NULL AND COALESCE(d.source, 'seed') = 'seed' THEN 0 ELSE 1 END,
@@ -72,9 +104,20 @@ async function nextDrillSlug(
            AND student_id IS NULL AND COALESCE(source, 'seed') = 'seed'
          ORDER BY sort_order ASC
          LIMIT 1`,
-    studentId ? [moduleId, sortOrder, studentId] : [moduleId, sortOrder],
+    studentId
+      ? [moduleId, studentId, bucket, sortOrder]
+      : [moduleId, sortOrder],
   );
   return result.rows[0]?.slug ?? null;
+}
+
+function payloadOrder(payload: unknown): number[] | null {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+  const order = (payload as { order?: unknown }).order;
+  if (!Array.isArray(order) || order.some((item) => !Number.isInteger(Number(item)))) {
+    return null;
+  }
+  return order.map((item) => Number(item));
 }
 
 export async function GET(request: Request) {
@@ -100,8 +143,7 @@ export async function GET(request: Request) {
 
     if (slug) {
       const result = await query<DrillRow>(
-        `SELECT id, slug, module_id, prompt_type, skill, title, stem, options,
-                correct_index, explanation, sort_order, source, student_id
+        `SELECT ${DRILL_COLUMNS}
          FROM mini_drills
          WHERE slug = $1 AND is_active = TRUE
          LIMIT 1`,
@@ -120,13 +162,22 @@ export async function GET(request: Request) {
         }
       }
 
-      let last: { answer_index: number; is_correct: boolean } | null = null;
+      let last: {
+        answer_index: number | null;
+        answer_text: string | null;
+        answer_payload: unknown;
+        is_correct: boolean;
+        feedback: unknown;
+      } | null = null;
       if (studentId) {
         const attempts = await query<{
-          answer_index: number;
+          answer_index: number | null;
+          answer_text: string | null;
+          answer_payload: unknown;
           is_correct: boolean;
+          feedback: unknown;
         }>(
-          `SELECT answer_index, is_correct
+          `SELECT answer_index, answer_text, answer_payload, is_correct, feedback
            FROM mini_drill_attempts
            WHERE student_id = $1 AND drill_id = $2
            ORDER BY created_at DESC
@@ -136,18 +187,42 @@ export async function GET(request: Request) {
         last = attempts.rows[0] ?? null;
       }
 
+      const lastOrder = last ? payloadOrder(last.answer_payload) : null;
+      const marked = last
+        ? markMiniItem({
+            kind: drillKind(drill),
+            correctIndex: drill.correct_index,
+            answerIndex: last.answer_index,
+            answerText: last.answer_text ?? undefined,
+            answerOrder: lastOrder ?? undefined,
+            prompt: drill.prompt,
+            explanation: drill.explanation,
+          })
+        : null;
+
       return NextResponse.json({
         drill: publicDrill(drill),
-        last_attempt: last,
+        last_attempt: last
+          ? {
+              answer_index: last.answer_index,
+              answer_text: last.answer_text,
+              answer_order: lastOrder,
+              is_correct: last.is_correct,
+            }
+          : null,
         next_slug: await nextDrillSlug(
           drill.module_id,
           drill.sort_order,
           studentId,
+          drill.source,
+          drill.student_id,
         ),
-        reveal: last
+        reveal: marked
           ? {
               correct_index: drill.correct_index,
-              explanation: drill.explanation,
+              explanation: marked.explanation,
+              sample: marked.sample ?? null,
+              checks: marked.checks,
             }
           : null,
       });
@@ -163,8 +238,7 @@ export async function GET(request: Request) {
 
     const drills = await query<DrillRow>(
       studentId
-        ? `SELECT id, slug, module_id, prompt_type, skill, title, stem, options,
-                  correct_index, explanation, sort_order, source, student_id
+        ? `SELECT ${DRILL_COLUMNS}
            FROM mini_drills d
            WHERE d.module_id = $1 AND d.is_active = TRUE
              AND (
@@ -183,8 +257,7 @@ export async function GET(request: Request) {
                       ELSE 1
                     END,
                     d.sort_order ASC`
-        : `SELECT id, slug, module_id, prompt_type, skill, title, stem, options,
-                  correct_index, explanation, sort_order, source, student_id
+        : `SELECT ${DRILL_COLUMNS}
            FROM mini_drills
            WHERE module_id = $1 AND is_active = TRUE AND student_id IS NULL
              AND COALESCE(source, 'seed') = 'seed'
@@ -235,7 +308,13 @@ export async function POST(request: Request) {
 
     await ensureWritingEnhancements();
 
-    let body: { student_id?: unknown; slug?: unknown; answer_index?: unknown };
+    let body: {
+      student_id?: unknown;
+      slug?: unknown;
+      answer_index?: unknown;
+      answer_text?: unknown;
+      answer_order?: unknown;
+    };
     try {
       body = (await request.json()) as typeof body;
     } catch {
@@ -244,11 +323,18 @@ export async function POST(request: Request) {
 
     const studentId = typeof body.student_id === 'string' ? body.student_id : '';
     const slug = typeof body.slug === 'string' ? body.slug : '';
-    const answerIndex = Number(body.answer_index);
+    const answerIndex =
+      typeof body.answer_index === 'number' || typeof body.answer_index === 'string'
+        ? Number(body.answer_index)
+        : NaN;
+    const answerText = typeof body.answer_text === 'string' ? body.answer_text : '';
+    const answerOrder = Array.isArray(body.answer_order)
+      ? body.answer_order.map((item) => Number(item))
+      : [];
 
-    if (!studentId || !slug || !Number.isInteger(answerIndex) || answerIndex < 0) {
+    if (!studentId || !slug) {
       return NextResponse.json(
-        { error: 'student_id, slug, and answer_index are required' },
+        { error: 'student_id and slug are required' },
         { status: 400 },
       );
     }
@@ -259,8 +345,7 @@ export async function POST(request: Request) {
     }
 
     const drillResult = await query<DrillRow>(
-      `SELECT id, slug, module_id, prompt_type, skill, title, stem, options,
-              correct_index, explanation, sort_order, source, student_id
+      `SELECT ${DRILL_COLUMNS}
        FROM mini_drills
        WHERE slug = $1 AND is_active = TRUE
        LIMIT 1`,
@@ -277,12 +362,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Drill not found' }, { status: 404 });
     }
 
-    const options = Array.isArray(drill.options) ? drill.options : [];
-    if (answerIndex >= options.length) {
-      return NextResponse.json({ error: 'Invalid answer_index' }, { status: 400 });
+    const kind = drillKind(drill);
+    if (kind === 'choice') {
+      const options = Array.isArray(drill.options) ? drill.options : [];
+      if (!Number.isInteger(answerIndex) || answerIndex < 0 || answerIndex >= options.length) {
+        return NextResponse.json({ error: 'Invalid answer_index' }, { status: 400 });
+      }
+    } else if (kind === 'order') {
+      if (answerOrder.length === 0 || answerOrder.some((index) => !Number.isInteger(index))) {
+        return NextResponse.json({ error: 'answer_order is required' }, { status: 400 });
+      }
+    } else if (!answerText.trim()) {
+      return NextResponse.json({ error: 'answer_text is required' }, { status: 400 });
     }
 
-    const isCorrect = markMiniChoice(drill.correct_index, answerIndex);
+    const marked = markMiniItem({
+      kind,
+      correctIndex: drill.correct_index,
+      answerIndex: Number.isInteger(answerIndex) ? answerIndex : null,
+      answerText,
+      answerOrder,
+      prompt: drill.prompt,
+      explanation: drill.explanation,
+    });
+
     const prior = await query<{ id: string }>(
       `SELECT id FROM mini_drill_attempts
        WHERE student_id = $1 AND drill_id = $2
@@ -290,23 +393,40 @@ export async function POST(request: Request) {
       [studentId, drill.id],
     );
     await query(
-      `INSERT INTO mini_drill_attempts (student_id, drill_id, answer_index, is_correct)
-       VALUES ($1, $2, $3, $4)`,
-      [studentId, drill.id, answerIndex, isCorrect],
+      `INSERT INTO mini_drill_attempts (
+         student_id, drill_id, answer_index, answer_text, answer_payload, is_correct, feedback
+       ) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7::jsonb)`,
+      [
+        studentId,
+        drill.id,
+        kind === 'choice' && Number.isInteger(answerIndex) ? answerIndex : null,
+        answerText.trim() || null,
+        JSON.stringify(kind === 'order' ? { order: answerOrder } : {}),
+        marked.isCorrect,
+        JSON.stringify({ checks: marked.checks, sample: marked.sample ?? null }),
+      ],
     );
 
     const award = await awardMiniSeeds({
       studentId,
       drillId: drill.id,
-      isCorrect,
+      isCorrect: marked.isCorrect,
       alreadyTried: (prior.rowCount ?? prior.rows.length) > 0,
     });
 
     return NextResponse.json({
-      is_correct: isCorrect,
+      is_correct: marked.isCorrect,
       correct_index: drill.correct_index,
-      explanation: drill.explanation,
-      next_slug: await nextDrillSlug(drill.module_id, drill.sort_order, studentId),
+      explanation: marked.explanation,
+      sample: marked.sample ?? null,
+      checks: marked.checks,
+      next_slug: await nextDrillSlug(
+        drill.module_id,
+        drill.sort_order,
+        studentId,
+        drill.source,
+        drill.student_id,
+      ),
       drill: publicDrill(drill),
       award,
     });

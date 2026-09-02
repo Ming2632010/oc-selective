@@ -16,6 +16,7 @@ import {
 } from './generate-mini-drills';
 import { SEED_MINI_DRILLS } from './seed-mini-drills';
 import { SEED_EXTRA_MINI_DRILLS } from './seed-extra-mini-drills';
+import { SEED_MIXED_MINI_DRILLS } from './seed-mixed-mini-drills';
 
 describe('pickMiniFocus', () => {
   it('targets missed mini skills in the unit first', () => {
@@ -106,6 +107,7 @@ describe('extra mini bank', () => {
     const slugs = [
       ...SEED_MINI_DRILLS.map((drill) => drill.slug),
       ...SEED_EXTRA_MINI_DRILLS.map((drill) => drill.slug),
+      ...SEED_MIXED_MINI_DRILLS.map((drill) => drill.slug),
     ];
     assert.equal(new Set(slugs).size, slugs.length);
     for (let moduleId = 1; moduleId <= 11; moduleId += 1) {

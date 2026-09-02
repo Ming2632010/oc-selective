@@ -15,6 +15,7 @@ import {
 } from '@/lib/rewards';
 import { MINI_SKILLS, SEED_MINI_DRILLS, type MiniSkill } from '@/lib/seed-mini-drills';
 import { SEED_EXTRA_MINI_DRILLS } from '@/lib/seed-extra-mini-drills';
+import { SEED_MIXED_MINI_DRILLS } from '@/lib/seed-mixed-mini-drills';
 import { buildDecodeGuide, defaultPurposes } from '@/lib/decode-guide';
 import { SEED_PROMPTS } from '@/lib/seed-prompts';
 import { getUnitInfo, typeLabel } from '@/lib/units';
@@ -31,10 +32,13 @@ import {
 let schemaReady = false;
 let seededLength = 0;
 let seededPrompts = 0;
-const WRITING_SCHEMA = 7;
+const WRITING_SCHEMA = 8;
 let appliedSchema = 0;
 
-const SEEDED_DRILL_COUNT = SEED_MINI_DRILLS.length + SEED_EXTRA_MINI_DRILLS.length;
+const SEEDED_DRILL_COUNT =
+  SEED_MINI_DRILLS.length +
+  SEED_EXTRA_MINI_DRILLS.length +
+  SEED_MIXED_MINI_DRILLS.length;
 
 function markSchemaReady() {
   schemaReady = true;
@@ -168,6 +172,30 @@ export async function ensureWritingEnhancements(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_mini_drill_unlocks_student
       ON mini_drill_unlocks (student_id, created_at DESC)
   `);
+  await query(`
+    ALTER TABLE mini_drills
+      ADD COLUMN IF NOT EXISTS item_kind TEXT NOT NULL DEFAULT 'choice'
+  `);
+  await query(`
+    ALTER TABLE mini_drills
+      ADD COLUMN IF NOT EXISTS prompt JSONB NOT NULL DEFAULT '{}'::jsonb
+  `);
+  await query(`
+    ALTER TABLE mini_drill_attempts
+      ALTER COLUMN answer_index DROP NOT NULL
+  `);
+  await query(`
+    ALTER TABLE mini_drill_attempts
+      ADD COLUMN IF NOT EXISTS answer_text TEXT
+  `);
+  await query(`
+    ALTER TABLE mini_drill_attempts
+      ADD COLUMN IF NOT EXISTS answer_payload JSONB
+  `);
+  await query(`
+    ALTER TABLE mini_drill_attempts
+      ADD COLUMN IF NOT EXISTS feedback JSONB
+  `);
 
   await query(`
     ALTER TABLE prompts
@@ -285,8 +313,9 @@ export async function ensureWritingEnhancements(): Promise<void> {
     await query(
       `INSERT INTO mini_drills (
          slug, module_id, prompt_type, skill, title, stem, options,
-         correct_index, explanation, sort_order, is_active, source, student_id
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10, TRUE, 'seed', NULL)
+         correct_index, explanation, sort_order, is_active, source, student_id,
+         item_kind, prompt
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10, TRUE, 'seed', NULL, 'choice', '{}'::jsonb)
        ON CONFLICT (slug) DO UPDATE SET
          module_id = EXCLUDED.module_id,
          prompt_type = EXCLUDED.prompt_type,
@@ -299,7 +328,9 @@ export async function ensureWritingEnhancements(): Promise<void> {
          sort_order = EXCLUDED.sort_order,
          is_active = TRUE,
          source = 'seed',
-         student_id = NULL`,
+         student_id = NULL,
+         item_kind = 'choice',
+         prompt = '{}'::jsonb`,
       [
         drill.slug,
         drill.module_id,
@@ -319,8 +350,9 @@ export async function ensureWritingEnhancements(): Promise<void> {
     await query(
       `INSERT INTO mini_drills (
          slug, module_id, prompt_type, skill, title, stem, options,
-         correct_index, explanation, sort_order, is_active, source, student_id
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10, TRUE, 'extra', NULL)
+         correct_index, explanation, sort_order, is_active, source, student_id,
+         item_kind, prompt
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10, TRUE, 'extra', NULL, 'choice', '{}'::jsonb)
        ON CONFLICT (slug) DO UPDATE SET
          module_id = EXCLUDED.module_id,
          prompt_type = EXCLUDED.prompt_type,
@@ -333,7 +365,9 @@ export async function ensureWritingEnhancements(): Promise<void> {
          sort_order = EXCLUDED.sort_order,
          is_active = TRUE,
          source = 'extra',
-         student_id = NULL`,
+         student_id = NULL,
+         item_kind = 'choice',
+         prompt = '{}'::jsonb`,
       [
         drill.slug,
         drill.module_id,
@@ -345,6 +379,43 @@ export async function ensureWritingEnhancements(): Promise<void> {
         drill.correct_index,
         drill.explanation,
         drill.sort_order,
+      ],
+    );
+  }
+
+  for (const drill of SEED_MIXED_MINI_DRILLS) {
+    await query(
+      `INSERT INTO mini_drills (
+         slug, module_id, prompt_type, skill, title, stem, options,
+         correct_index, explanation, sort_order, is_active, source, student_id,
+         item_kind, prompt
+       ) VALUES ($1,$2,$3,$4,$5,$6,'[]'::jsonb, 0, $7, $8, TRUE, 'seed', NULL, $9, $10::jsonb)
+       ON CONFLICT (slug) DO UPDATE SET
+         module_id = EXCLUDED.module_id,
+         prompt_type = EXCLUDED.prompt_type,
+         skill = EXCLUDED.skill,
+         title = EXCLUDED.title,
+         stem = EXCLUDED.stem,
+         options = '[]'::jsonb,
+         correct_index = 0,
+         explanation = EXCLUDED.explanation,
+         sort_order = EXCLUDED.sort_order,
+         is_active = TRUE,
+         source = 'seed',
+         student_id = NULL,
+         item_kind = EXCLUDED.item_kind,
+         prompt = EXCLUDED.prompt`,
+      [
+        drill.slug,
+        drill.module_id,
+        drill.prompt_type,
+        drill.skill,
+        drill.title,
+        drill.stem,
+        drill.explanation,
+        drill.sort_order,
+        drill.item_kind,
+        JSON.stringify(drill.prompt),
       ],
     );
   }
