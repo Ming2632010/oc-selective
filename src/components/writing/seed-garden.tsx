@@ -120,8 +120,8 @@ export function SeedGardenScene({
           aria-hidden
         />
 
-        <div className="relative min-h-[20rem] sm:min-h-[23rem]">
-          <ul className="absolute inset-x-0 top-0 h-[62%]" aria-hidden>
+        <div className="relative min-h-[22rem] sm:min-h-[26rem]">
+          <ul className="absolute inset-x-0 top-0 h-[68%]" aria-hidden>
             {beds.map((stageIndex, slot) => {
               const place = GARDEN_SLOTS[slot] ?? GARDEN_SLOTS[0];
               return (
@@ -139,19 +139,19 @@ export function SeedGardenScene({
                 >
                   <PlanterPhoto
                     stageIndex={stageIndex}
-                    className="h-full w-full object-cover object-[50%_78%]"
+                    className="h-full w-full object-cover object-center"
                   />
                 </li>
               );
             })}
           </ul>
 
-          <div className="absolute bottom-[-4%] left-1/2 z-10 w-[92%] max-w-[26rem] -translate-x-1/2 sm:bottom-[-2%] sm:w-[70%]">
-            <div className="relative aspect-[4/5] overflow-hidden rounded-[1.6rem] bg-[#d8d0b4] shadow-[0_16px_32px_rgba(50,55,30,0.38)] ring-[3px] ring-amber-400 sm:aspect-[3/4]">
+          <div className="absolute bottom-1 left-1/2 z-10 w-[78%] max-w-[22rem] -translate-x-1/2 sm:bottom-2 sm:w-[58%]">
+            <div className="relative aspect-[3/4] overflow-hidden rounded-[1.6rem] bg-[#d8d0b4] shadow-[0_16px_32px_rgba(50,55,30,0.38)] ring-[3px] ring-amber-400">
               <PlanterPhoto
                 stageIndex={currentIndex}
                 alt={label}
-                className="h-full w-full origin-bottom scale-[1.18] object-cover object-[50%_82%]"
+                className="h-full w-full object-cover object-center"
               />
             </div>
           </div>
