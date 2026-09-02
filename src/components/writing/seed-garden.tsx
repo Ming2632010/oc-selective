@@ -13,18 +13,18 @@ export const SHAPE_GREEN_TRACK = '#E3EDDA';
 export const SHAPE_GREEN_SOFT = '#F1F5EA';
 
 const PLANTER_SRC = [
-  '/marketing/seed-patch/planter-sprout.jpg',
-  '/marketing/seed-patch/planter-first-leaves.jpg',
-  '/marketing/seed-patch/planter-seedling.jpg',
-  '/marketing/seed-patch/planter-branching.jpg',
-  '/marketing/seed-patch/planter-in-flower.jpg',
-  '/marketing/seed-patch/planter-harvest.jpg',
+  '/marketing/seed-patch/planter-sprout.png',
+  '/marketing/seed-patch/planter-first-leaves.png',
+  '/marketing/seed-patch/planter-seedling.png',
+  '/marketing/seed-patch/planter-branching.png',
+  '/marketing/seed-patch/planter-in-flower.png',
+  '/marketing/seed-patch/planter-harvest.png',
 ] as const;
 
 const SEED_CHIP = [
-  '/marketing/seed-patch/garden-seed-0.jpg',
-  '/marketing/seed-patch/garden-seed-1.jpg',
-  '/marketing/seed-patch/garden-seed-2.jpg',
+  '/marketing/seed-patch/garden-seed-0.png',
+  '/marketing/seed-patch/garden-seed-1.png',
+  '/marketing/seed-patch/garden-seed-2.png',
 ] as const;
 
 /** Back row of the garden — crates rest on the soil line, left and right of the plot. */
@@ -124,10 +124,6 @@ export function SeedGardenScene({
                       left: place.left,
                       width: place.width,
                       zIndex: place.z,
-                      WebkitMaskImage:
-                        'radial-gradient(ellipse 88% 90% at 50% 70%, #000 62%, transparent 86%)',
-                      maskImage:
-                        'radial-gradient(ellipse 88% 90% at 50% 70%, #000 62%, transparent 86%)',
                     }}
                   >
                     <PlanterPhoto
@@ -176,15 +172,7 @@ export function SeedGardenScene({
             })}
           </ul>
 
-          <div
-            className="absolute bottom-[-12%] left-1/2 z-10 h-[108%] w-[86%] max-w-[26rem] -translate-x-1/2 sm:w-[64%]"
-            style={{
-              WebkitMaskImage:
-                'radial-gradient(ellipse 95% 92% at 50% 78%, #000 58%, transparent 80%)',
-              maskImage:
-                'radial-gradient(ellipse 95% 92% at 50% 78%, #000 58%, transparent 80%)',
-            }}
-          >
+          <div className="absolute bottom-[-10%] left-1/2 z-10 h-[108%] w-[88%] max-w-[26rem] -translate-x-1/2 sm:w-[66%]">
             <PlanterPhoto
               stageIndex={currentIndex}
               alt={label}
