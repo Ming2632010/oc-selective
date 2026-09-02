@@ -252,7 +252,8 @@ export default function MiniPracticePage() {
         </Link>
         <p className="mt-2 text-sm uppercase tracking-wide text-indigo-700">
           Mini practice
-          {drill.source === 'ai' ? ' · Extra' : ''} · {kindLabel} ·{' '}
+          {drill.source === 'ai' ? ' · Extra' : ''}
+          {kind !== 'choice' ? ` · ${kindLabel}` : ''} ·{' '}
           {MINI_SKILL_LABELS[drill.skill] ?? drill.skill}
         </p>
         <h1 className="text-3xl font-semibold text-stone-900">{drill.title}</h1>
