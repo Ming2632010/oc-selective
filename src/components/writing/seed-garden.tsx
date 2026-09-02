@@ -103,40 +103,41 @@ export function SeedGardenScene({
           className="pointer-events-none absolute inset-x-0 top-0 h-[46%] w-full object-cover object-top"
           aria-hidden
         />
-        <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-[58%] bg-gradient-to-b from-[#c4ae78] via-[#a88854] to-[#7a6240]"
-          aria-hidden
-        />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/marketing/seed-patch/garden-soil.jpg"
-          alt=""
-          className="pointer-events-none absolute inset-x-0 top-[40%] h-[22%] w-full object-cover object-top opacity-90"
-          aria-hidden
-        />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-b from-[#c4ae78] via-[#a88854] to-[#7a6240]" aria-hidden />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/marketing/seed-patch/garden-soil.jpg"
+            alt=""
+            className="pointer-events-none absolute inset-x-0 top-[36%] h-[28%] w-full object-cover object-top opacity-95"
+            aria-hidden
+          />
 
-        <div className="relative min-h-[18rem] sm:min-h-[22rem]">
-          <ul className="absolute inset-x-0 top-[18%] h-[42%]" aria-hidden>
-            {beds.map((stageIndex, slot) => {
-              const place = GARDEN_SLOTS[slot] ?? GARDEN_SLOTS[0];
-              return (
-                <li
-                  key={`garden-${slot}-${stageIndex}`}
-                  className="absolute bottom-0"
-                  style={{
-                    left: place.left,
-                    width: place.width,
-                    zIndex: place.z,
-                  }}
-                >
-                  <PlanterPhoto
-                    stageIndex={stageIndex}
-                    className="h-auto w-full"
-                  />
-                </li>
-              );
-            })}
-          </ul>
+          <div className="relative min-h-[19rem] sm:min-h-[24rem]">
+            <ul className="absolute inset-x-0 top-[10%] h-[48%]" aria-hidden>
+              {beds.map((stageIndex, slot) => {
+                const place = GARDEN_SLOTS[slot] ?? GARDEN_SLOTS[0];
+                return (
+                  <li
+                    key={`garden-${slot}-${stageIndex}`}
+                    className="absolute bottom-0"
+                    style={{
+                      left: place.left,
+                      width: place.width,
+                      zIndex: place.z,
+                      WebkitMaskImage:
+                        'radial-gradient(ellipse 88% 90% at 50% 70%, #000 62%, transparent 86%)',
+                      maskImage:
+                        'radial-gradient(ellipse 88% 90% at 50% 70%, #000 62%, transparent 86%)',
+                    }}
+                  >
+                    <PlanterPhoto
+                      stageIndex={stageIndex}
+                      className="h-auto w-full"
+                    />
+                  </li>
+                );
+              })}
+            </ul>
 
           {showBasket ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -175,7 +176,15 @@ export function SeedGardenScene({
             })}
           </ul>
 
-          <div className="absolute bottom-0 left-1/2 z-10 h-[88%] w-[72%] max-w-[22rem] -translate-x-1/2 sm:w-[54%]">
+          <div
+            className="absolute bottom-[-12%] left-1/2 z-10 h-[108%] w-[86%] max-w-[26rem] -translate-x-1/2 sm:w-[64%]"
+            style={{
+              WebkitMaskImage:
+                'radial-gradient(ellipse 95% 92% at 50% 78%, #000 58%, transparent 80%)',
+              maskImage:
+                'radial-gradient(ellipse 95% 92% at 50% 78%, #000 58%, transparent 80%)',
+            }}
+          >
             <PlanterPhoto
               stageIndex={currentIndex}
               alt={label}
