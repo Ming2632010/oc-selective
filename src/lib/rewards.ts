@@ -146,6 +146,11 @@ export function gardenBedStages(input: {
   return beds.slice(0, 12);
 }
 
+/** How many seeds are sitting in the garden soil behind the current plot. */
+export function gardenSeedCount(lifetimeSeeds: number): number {
+  return Math.min(24, Math.floor(Math.max(0, lifetimeSeeds) / 4));
+}
+
 export function seedsForMini(input: {
   isCorrect: boolean;
   alreadyTried: boolean;

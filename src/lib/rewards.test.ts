@@ -4,6 +4,7 @@ import {
   calendarDateInSydney,
   daysBetween,
   gardenBedStages,
+  gardenSeedCount,
   growthStage,
   harvestBonus,
   nextPlotState,
@@ -227,5 +228,12 @@ describe('harvestBonus and growth', () => {
       gardenBedStages({ currentIndex: 2, weeklyHarvests: 1, lifetimeSeeds: 150 }),
       [0, 1, 5],
     );
+  });
+
+  it('scatters earned seeds into the garden soil', () => {
+    assert.equal(gardenSeedCount(0), 0);
+    assert.equal(gardenSeedCount(12), 3);
+    assert.equal(gardenSeedCount(37), 9);
+    assert.equal(gardenSeedCount(200), 24);
   });
 });
