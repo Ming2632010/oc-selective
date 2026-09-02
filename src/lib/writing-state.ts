@@ -718,6 +718,7 @@ export type SeedPatchView = {
   rain_cheques: number;
   focused_minutes_week: number;
   stage: ReturnType<typeof growthStage>;
+  weekly_harvests: number;
   recent: { seeds: number; label: string; source: string; created_at: Date }[];
 };
 
@@ -802,7 +803,15 @@ async function recentSeedEvents(studentId: string, limit = 6) {
 }
 
 export async function getSeedPatchView(studentId: string): Promise<SeedPatchView> {
-  const row = await loadPatchRow(studentId);
+  const [row, harvests] = await Promise.all([
+    loadPatchRow(studentId),
+    query<{ n: string }>(
+      `SELECT COUNT(*)::text AS n
+       FROM seed_events
+       WHERE student_id = $1 AND label = $2`,
+      [studentId, 'Weekly harvest (90 seeds)'],
+    ),
+  ]);
   return {
     lifetime_seeds: row.lifetime_seeds,
     week_seeds: row.week_seeds,
@@ -812,6 +821,7 @@ export async function getSeedPatchView(studentId: string): Promise<SeedPatchView
     rain_cheques: row.rain_cheques,
     focused_minutes_week: Math.round(row.focused_seconds_week / 60),
     stage: growthStage(row.lifetime_seeds),
+    weekly_harvests: Number(harvests.rows[0]?.n ?? 0),
     recent: await recentSeedEvents(studentId),
   };
 }

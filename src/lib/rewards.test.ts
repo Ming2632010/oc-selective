@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   calendarDateInSydney,
   daysBetween,
+  gardenBedStages,
   growthStage,
   harvestBonus,
   nextPlotState,
@@ -211,5 +212,20 @@ describe('harvestBonus and growth', () => {
     assert.equal(growthStage(40).id, 'first_leaves');
     assert.equal(growthStage(1000).id, 'harvest');
     assert.equal(growthStage(999).nextAt, 1000);
+  });
+
+  it('moves completed stages into the garden behind the current plot', () => {
+    assert.deepEqual(
+      gardenBedStages({ currentIndex: 0, weeklyHarvests: 0, lifetimeSeeds: 12 }),
+      [],
+    );
+    assert.deepEqual(
+      gardenBedStages({ currentIndex: 1, weeklyHarvests: 0, lifetimeSeeds: 52 }),
+      [0],
+    );
+    assert.deepEqual(
+      gardenBedStages({ currentIndex: 2, weeklyHarvests: 1, lifetimeSeeds: 150 }),
+      [0, 1, 5],
+    );
   });
 });

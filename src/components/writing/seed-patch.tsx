@@ -1,5 +1,9 @@
 import { GROWTH_STAGES } from '@/lib/rewards';
-import { SeedGardenScene } from '@/components/writing/seed-garden';
+import {
+  SHAPE_GREEN,
+  SHAPE_GREEN_TRACK,
+  SeedGardenScene,
+} from '@/components/writing/seed-garden';
 
 export type SeedPatchData = {
   lifetime_seeds: number;
@@ -16,6 +20,7 @@ export type SeedPatchData = {
     min: number;
     nextAt: number | null;
   };
+  weekly_harvests?: number;
   recent: { seeds: number; label: string; source: string }[];
 };
 
@@ -44,7 +49,10 @@ export function SeedPatch({ patch }: { patch: SeedPatchData | null }) {
     <section className="rounded-xl border border-amber-200/80 bg-[#f6f1e6] p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-rose-800">
+          <p
+            className="text-xs font-semibold uppercase tracking-wide"
+            style={{ color: SHAPE_GREEN }}
+          >
             Seed Patch
           </p>
           <h2 className="mt-1 text-2xl font-semibold text-stone-900">
@@ -65,7 +73,12 @@ export function SeedPatch({ patch }: { patch: SeedPatchData | null }) {
         </div>
       </div>
 
-      <SeedGardenScene stageId={patch.stage.id} className="mt-4" />
+      <SeedGardenScene
+        stageId={patch.stage.id}
+        lifetimeSeeds={patch.lifetime_seeds}
+        weeklyHarvests={patch.weekly_harvests ?? 0}
+        className="mt-4"
+      />
 
       <div className="mt-4 space-y-1.5">
         <div className="flex justify-between text-xs text-stone-600">
@@ -79,10 +92,13 @@ export function SeedPatch({ patch }: { patch: SeedPatchData | null }) {
           </span>
           <span>{stagePct}%</span>
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-white/80">
+        <div
+          className="h-2 overflow-hidden rounded-full"
+          style={{ backgroundColor: SHAPE_GREEN_TRACK }}
+        >
           <div
-            className="h-full rounded-full bg-rose-500"
-            style={{ width: `${stagePct}%` }}
+            className="h-full rounded-full"
+            style={{ width: `${stagePct}%`, backgroundColor: SHAPE_GREEN }}
           />
         </div>
       </div>
@@ -96,10 +112,13 @@ export function SeedPatch({ patch }: { patch: SeedPatchData | null }) {
             {patch.week_seeds}/{patch.week_goal} seeds
             {patch.harvest_claimed ? ' · Harvest in' : ''}
           </p>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-rose-100">
+          <div
+            className="mt-2 h-2 overflow-hidden rounded-full"
+            style={{ backgroundColor: SHAPE_GREEN_TRACK }}
+          >
             <div
-              className="h-full rounded-full bg-rose-400"
-              style={{ width: `${weekPct}%` }}
+              className="h-full rounded-full"
+              style={{ width: `${weekPct}%`, backgroundColor: SHAPE_GREEN }}
             />
           </div>
         </div>
