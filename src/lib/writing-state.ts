@@ -31,7 +31,7 @@ import {
 let schemaReady = false;
 let seededLength = 0;
 let seededPrompts = 0;
-const WRITING_SCHEMA = 6;
+const WRITING_SCHEMA = 7;
 let appliedSchema = 0;
 
 const SEEDED_DRILL_COUNT = SEED_MINI_DRILLS.length + SEED_EXTRA_MINI_DRILLS.length;

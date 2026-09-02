@@ -120,6 +120,14 @@ describe('extra mini bank', () => {
           undefined,
           `unit ${moduleId} extra copied “${clash?.title}”: ${extra.stem}`,
         );
+        const titleClash = seeds.find(
+          (seed) => seed.title.toLowerCase() === extra.title.toLowerCase(),
+        );
+        assert.equal(
+          titleClash,
+          undefined,
+          `unit ${moduleId} extra reuses title “${extra.title}”`,
+        );
       }
     }
   });
