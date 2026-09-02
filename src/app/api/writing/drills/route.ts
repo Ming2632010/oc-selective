@@ -6,6 +6,7 @@ import {
   assertOwnedStudent,
   awardMiniSeeds,
   ensureWritingEnhancements,
+  extraIsUnlocked,
   getMiniExtraMeta,
 } from '@/lib/writing-state';
 
@@ -39,7 +40,7 @@ function publicDrill(row: DrillRow) {
     stem: row.stem,
     options: Array.isArray(row.options) ? row.options : [],
     sort_order: row.sort_order,
-    source: row.source === 'ai' ? 'ai' : 'seed',
+    source: row.source === 'seed' || !row.source ? 'seed' : 'ai',
   };
 }
 
@@ -50,14 +51,25 @@ async function nextDrillSlug(
 ) {
   const result = await query<{ slug: string }>(
     studentId
-      ? `SELECT slug FROM mini_drills
-         WHERE module_id = $1 AND is_active = TRUE AND sort_order > $2
-           AND (student_id IS NULL OR student_id = $3)
-         ORDER BY CASE WHEN student_id IS NULL THEN 0 ELSE 1 END, sort_order ASC
+      ? `SELECT slug FROM mini_drills d
+         WHERE d.module_id = $1 AND d.is_active = TRUE AND d.sort_order > $2
+           AND (
+             (d.student_id IS NULL AND COALESCE(d.source, 'seed') = 'seed')
+             OR d.student_id = $3
+             OR (
+               d.student_id IS NULL AND d.source = 'extra'
+               AND EXISTS (
+                 SELECT 1 FROM mini_drill_unlocks u
+                 WHERE u.student_id = $3 AND u.drill_id = d.id
+               )
+             )
+           )
+         ORDER BY CASE WHEN d.student_id IS NULL AND COALESCE(d.source, 'seed') = 'seed' THEN 0 ELSE 1 END,
+                  d.sort_order ASC
          LIMIT 1`
       : `SELECT slug FROM mini_drills
          WHERE module_id = $1 AND is_active = TRUE AND sort_order > $2
-           AND student_id IS NULL
+           AND student_id IS NULL AND COALESCE(source, 'seed') = 'seed'
          ORDER BY sort_order ASC
          LIMIT 1`,
     studentId ? [moduleId, sortOrder, studentId] : [moduleId, sortOrder],
@@ -101,6 +113,11 @@ export async function GET(request: Request) {
       }
       if (drill.student_id && drill.student_id !== studentId) {
         return NextResponse.json({ error: 'Drill not found' }, { status: 404 });
+      }
+      if (drill.source === 'extra') {
+        if (!studentId || !(await extraIsUnlocked(studentId, drill.id))) {
+          return NextResponse.json({ error: 'Drill not found' }, { status: 404 });
+        }
       }
 
       let last: { answer_index: number; is_correct: boolean } | null = null;
@@ -148,14 +165,29 @@ export async function GET(request: Request) {
       studentId
         ? `SELECT id, slug, module_id, prompt_type, skill, title, stem, options,
                   correct_index, explanation, sort_order, source, student_id
-           FROM mini_drills
-           WHERE module_id = $1 AND is_active = TRUE
-             AND (student_id IS NULL OR student_id = $2)
-           ORDER BY CASE WHEN student_id IS NULL THEN 0 ELSE 1 END, sort_order ASC`
+           FROM mini_drills d
+           WHERE d.module_id = $1 AND d.is_active = TRUE
+             AND (
+               (d.student_id IS NULL AND COALESCE(d.source, 'seed') = 'seed')
+               OR d.student_id = $2
+               OR (
+                 d.student_id IS NULL AND d.source = 'extra'
+                 AND EXISTS (
+                   SELECT 1 FROM mini_drill_unlocks u
+                   WHERE u.student_id = $2 AND u.drill_id = d.id
+                 )
+               )
+             )
+           ORDER BY CASE
+                      WHEN d.student_id IS NULL AND COALESCE(d.source, 'seed') = 'seed' THEN 0
+                      ELSE 1
+                    END,
+                    d.sort_order ASC`
         : `SELECT id, slug, module_id, prompt_type, skill, title, stem, options,
                   correct_index, explanation, sort_order, source, student_id
            FROM mini_drills
            WHERE module_id = $1 AND is_active = TRUE AND student_id IS NULL
+             AND COALESCE(source, 'seed') = 'seed'
            ORDER BY sort_order ASC`,
       studentId ? [moduleId, studentId] : [moduleId],
     );
@@ -239,6 +271,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Drill not found' }, { status: 404 });
     }
     if (drill.student_id && drill.student_id !== studentId) {
+      return NextResponse.json({ error: 'Drill not found' }, { status: 404 });
+    }
+    if (drill.source === 'extra' && !(await extraIsUnlocked(studentId, drill.id))) {
       return NextResponse.json({ error: 'Drill not found' }, { status: 404 });
     }
 

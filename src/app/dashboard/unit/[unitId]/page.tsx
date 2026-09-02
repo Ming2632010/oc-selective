@@ -129,11 +129,18 @@ export default function UnitPage() {
       if (!res.response.ok) {
         throw new Error(res.data.error || 'Could not make extra questions');
       }
-      const fresh = (res.data.drills as MiniDrillCard[]) || [];
-      setDrills((prev) => {
-        const have = new Set(prev.map((row) => row.slug));
-        return [...prev, ...fresh.filter((row) => !have.has(row.slug))];
-      });
+      const drillRes = await apiFetch(
+        `/api/writing/drills?module_id=${unitId}&student_id=${studentId}`,
+      );
+      if (drillRes.response.ok) {
+        setDrills((drillRes.data.drills as MiniDrillCard[]) || []);
+      } else {
+        const fresh = (res.data.drills as MiniDrillCard[]) || [];
+        setDrills((prev) => {
+          const have = new Set(prev.map((row) => row.slug));
+          return [...prev, ...fresh.filter((row) => !have.has(row.slug))];
+        });
+      }
       setExtra((res.data.extra as ExtraMeta | null) ?? extra);
       setGenerateNote(
         typeof res.data.reason === 'string' ? res.data.reason : 'Extra questions added.',
@@ -187,7 +194,7 @@ export default function UnitPage() {
               disabled={generating}
               className="shrink-0 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
             >
-              {generating ? 'Making questions…' : 'More practice for me'}
+              {generating ? 'Adding questions…' : 'More practice for me'}
             </button>
           ) : extra && extra.remaining_unit <= 0 ? (
             <p className="max-w-xs text-right text-xs text-stone-500">
