@@ -124,3 +124,18 @@ export function extraCapacity(existingCount: number, createdToday: number) {
     can_generate: packSize > 0,
   };
 }
+
+/** Prefer focus skills, then the rest of the unused bank, in sort order. */
+export function selectExtraPack<T extends { skill: MiniSkill; sort_order: number }>(
+  unused: T[],
+  focusSkills: MiniSkill[],
+  packSize: number,
+): T[] {
+  const preferred = unused
+    .filter((row) => focusSkills.includes(row.skill))
+    .sort((a, b) => a.sort_order - b.sort_order);
+  const rest = unused
+    .filter((row) => !focusSkills.includes(row.skill))
+    .sort((a, b) => a.sort_order - b.sort_order);
+  return [...preferred, ...rest].slice(0, packSize);
+}

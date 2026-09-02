@@ -1,5 +1,5 @@
 import { query } from '@/lib/db';
-import { extraCapacity, pickMiniFocus, type SkillStat } from '@/lib/mini-weakness';
+import { extraCapacity, pickMiniFocus, selectExtraPack, type SkillStat } from '@/lib/mini-weakness';
 import {
   calendarDateInSydney,
   focusedSecondsToCount,
@@ -14,6 +14,7 @@ import {
   type AwardLine,
 } from '@/lib/rewards';
 import { MINI_SKILLS, SEED_MINI_DRILLS, type MiniSkill } from '@/lib/seed-mini-drills';
+import { SEED_EXTRA_MINI_DRILLS } from '@/lib/seed-extra-mini-drills';
 import { buildDecodeGuide, defaultPurposes } from '@/lib/decode-guide';
 import { SEED_PROMPTS } from '@/lib/seed-prompts';
 import { getUnitInfo, typeLabel } from '@/lib/units';
@@ -30,12 +31,14 @@ import {
 let schemaReady = false;
 let seededLength = 0;
 let seededPrompts = 0;
-const WRITING_SCHEMA = 5;
+const WRITING_SCHEMA = 6;
 let appliedSchema = 0;
+
+const SEEDED_DRILL_COUNT = SEED_MINI_DRILLS.length + SEED_EXTRA_MINI_DRILLS.length;
 
 function markSchemaReady() {
   schemaReady = true;
-  seededLength = SEED_MINI_DRILLS.length;
+  seededLength = SEEDED_DRILL_COUNT;
   seededPrompts = SEED_PROMPTS.length;
   appliedSchema = WRITING_SCHEMA;
 }
@@ -43,7 +46,7 @@ function markSchemaReady() {
 export async function ensureWritingEnhancements(): Promise<void> {
   if (
     schemaReady &&
-    seededLength === SEED_MINI_DRILLS.length &&
+    seededLength === SEEDED_DRILL_COUNT &&
     seededPrompts === SEED_PROMPTS.length &&
     appliedSchema === WRITING_SCHEMA
   ) {
@@ -72,7 +75,7 @@ export async function ensureWritingEnhancements(): Promise<void> {
     row &&
     row.version === WRITING_SCHEMA &&
     row.seeded_prompts === SEED_PROMPTS.length &&
-    row.seeded_drills === SEED_MINI_DRILLS.length
+    row.seeded_drills === SEEDED_DRILL_COUNT
   ) {
     markSchemaReady();
     return;
@@ -152,6 +155,18 @@ export async function ensureWritingEnhancements(): Promise<void> {
   await query(`
     CREATE INDEX IF NOT EXISTS idx_mini_drills_student
       ON mini_drills (student_id, module_id, sort_order)
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS mini_drill_unlocks (
+      student_id UUID NOT NULL REFERENCES students (id) ON DELETE CASCADE,
+      drill_id UUID NOT NULL REFERENCES mini_drills (id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (student_id, drill_id)
+    )
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_mini_drill_unlocks_student
+      ON mini_drill_unlocks (student_id, created_at DESC)
   `);
 
   await query(`
@@ -300,6 +315,40 @@ export async function ensureWritingEnhancements(): Promise<void> {
     );
   }
 
+  for (const drill of SEED_EXTRA_MINI_DRILLS) {
+    await query(
+      `INSERT INTO mini_drills (
+         slug, module_id, prompt_type, skill, title, stem, options,
+         correct_index, explanation, sort_order, is_active, source, student_id
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10, TRUE, 'extra', NULL)
+       ON CONFLICT (slug) DO UPDATE SET
+         module_id = EXCLUDED.module_id,
+         prompt_type = EXCLUDED.prompt_type,
+         skill = EXCLUDED.skill,
+         title = EXCLUDED.title,
+         stem = EXCLUDED.stem,
+         options = EXCLUDED.options,
+         correct_index = EXCLUDED.correct_index,
+         explanation = EXCLUDED.explanation,
+         sort_order = EXCLUDED.sort_order,
+         is_active = TRUE,
+         source = 'extra',
+         student_id = NULL`,
+      [
+        drill.slug,
+        drill.module_id,
+        drill.prompt_type,
+        drill.skill,
+        drill.title,
+        drill.stem,
+        JSON.stringify(drill.options),
+        drill.correct_index,
+        drill.explanation,
+        drill.sort_order,
+      ],
+    );
+  }
+
   await query(
     `INSERT INTO writing_schema_meta (id, version, seeded_prompts, seeded_drills)
      VALUES (1, $1, $2, $3)
@@ -308,7 +357,7 @@ export async function ensureWritingEnhancements(): Promise<void> {
        seeded_prompts = EXCLUDED.seeded_prompts,
        seeded_drills = EXCLUDED.seeded_drills,
        updated_at = NOW()`,
-    [WRITING_SCHEMA, SEED_PROMPTS.length, SEED_MINI_DRILLS.length],
+    [WRITING_SCHEMA, SEED_PROMPTS.length, SEEDED_DRILL_COUNT],
   );
 
   markSchemaReady();
@@ -395,7 +444,17 @@ export async function getMiniProgress(studentId: string) {
        WHERE student_id = $1
      ) a ON a.drill_id = d.id
      WHERE d.is_active = TRUE
-       AND (d.student_id IS NULL OR d.student_id = $1)
+       AND (
+         (d.student_id IS NULL AND COALESCE(d.source, 'seed') = 'seed')
+         OR d.student_id = $1
+         OR (
+           d.student_id IS NULL AND d.source = 'extra'
+           AND EXISTS (
+             SELECT 1 FROM mini_drill_unlocks u
+             WHERE u.student_id = $1 AND u.drill_id = d.id
+           )
+         )
+       )
      GROUP BY d.module_id
      ORDER BY d.module_id ASC`,
     [studentId],
@@ -677,16 +736,27 @@ export async function deactivateCopiedExtraDrills(
 
 export async function getExtraDrillCounts(studentId: string, moduleId: number) {
   const total = await query<{ n: string }>(
-    `SELECT COUNT(*)::text AS n
-     FROM mini_drills
-     WHERE student_id = $1 AND module_id = $2 AND source = 'ai' AND is_active = TRUE`,
+    `SELECT (
+        (SELECT COUNT(*) FROM mini_drill_unlocks u
+         JOIN mini_drills d ON d.id = u.drill_id
+         WHERE u.student_id = $1 AND d.module_id = $2 AND d.is_active = TRUE)
+        +
+        (SELECT COUNT(*) FROM mini_drills
+         WHERE student_id = $1 AND module_id = $2 AND source = 'ai' AND is_active = TRUE)
+      )::text AS n`,
     [studentId, moduleId],
   );
   const today = await query<{ n: string }>(
-    `SELECT COUNT(*)::text AS n
-     FROM mini_drills
-     WHERE student_id = $1 AND module_id = $2 AND source = 'ai' AND is_active = TRUE
-       AND created_at >= date_trunc('day', NOW())`,
+    `SELECT (
+        (SELECT COUNT(*) FROM mini_drill_unlocks u
+         JOIN mini_drills d ON d.id = u.drill_id
+         WHERE u.student_id = $1 AND d.module_id = $2
+           AND u.created_at >= date_trunc('day', NOW()))
+        +
+        (SELECT COUNT(*) FROM mini_drills
+         WHERE student_id = $1 AND module_id = $2 AND source = 'ai' AND is_active = TRUE
+           AND created_at >= date_trunc('day', NOW()))
+      )::text AS n`,
     [studentId, moduleId],
   );
   const maxOrder = await query<{ n: string }>(
@@ -732,6 +802,70 @@ export async function getMiniExtraMeta(studentId: string, moduleId: number) {
     counts,
     prompt_type: unit.type,
     unit_label: unit.title,
+  };
+}
+
+export async function extraIsUnlocked(studentId: string, drillId: string) {
+  const result = await query<{ student_id: string }>(
+    `SELECT student_id FROM mini_drill_unlocks
+     WHERE student_id = $1 AND drill_id = $2
+     LIMIT 1`,
+    [studentId, drillId],
+  );
+  return (result.rowCount ?? result.rows.length) > 0;
+}
+
+export async function unlockExtraPack(studentId: string, moduleId: number) {
+  const extra = await getMiniExtraMeta(studentId, moduleId);
+  if (!extra.can_generate || extra.pack_size < 1) {
+    return { extra, drills: [] as const, blocked: true as const };
+  }
+
+  const unused = await query<{
+    id: string;
+    slug: string;
+    skill: MiniSkill;
+    title: string;
+    sort_order: number;
+  }>(
+    `SELECT id, slug, skill, title, sort_order
+     FROM mini_drills d
+     WHERE d.module_id = $1 AND d.is_active = TRUE
+       AND d.source = 'extra' AND d.student_id IS NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM mini_drill_unlocks u
+         WHERE u.student_id = $2 AND u.drill_id = d.id
+       )`,
+    [moduleId, studentId],
+  );
+
+  const picked = selectExtraPack(unused.rows, extra.focus.skills, extra.pack_size);
+  if (picked.length === 0) {
+    return { extra, drills: [] as const, blocked: true as const };
+  }
+
+  for (const drill of picked) {
+    await query(
+      `INSERT INTO mini_drill_unlocks (student_id, drill_id)
+       VALUES ($1, $2)
+       ON CONFLICT DO NOTHING`,
+      [studentId, drill.id],
+    );
+  }
+
+  const refreshed = await getMiniExtraMeta(studentId, moduleId);
+  return {
+    extra: refreshed,
+    reason: extra.reason,
+    drills: picked.map((drill) => ({
+      id: drill.id,
+      slug: drill.slug,
+      skill: drill.skill,
+      title: drill.title,
+      source: 'ai' as const,
+      attempted: false,
+    })),
+    blocked: false as const,
   };
 }
 

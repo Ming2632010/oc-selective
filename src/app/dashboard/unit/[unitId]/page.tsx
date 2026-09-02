@@ -194,7 +194,7 @@ export default function UnitPage() {
               disabled={generating}
               className="shrink-0 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
             >
-              {generating ? 'Making questions…' : 'More practice for me'}
+              {generating ? 'Adding questions…' : 'More practice for me'}
             </button>
           ) : extra && extra.remaining_unit <= 0 ? (
             <p className="max-w-xs text-right text-xs text-stone-500">

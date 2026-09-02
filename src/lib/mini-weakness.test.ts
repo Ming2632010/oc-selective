@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   extraCapacity,
   pickMiniFocus,
+  selectExtraPack,
   writingDimToMiniSkill,
 } from './mini-weakness';
 import {
@@ -14,6 +15,7 @@ import {
   parseGeneratedQuestion,
 } from './generate-mini-drills';
 import { SEED_MINI_DRILLS } from './seed-mini-drills';
+import { SEED_EXTRA_MINI_DRILLS } from './seed-extra-mini-drills';
 
 describe('pickMiniFocus', () => {
   it('targets missed mini skills in the unit first', () => {
@@ -69,6 +71,57 @@ describe('extraCapacity', () => {
     const cap = extraCapacity(3, 0);
     assert.equal(cap.can_generate, true);
     assert.equal(cap.pack_size, 3);
+  });
+});
+
+describe('selectExtraPack', () => {
+  it('prefers focus skills from the unused bank', () => {
+    const unused = SEED_EXTRA_MINI_DRILLS.filter((drill) => drill.module_id === 2);
+    const pack = selectExtraPack(unused, ['punctuation', 'format'], 3);
+    assert.equal(pack.length, 3);
+    assert.ok(pack.every((drill) => ['punctuation', 'format'].includes(drill.skill)));
+  });
+});
+
+describe('extra mini bank', () => {
+  it('stores twelve extra questions with answers for each unit', () => {
+    assert.equal(SEED_EXTRA_MINI_DRILLS.length, 132);
+    for (let unit = 1; unit <= 11; unit += 1) {
+      const inUnit = SEED_EXTRA_MINI_DRILLS.filter((drill) => drill.module_id === unit);
+      assert.equal(inUnit.length, 12, `unit ${unit}`);
+      const skills = new Set(inUnit.map((drill) => drill.skill));
+      assert.equal(skills.size, 5, `unit ${unit} skills`);
+      for (const drill of inUnit) {
+        assert.ok(drill.options.length === 3, drill.slug);
+        assert.ok(
+          drill.correct_index >= 0 && drill.correct_index < 3,
+          drill.slug,
+        );
+        assert.ok(drill.explanation.length >= 12, drill.slug);
+      }
+    }
+  });
+
+  it('does not copy a pre-set question from the same unit', () => {
+    const slugs = [
+      ...SEED_MINI_DRILLS.map((drill) => drill.slug),
+      ...SEED_EXTRA_MINI_DRILLS.map((drill) => drill.slug),
+    ];
+    assert.equal(new Set(slugs).size, slugs.length);
+    for (let moduleId = 1; moduleId <= 11; moduleId += 1) {
+      const seeds = SEED_MINI_DRILLS.filter((drill) => drill.module_id === moduleId);
+      const extras = SEED_EXTRA_MINI_DRILLS.filter(
+        (drill) => drill.module_id === moduleId,
+      );
+      for (const extra of extras) {
+        const clash = seeds.find((seed) => isSameMiniQuestion(extra, seed));
+        assert.equal(
+          clash,
+          undefined,
+          `unit ${moduleId} extra copied “${clash?.title}”: ${extra.stem}`,
+        );
+      }
+    }
   });
 });
 
