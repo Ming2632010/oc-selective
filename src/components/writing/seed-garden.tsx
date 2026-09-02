@@ -21,26 +21,20 @@ const PLANTER_SRC = [
   '/marketing/seed-patch/planter-harvest.png',
 ] as const;
 
-const SEED_CHIP = [
-  '/marketing/seed-patch/garden-seed-0.png',
-  '/marketing/seed-patch/garden-seed-1.png',
-  '/marketing/seed-patch/garden-seed-2.png',
-] as const;
-
 /** Back row of the garden — crates rest on the soil line, left and right of the plot. */
 const GARDEN_SLOTS: { left: string; width: string; z: number }[] = [
-  { left: '0%', width: '20%', z: 2 },
-  { left: '79%', width: '21%', z: 2 },
-  { left: '12%', width: '16%', z: 1 },
-  { left: '70%', width: '16%', z: 1 },
-  { left: '-4%', width: '18%', z: 3 },
-  { left: '86%', width: '18%', z: 3 },
-  { left: '20%', width: '13%', z: 1 },
-  { left: '66%', width: '13%', z: 1 },
-  { left: '6%', width: '12%', z: 1 },
-  { left: '81%', width: '12%', z: 1 },
-  { left: '26%', width: '14%', z: 2 },
-  { left: '60%', width: '14%', z: 2 },
+  { left: '1%', width: '13%', z: 2 },
+  { left: '85%', width: '14%', z: 2 },
+  { left: '10%', width: '11%', z: 1 },
+  { left: '77%', width: '11%', z: 1 },
+  { left: '-3%', width: '12%', z: 3 },
+  { left: '90%', width: '12%', z: 3 },
+  { left: '18%', width: '10%', z: 1 },
+  { left: '71%', width: '10%', z: 1 },
+  { left: '6%', width: '9%', z: 1 },
+  { left: '84%', width: '9%', z: 1 },
+  { left: '22%', width: '10%', z: 2 },
+  { left: '67%', width: '10%', z: 2 },
 ];
 
 function planterSrc(stageIndex: number): string {
@@ -103,7 +97,7 @@ export function SeedGardenScene({
           className="pointer-events-none absolute inset-x-0 top-0 h-[46%] w-full object-cover object-top"
           aria-hidden
         />
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-b from-[#c4ae78] via-[#a88854] to-[#7a6240]" aria-hidden />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[52%] bg-gradient-to-b from-transparent via-[#a88854]/55 to-[#6e5738]/80" aria-hidden />
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/marketing/seed-patch/garden-soil.jpg"
@@ -113,7 +107,7 @@ export function SeedGardenScene({
           />
 
           <div className="relative min-h-[19rem] sm:min-h-[24rem]">
-            <ul className="absolute inset-x-0 top-[10%] h-[48%]" aria-hidden>
+            <ul className="absolute inset-x-0 top-[6%] h-[44%]" aria-hidden>
               {beds.map((stageIndex, slot) => {
                 const place = GARDEN_SLOTS[slot] ?? GARDEN_SLOTS[0];
                 return (
@@ -145,29 +139,23 @@ export function SeedGardenScene({
             />
           ) : null}
 
-          <ul className="absolute inset-x-0 bottom-[8%] h-[24%]" aria-hidden>
+          <ul className="absolute inset-x-0 bottom-[10%] h-[22%]" aria-hidden>
             {Array.from({ length: seeds }, (_, index) => {
-              const side = index % 2 === 0 ? 4 + ((index * 9) % 22) : 74 + ((index * 7) % 22);
-              const bottom = 10 + ((index * 13) % 55);
-              const size = 14 + (index % 3) * 5;
+              const side = index % 2 === 0 ? 3 + ((index * 9) % 20) : 76 + ((index * 7) % 20);
+              const bottom = 8 + ((index * 13) % 58);
+              const size = 7 + (index % 3) * 3;
               return (
                 <li
                   key={`seed-${index}`}
-                  className="absolute overflow-hidden rounded-[40%]"
+                  className="absolute rounded-[45%] bg-[#5a3d24]"
                   style={{
                     left: `${side}%`,
                     bottom: `${bottom}%`,
                     width: size,
-                    height: Math.round(size * 0.78),
+                    height: Math.round(size * 0.72),
+                    opacity: 0.88,
                   }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={SEED_CHIP[index % SEED_CHIP.length]}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
-                </li>
+                />
               );
             })}
           </ul>
