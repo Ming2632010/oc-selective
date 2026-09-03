@@ -36,7 +36,7 @@ function sceneFromPatch(patch: SeedPatchData): SeedPatchScene {
 export function SeedPatch({ patch }: { patch: SeedPatchData | null }) {
   if (!patch) {
     return (
-      <section className="overflow-hidden rounded-2xl">
+      <section data-testid="seed-patch" className="overflow-hidden rounded-2xl">
         <h2 className="sr-only">Seed Patch</h2>
         <SeedGardenScene
           scene={buildSeedPatchScene({ lifetimeSeeds: 0 })}
