@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   calendarDateInSydney,
   daysBetween,
+  buildSeedPatchScene,
   growthStage,
   harvestBonus,
   nextPlotState,
@@ -211,5 +212,22 @@ describe('harvestBonus and growth', () => {
     assert.equal(growthStage(40).id, 'first_leaves');
     assert.equal(growthStage(1000).id, 'harvest');
     assert.equal(growthStage(999).nextAt, 1000);
+  });
+
+  it('keeps only the current patch active and moves finished stages into the garden', () => {
+    const empty = buildSeedPatchScene({ lifetimeSeeds: 0, completedTasks: 0 });
+    assert.equal(empty.active.id, 'sprout');
+    assert.equal(empty.active.percent, 0);
+    assert.equal(empty.garden.length, 0);
+
+    const mid = buildSeedPatchScene({ lifetimeSeeds: 80, completedTasks: 2, weeklyHarvests: 1 });
+    assert.equal(mid.active.id, 'first_leaves');
+    assert.equal(mid.active.filled, 40);
+    assert.equal(mid.active.capacity, 80);
+    assert.equal(mid.active.percent, 50);
+    assert.ok(mid.garden.some((plant) => plant.id === 'stage-sprout'));
+    assert.equal(mid.garden.filter((plant) => plant.kind === 'task').length, 2);
+    assert.equal(mid.garden.filter((plant) => plant.kind === 'week').length, 1);
+    assert.equal(mid.garden.some((plant) => plant.id === 'stage-first_leaves'), false);
   });
 });

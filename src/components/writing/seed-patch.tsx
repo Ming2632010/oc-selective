@@ -1,4 +1,4 @@
-import { GROWTH_STAGES } from '@/lib/rewards';
+import { GROWTH_STAGES, buildSeedPatchScene, type SeedPatchScene } from '@/lib/rewards';
 import { SeedGardenScene } from '@/components/writing/seed-garden';
 
 export type SeedPatchData = {
@@ -16,13 +16,27 @@ export type SeedPatchData = {
     min: number;
     nextAt: number | null;
   };
+  completed_tasks?: number;
+  weekly_harvests?: number;
+  scene?: SeedPatchScene;
   recent: { seeds: number; label: string; source: string }[];
 };
+
+function sceneFromPatch(patch: SeedPatchData): SeedPatchScene {
+  return (
+    patch.scene ??
+    buildSeedPatchScene({
+      lifetimeSeeds: patch.lifetime_seeds,
+      completedTasks: patch.completed_tasks ?? 0,
+      weeklyHarvests: patch.weekly_harvests ?? 0,
+    })
+  );
+}
 
 export function SeedPatch({ patch }: { patch: SeedPatchData | null }) {
   if (!patch) {
     return (
-      <section className="rounded-xl border border-amber-200/80 bg-[#f6f1e6] p-5">
+      <section className="rounded-xl border border-emerald-200/80 bg-[#f4f1ea] p-5">
         <h2 className="text-lg font-semibold text-stone-900">Seed Patch</h2>
         <p className="mt-1 text-sm text-stone-600">
           Seeds appear after the first mini question or writing task.
@@ -31,61 +45,52 @@ export function SeedPatch({ patch }: { patch: SeedPatchData | null }) {
     );
   }
 
-  const next = patch.stage.nextAt;
-  const span = next ? next - patch.stage.min : 1;
-  const into = next ? Math.min(span, patch.lifetime_seeds - patch.stage.min) : span;
-  const stagePct = next ? Math.round((into / span) * 100) : 100;
+  const scene = sceneFromPatch(patch);
   const weekPct = Math.min(
     100,
     Math.round((patch.week_seeds / Math.max(1, patch.week_goal)) * 100),
   );
+  const nextLabel =
+    GROWTH_STAGES.find((stage) => stage.min === patch.stage.nextAt)?.label ??
+    'the next harvest';
+  const gardenCount = scene.garden.length;
 
   return (
-    <section className="rounded-xl border border-amber-200/80 bg-[#f6f1e6] p-5">
+    <section className="rounded-xl border border-emerald-200/80 bg-[#f4f1ea] p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-rose-800">
+          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
             Seed Patch
           </p>
           <h2 className="mt-1 text-2xl font-semibold text-stone-900">
-            {patch.lifetime_seeds} seed{patch.lifetime_seeds === 1 ? '' : 's'}
+            {scene.active.label}
           </h2>
-          <p className="mt-1 text-sm text-stone-700">
-            {patch.stage.label} — {patch.stage.blurb}
-          </p>
+          <p className="mt-1 text-sm text-stone-700">{scene.active.blurb}</p>
         </div>
-        <div className="rounded-lg border border-amber-100 bg-white/80 px-3 py-2 text-right">
-          <p className="text-xs uppercase tracking-wide text-stone-500">On-plot</p>
+        <div className="rounded-lg border border-emerald-100 bg-white/80 px-3 py-2 text-right">
+          <p className="text-xs uppercase tracking-wide text-stone-500">Garden</p>
           <p className="text-lg font-semibold text-stone-900">
-            {patch.plot_days} day{patch.plot_days === 1 ? '' : 's'}
+            {gardenCount} plant{gardenCount === 1 ? '' : 's'}
           </p>
           <p className="text-xs text-stone-600">
-            {patch.rain_cheques} rain cheque{patch.rain_cheques === 1 ? '' : 's'}
+            {patch.plot_days} day{patch.plot_days === 1 ? '' : 's'} on the plot
           </p>
         </div>
       </div>
 
-      <SeedGardenScene stageId={patch.stage.id} className="mt-4" />
+      <SeedGardenScene
+        scene={scene}
+        lifetimeSeeds={patch.lifetime_seeds}
+        className="mt-4"
+      />
 
-      <div className="mt-4 space-y-1.5">
-        <div className="flex justify-between text-xs text-stone-600">
-          <span>
-            {next
-              ? `${next - patch.lifetime_seeds} seeds to ${
-                  GROWTH_STAGES.find((stage) => stage.min === next)?.label ??
-                  'the next stage'
-                }`
-              : 'Harvest stage reached'}
-          </span>
-          <span>{stagePct}%</span>
-        </div>
-        <div className="h-2 overflow-hidden rounded-full bg-white/80">
-          <div
-            className="h-full rounded-full bg-rose-500"
-            style={{ width: `${stagePct}%` }}
-          />
-        </div>
-      </div>
+      <p className="mt-3 text-sm text-stone-700">
+        {scene.active.percent >= 100
+          ? patch.stage.nextAt
+            ? `This ${scene.active.label} plant is ready. It moves into the garden and the ${nextLabel} patch opens.`
+            : 'Harvest stage reached — your garden is in full growth.'
+          : `${scene.active.capacity - scene.active.filled} seeds until this ${scene.active.label} plant is harvested into the garden.`}
+      </p>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <div className="rounded-lg bg-white/80 p-3">
@@ -96,10 +101,13 @@ export function SeedPatch({ patch }: { patch: SeedPatchData | null }) {
             {patch.week_seeds}/{patch.week_goal} seeds
             {patch.harvest_claimed ? ' · Harvest in' : ''}
           </p>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-rose-100">
+          <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-emerald-100">
             <div
-              className="h-full rounded-full bg-rose-400"
-              style={{ width: `${weekPct}%` }}
+              className="h-full rounded-full"
+              style={{
+                width: `${weekPct}%`,
+                background: 'linear-gradient(90deg, #86efac 0%, #22c55e 55%, #15803d 100%)',
+              }}
             />
           </div>
         </div>
@@ -112,16 +120,17 @@ export function SeedPatch({ patch }: { patch: SeedPatchData | null }) {
             {patch.focused_minutes_week === 1 ? '' : 's'} this week
           </p>
           <p className="mt-1 text-xs text-stone-500">
-            From full tasks and term reviews, not the timer sitting idle.
+            {patch.rain_cheques} rain cheque{patch.rain_cheques === 1 ? '' : 's'} ·{' '}
+            {patch.completed_tasks ?? 0} finished task
+            {(patch.completed_tasks ?? 0) === 1 ? '' : 's'} in the garden
           </p>
         </div>
       </div>
 
       <p className="mt-4 text-xs leading-relaxed text-stone-600">
-        Mini questions grow the patch a little (capped each day). Full drafts pay
-        more. Term reviews pay the most — sitting, your mark, and a focused
-        exam sitting all count. Show up on consecutive Sydney days to keep the
-        plot; a rain cheque covers one missed day.
+        Work the patch in front. When it fills, that plant is harvested into the
+        garden behind it. Mini questions grow it a little. Full drafts pay more.
+        Term reviews pay the most.
       </p>
 
       {patch.recent.length > 0 ? (

@@ -116,6 +116,84 @@ export function growthStage(lifetimeSeeds: number): GrowthStage {
   return current;
 }
 
+export type GardenPlantKind = 'stage' | 'week' | 'task';
+
+export type GardenPlant = {
+  id: string;
+  kind: GardenPlantKind;
+  label: string;
+};
+
+export type ActivePatchView = {
+  id: string;
+  label: string;
+  blurb: string;
+  filled: number;
+  capacity: number;
+  percent: number;
+};
+
+export type SeedPatchScene = {
+  active: ActivePatchView;
+  garden: GardenPlant[];
+};
+
+export function harvestedStages(lifetimeSeeds: number): GrowthStage[] {
+  return GROWTH_STAGES.filter(
+    (stage) => stage.nextAt !== null && lifetimeSeeds >= stage.nextAt,
+  );
+}
+
+export function buildSeedPatchScene(input: {
+  lifetimeSeeds: number;
+  completedTasks?: number;
+  weeklyHarvests?: number;
+}): SeedPatchScene {
+  const stage = growthStage(input.lifetimeSeeds);
+  const capacity = stage.nextAt ? stage.nextAt - stage.min : 1;
+  const filled = stage.nextAt
+    ? Math.max(0, Math.min(capacity, input.lifetimeSeeds - stage.min))
+    : capacity;
+  const percent = stage.nextAt ? Math.round((filled / capacity) * 100) : 100;
+
+  const garden: GardenPlant[] = harvestedStages(input.lifetimeSeeds).map((row) => ({
+    id: `stage-${row.id}`,
+    kind: 'stage',
+    label: row.label,
+  }));
+
+  const weeklyHarvests = Math.max(0, Math.floor(input.weeklyHarvests ?? 0));
+  for (let index = 0; index < weeklyHarvests; index += 1) {
+    garden.push({
+      id: `week-${index + 1}`,
+      kind: 'week',
+      label: `Week ${index + 1} harvest`,
+    });
+  }
+
+  const completedTasks = Math.max(0, Math.floor(input.completedTasks ?? 0));
+  const taskCap = 18;
+  for (let index = 0; index < Math.min(completedTasks, taskCap); index += 1) {
+    garden.push({
+      id: `task-${index + 1}`,
+      kind: 'task',
+      label: `Finished task ${index + 1}`,
+    });
+  }
+
+  return {
+    active: {
+      id: stage.id,
+      label: stage.label,
+      blurb: stage.blurb,
+      filled,
+      capacity,
+      percent,
+    },
+    garden,
+  };
+}
+
 export function seedsForMini(input: {
   isCorrect: boolean;
   alreadyTried: boolean;
