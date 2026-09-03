@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { scoreWritingAttempt } from '@/lib/scoring';
-import { buildMarkerNotesHeuristic, markerNotesFromUnknown } from '@/lib/marker-notes';
+import {
+  buildMarkerNotesHeuristic,
+  markerNotesFromUnknown,
+  notesNeedRebuild,
+} from '@/lib/marker-notes';
 import { termReviewLockMessage } from '@/lib/writing-guidance';
 import {
   assertOwnedStudent,
@@ -85,8 +89,8 @@ export async function GET(request: Request) {
       ),
       getAwardsForPrompt(studentId, promptId),
       getNextRecommendation(studentId),
-      query<{ prompt_type: string; hint_points: unknown; kind: string }>(
-        `SELECT prompt_type, hint_points, kind FROM prompts WHERE id = $1 LIMIT 1`,
+      query<{ prompt_type: string; hint_points: unknown; kind: string; title: string }>(
+        `SELECT prompt_type, hint_points, kind, title FROM prompts WHERE id = $1 LIMIT 1`,
         [promptId],
       ),
     ]);
@@ -100,13 +104,14 @@ export async function GET(request: Request) {
     const hydrated = [];
     for (const row of attempts.rows) {
       const existing = markerNotesFromUnknown(row.marker_notes, row.content);
-      if (existing) {
+      if (existing && !notesNeedRebuild(existing)) {
         hydrated.push({ ...row, marker_notes: existing });
         continue;
       }
       const notes = buildMarkerNotesHeuristic({
         content: row.content,
         promptType,
+        promptTitle: typeof promptMeta.rows[0]?.title === 'string' ? promptMeta.rows[0].title : undefined,
         hintPoints: examStyle ? [] : hintPoints,
         examStyle,
       });

@@ -43,6 +43,46 @@ describe('buildMarkerNotesHeuristic', () => {
     const improved = notes.rewrites.map((row) => row.improved);
     assert.equal(new Set(improved).size, improved.length);
     assert.ok(notes.next_steps.some((row) => /hint/i.test(row) || /paragraph/i.test(row) || /160/i.test(row)));
+    assert.equal(notes.annotations.filter((row) => row.kind === 'sentence').length <= 1, true);
+  });
+
+  it('marks a short empty-seat draft like a teacher: one content note, exact errors, one-sentence rewrites', () => {
+    const content =
+      'I sat down. The seat was empty. I dont know wich way to look. It was very nice and then I got scared. The train moved.';
+    const notes = buildMarkerNotesHeuristic({
+      content,
+      promptType: 'narrative',
+      promptTitle: 'The empty seat',
+      hintPoints: [
+        'Open with a hook and set the scene clearly',
+        'Build tension through the middle with vivid detail',
+        'Resolve the story with a satisfying or surprising ending',
+      ],
+    });
+    assert.equal(notes.version, 2);
+    assert.equal(notes.annotations.filter((row) => row.kind === 'content').length, 1);
+    assert.equal(notes.annotations.filter((row) => row.kind === 'sentence').length, 0);
+    assert.ok(notes.annotations.some((row) => row.quote.toLowerCase() === 'dont'));
+    assert.ok(notes.annotations.some((row) => row.quote.toLowerCase() === 'wich'));
+    assert.ok(
+      notes.annotations.some((row) => /very nice|nice/i.test(row.quote) && row.kind === 'vocabulary'),
+    );
+    const look = notes.rewrites.find((row) => /look/i.test(row.original));
+    assert.ok(look);
+    assert.match(look?.improved ?? '', /don't/i);
+    assert.match(look?.improved ?? '', /which/i);
+    assert.equal(/\.\s+[A-Z]/.test(look?.improved ?? ''), false);
+    assert.equal(new Set(notes.rewrites.map((row) => row.improved)).size, notes.rewrites.length);
+    for (const row of notes.rewrites) {
+      assert.match(row.improved, /[.!?]$/);
+      assert.notEqual(row.improved.toLowerCase(), row.original.toLowerCase());
+    }
+    const vocabRewrite = notes.rewrites.find((row) => /very nice|got scared/i.test(row.original));
+    assert.ok(vocabRewrite);
+    assert.match(vocabRewrite?.improved ?? '', /still|calm|fear|froze/i);
+    assert.ok(notes.rewrites.some((row) => /sat down on the empty seat/i.test(row.improved)));
+    assert.equal(notes.next_steps.filter((row) => /Cover this task hint/i.test(row)).length <= 1, true);
+    assert.match(notes.annotations.find((row) => row.kind === 'content')?.suggestion ?? '', /seat|train/i);
   });
 });
 

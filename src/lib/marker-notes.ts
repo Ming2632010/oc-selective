@@ -1,5 +1,7 @@
 import { typeLabel } from '@/lib/units';
 
+export const MARKER_NOTES_VERSION = 2;
+
 export const MARKER_KINDS = [
   'spelling',
   'punctuation',
@@ -30,6 +32,7 @@ export type MarkerRewrite = {
 };
 
 export type MarkerNotes = {
+  version: number;
   summary: string;
   strengths: string[];
   next_steps: string[];
@@ -148,6 +151,58 @@ const WEAK_WORDS = new Set([
   'awesome',
 ]);
 
+const WEAK_WORD_HINT: Record<string, string> = {
+  very: 'Cut “very” and choose a stronger adjective (still, uneasy, frantic).',
+  really: 'Cut “really” and choose a stronger word.',
+  nice: '“Nice” does not show the mood. Try still, uneasy, or strangely calm.',
+  good: '“Good” is vague. Name what worked: sharp, kind, or convincing.',
+  bad: 'Name the problem instead of “bad”.',
+  stuff: 'Name the object instead of “stuff”.',
+  things: 'Name the objects instead of “things”.',
+  thing: 'Name the object instead of “thing”.',
+  got: 'A precise verb (eased, jolted, slipped) shows the action more clearly.',
+  get: 'A precise verb shows the action more clearly.',
+  went: 'Try hurried, slipped, or edged — a verb that shows how.',
+  go: 'Try a verb that shows how they moved.',
+  said: 'Try whispered, muttered, or called if that fits the moment.',
+  big: 'Try a size or feeling word: cavernous, heavy, or towering.',
+  little: 'Try a more exact word: narrow, slight, or quiet.',
+  amazing: 'Show why it amazed the character instead of “amazing”.',
+  awesome: 'Show why it mattered instead of “awesome”.',
+};
+
+const WEAK_PHRASES: {
+  pattern: RegExp;
+  issue: string;
+  suggestion: string;
+  replacement: string;
+}[] = [
+  {
+    pattern: /\bvery nice\b/gi,
+    issue: 'Set A vocabulary: “very nice” does not show the mood of the moment.',
+    suggestion: 'Try strangely still, oddly calm, or too quiet — a phrase a marker can picture.',
+    replacement: 'strangely still',
+  },
+  {
+    pattern: /\bvery good\b/gi,
+    issue: 'Set A vocabulary: “very good” is too general for Selective style.',
+    suggestion: 'Name what worked: sharp, convincing, or carefully chosen.',
+    replacement: 'convincing',
+  },
+  {
+    pattern: /\bgot scared\b/gi,
+    issue: 'Set A vocabulary: “got scared” names the feeling without showing it.',
+    suggestion: 'Try “a jolt of fear ran through me” or “I froze”.',
+    replacement: 'felt a jolt of fear',
+  },
+  {
+    pattern: /\ba lot of\b/gi,
+    issue: 'Set A vocabulary: “a lot of” is a general quantity.',
+    suggestion: 'Try a more exact word: several, crowded, or endless.',
+    replacement: 'plenty of',
+  },
+];
+
 const MISSING_APOSTROPHE: Record<string, string> = {
   dont: "don't",
   cant: "can't",
@@ -166,6 +221,58 @@ const MISSING_APOSTROPHE: Record<string, string> = {
   hes: "he's",
   shes: "she's",
 };
+
+const SCENE_NOUNS = new Set([
+  'train',
+  'seat',
+  'door',
+  'handle',
+  'gate',
+  'room',
+  'carriage',
+  'platform',
+  'pocket',
+  'window',
+  'floor',
+  'air',
+  'night',
+  'morning',
+  'school',
+  'letter',
+  'table',
+  'chair',
+  'bag',
+  'light',
+  'shadow',
+  'dust',
+  'jar',
+  'path',
+  'garden',
+  'water',
+  'rain',
+  'wind',
+  'street',
+  'bus',
+  'class',
+  'teacher',
+  'friend',
+  'station',
+  'bench',
+  'corridor',
+  'hallway',
+  'kitchen',
+  'bedroom',
+  'park',
+  'river',
+  'bridge',
+  'clock',
+  'phone',
+  'key',
+  'box',
+  'book',
+  'paper',
+  'voice',
+]);
 
 const FORM_SHAPE: Record<string, string> = {
   narrative:
@@ -316,52 +423,176 @@ function tidyAccuracy(text: string) {
   });
 }
 
-function improveSentence(sentence: string, promptType: string, index = 0): string {
-  const trimmed = sentence.trim().replace(/\s+/g, ' ');
-  const core = tidyAccuracy(trimmed.replace(/[.!?]+$/, ''));
-  if (!core) return trimmed;
-  const lower = core.toLowerCase();
-  if (promptType === 'narrative' || promptType === 'diary_entry') {
-    if (/\bsat\b|\bstood\b|\bturned\b|\bopened\b|\bhandle\b/.test(lower)) {
-      return `${core}, slower than I meant to, and the sound of it stayed in the room.`;
-    }
-    if (/\bempty\b|\bquiet\b|\bdark\b|\bdust\b|\bhung\b/.test(lower)) {
-      return `${core}, and I could hear my own breathing more than anything else.`;
-    }
-    if (/\bran\b|\bwent\b|\bmoved\b|\bpocket\b|\btrain\b/.test(lower)) {
-      return `${core}. I counted three steps before I dared to look back.`;
-    }
-    if (/\bdon't\b|\bknow\b|\blook\b/.test(lower)) {
-      return `${core}. My hands found the seat edge and stayed there.`;
-    }
-    const extras = [
-      `${core}, and a small, exact detail hung in the next breath.`,
-      `${core} Then something shifted, just enough to make the next line matter.`,
-      `${core} I kept the moment going instead of stopping there.`,
-    ];
-    return extras[index % extras.length];
-  }
-  if (promptType === 'news_report') {
-    return `${core}, witnesses said, as people nearby tried to make sense of what came next.`;
-  }
-  if (promptType === 'formal_letter' || promptType === 'email') {
-    return `${core}. I am writing to ask that this be looked into this week.`;
-  }
-  if (promptType === 'persuasive_text' || promptType === 'speech' || promptType === 'advertisement') {
-    return `${core} That is why this should change now, not later.`;
-  }
-  return `${core}, which helps the reader follow the next step.`;
+function finishSentence(text: string) {
+  const cleaned = text.replace(/\s+/g, ' ').trim();
+  if (!cleaned) return cleaned;
+  if (/[.!?]$/.test(cleaned)) return cleaned;
+  return `${cleaned}.`;
 }
 
-function rewriteWhy(promptType: string, kind: 'open' | 'develop' | 'close'): string {
-  const form = typeLabel(promptType);
-  if (kind === 'open') {
+function sceneNounsFrom(content: string) {
+  const found: string[] = [];
+  const seen = new Set<string>();
+  eachWord(content, (word) => {
+    const key = word.toLowerCase();
+    if (!SCENE_NOUNS.has(key) || seen.has(key)) return;
+    seen.add(key);
+    found.push(key);
+  });
+  return found;
+}
+
+function replaceWeakPhrases(text: string) {
+  let next = text;
+  for (const row of WEAK_PHRASES) {
+    next = next.replace(row.pattern, (match) => matchCase(match, row.replacement));
+  }
+  return next;
+}
+
+function namedScene(nouns: string[], content: string) {
+  return nouns.map((noun) => {
+    if (noun === 'seat' && /\bempty\b/i.test(content)) return 'empty seat';
+    if (noun === 'door' && /\blocked\b/i.test(content)) return 'locked door';
+    return noun;
+  });
+}
+
+type RewriteContext = {
+  promptType: string;
+  content: string;
+  sceneNouns: string[];
+  usedClauseIds: Set<string>;
+};
+
+function pickClause(
+  options: { id: string; text: string }[],
+  used: Set<string>,
+): { id: string; text: string } | null {
+  const unused = options.filter((row) => !used.has(row.id));
+  const chosen = unused[0] ?? options.find((row) => !used.has(row.id)) ?? null;
+  if (!chosen) return null;
+  used.add(chosen.id);
+  return chosen;
+}
+
+export function improveStudentSentence(sentence: string, ctx: RewriteContext): string {
+  const trimmed = sentence.trim().replace(/\s+/g, ' ');
+  const core = replaceWeakPhrases(tidyAccuracy(trimmed.replace(/[.!?]+$/, '')));
+  if (!core) return trimmed;
+  const lower = core.toLowerCase();
+  const nouns = namedScene(ctx.sceneNouns, ctx.content);
+  const extra = nouns.find((noun) => !lower.includes(noun.split(' ')[0] ?? noun));
+  const noun = extra ?? nouns[0];
+  const used = ctx.usedClauseIds;
+
+  if (ctx.promptType === 'news_report') {
+    return finishSentence(`${core}, witnesses said, as people nearby tried to make sense of what came next`);
+  }
+  if (ctx.promptType === 'formal_letter' || ctx.promptType === 'email') {
+    return finishSentence(`${core}. I am writing to ask that this be looked into this week`);
+  }
+  if (
+    ctx.promptType === 'persuasive_text' ||
+    ctx.promptType === 'speech' ||
+    ctx.promptType === 'advertisement'
+  ) {
+    return finishSentence(`${core}. That is why this should change now, not later`);
+  }
+
+  const options: { id: string; text: string }[] = [];
+  if (/\bsat\b|\bstood\b/.test(lower)) {
+    if (noun && extra) {
+      options.push({
+        id: 'sat-where',
+        text: `${core} on the ${noun}, slower than I meant to`,
+      });
+    }
+    options.push({
+      id: 'sat-how',
+      text: `${core}, slower than I meant to, and the next sound stayed with me`,
+    });
+  }
+  if (/\bturned\b|\bopened\b/.test(lower)) {
+    options.push({
+      id: 'turn-how',
+      text: `${core}, slower than I meant to, and the sound of it stayed in the room`,
+    });
+  }
+  if (/\bempty\b|\bquiet\b|\bdark\b|\bdust\b|\bhung\b/.test(lower)) {
+    options.push({
+      id: 'empty-hear',
+      text: noun
+        ? `${core}, and I could hear my own breathing more than the ${noun}`
+        : `${core}, and I could hear my own breathing more than anything else`,
+    });
+  }
+  if (/\bdon't\b|\bknow\b|\blook\b/.test(lower)) {
+    options.push({
+      id: 'look-so',
+      text: noun
+        ? `${core}, so I keep my eyes on the ${noun}`
+        : `${core}, so I keep my eyes on one still point`,
+    });
+  }
+  if (/\bscared\b|\bfear\b|\bfroze\b/.test(lower)) {
+    options.push({
+      id: 'fear-then',
+      text: noun
+        ? `${core} as the ${noun} waited for what came next`
+        : `${core} as the next second stretched`,
+    });
+  }
+  if (/\bmoved\b/.test(lower) && wordCountOf(core) <= 8) {
+    options.push({
+      id: 'moved-count',
+      text: `${core} forward, and I counted three breaths before I dared to look back`,
+    });
+  } else if (/\bran\b|\bwent\b/.test(lower)) {
+    options.push({
+      id: 'ran-count',
+      text: `${core}, and I counted three breaths before I dared to look back`,
+    });
+  }
+  if (wordCountOf(core) <= 8 && noun && extra) {
+    options.push({
+      id: `short-${noun}`,
+      text: `${core}, with the ${noun} still in the corner of my eye`,
+    });
+  }
+  options.push(
+    {
+      id: 'keep-going',
+      text: `${core}, and I kept the moment going instead of stopping there`,
+    },
+    {
+      id: 'next-shift',
+      text: `${core} as something small shifted, just enough to make the next line matter`,
+    },
+  );
+
+  const chosen = pickClause(options, used);
+  return finishSentence(chosen?.text ?? core);
+}
+
+function rewriteWhy(
+  promptType: string,
+  reason: 'open' | 'develop' | 'close' | 'accuracy' | 'vocabulary',
+): string {
+  const form = typeLabel(promptType).toLowerCase();
+  if (reason === 'accuracy') {
+    return 'Set B: this rewrite keeps your idea and corrects the spelling or punctuation a marker would circle.';
+  }
+  if (reason === 'vocabulary') {
+    return 'Set A vocabulary: keep the same moment, but choose words a marker can picture.';
+  }
+  if (reason === 'open') {
     return `Set A rewards an opening that fits a ${form} and makes the reader want the next line.`;
   }
-  if (kind === 'close') {
+  if (reason === 'close') {
     return `Set A rewards an ending that resolves the ${form} instead of stopping mid-thought.`;
   }
-  return `Set A rewards developed detail. Keep your idea, but let the marker see it happen.`;
+  return 'Set A rewards developed detail. Keep your idea, but let the marker see it happen.';
 }
 
 function uniqueStrings(values: string[]) {
@@ -378,12 +609,17 @@ function uniqueStrings(values: string[]) {
 
 export function emptyMarkerNotes(): MarkerNotes {
   return {
+    version: MARKER_NOTES_VERSION,
     summary: '',
     strengths: [],
     next_steps: [],
     annotations: [],
     rewrites: [],
   };
+}
+
+export function notesNeedRebuild(notes: MarkerNotes | null): boolean {
+  return !notes || notes.version !== MARKER_NOTES_VERSION;
 }
 
 export function normalizeMarkerNotes(raw: unknown, content: string): MarkerNotes {
@@ -450,7 +686,9 @@ export function normalizeMarkerNotes(raw: unknown, content: string): MarkerNotes
     }
   }
 
+  const versionRaw = Number(row.version);
   return {
+    version: Number.isFinite(versionRaw) ? versionRaw : 0,
     summary: typeof row.summary === 'string' ? row.summary.trim() : '',
     strengths: uniqueStrings(Array.isArray(row.strengths) ? row.strengths.map(String) : []),
     next_steps: uniqueStrings(Array.isArray(row.next_steps) ? row.next_steps.map(String) : []),
@@ -462,6 +700,7 @@ export function normalizeMarkerNotes(raw: unknown, content: string): MarkerNotes
 function mergeAgainstContent(base: MarkerNotes, extra: MarkerNotes, content: string): MarkerNotes {
   return normalizeMarkerNotes(
     {
+      version: MARKER_NOTES_VERSION,
       summary: extra.summary || base.summary,
       strengths: [...extra.strengths, ...base.strengths],
       next_steps: [...extra.next_steps, ...base.next_steps],
@@ -470,6 +709,44 @@ function mergeAgainstContent(base: MarkerNotes, extra: MarkerNotes, content: str
     },
     content,
   );
+}
+
+function openingQuote(content: string) {
+  const sentences = splitSentences(content).slice(0, 2);
+  const joined = sentences.map((row) => row.text.trim()).join(' ');
+  return joined.slice(0, 80) || firstSentenceSpan(content).text.trim().slice(0, 48);
+}
+
+function sentenceReason(
+  sentence: { text: string; start: number; end: number },
+  annotations: MarkerAnnotation[],
+  index: number,
+  total: number,
+): { score: number; why: 'open' | 'develop' | 'close' | 'accuracy' | 'vocabulary' } {
+  let score = 0;
+  let why: 'open' | 'develop' | 'close' | 'accuracy' | 'vocabulary' = 'develop';
+  for (const note of annotations) {
+    if (note.end <= sentence.start || note.start >= sentence.end) continue;
+    if (note.kind === 'spelling' || note.kind === 'punctuation') {
+      score += 4;
+      why = 'accuracy';
+    } else if (note.kind === 'vocabulary') {
+      score += 3;
+      if (why !== 'accuracy') why = 'vocabulary';
+    } else if (note.kind === 'sentence') {
+      score += 2;
+    }
+  }
+  if (wordCountOf(sentence.text) <= 5) score += 2;
+  if (index === 0) {
+    score += 1;
+    if (why === 'develop') why = 'open';
+  }
+  if (index === total - 1) {
+    score += 1;
+    if (why === 'develop') why = 'close';
+  }
+  return { score, why };
 }
 
 export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes {
@@ -483,6 +760,8 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
   const annotations: MarkerAnnotation[] = [];
   const strengths: string[] = [];
   const nextSteps: string[] = [];
+  const sceneNouns = sceneNounsFrom(content);
+  const titleBit = input.promptTitle ? ` for “${input.promptTitle}”` : '';
 
   eachWord(content, (word, start, end) => {
     const key = word.toLowerCase();
@@ -506,7 +785,7 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
         end,
         kind: 'punctuation',
         quote: word,
-        issue: `Set B punctuation: this contraction needs an apostrophe.`,
+        issue: 'Set B punctuation: this contraction needs an apostrophe.',
         suggestion: `Write “${apostrophe}”. Apostrophes are part of the accuracy mark.`,
       });
       for (let i = start; i < end; i += 1) used[i] = true;
@@ -514,11 +793,14 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
   });
 
   const sentences = splitSentences(content);
+  let missingStopCount = 0;
+  let capitalCount = 0;
   for (const sentence of sentences) {
     const text = sentence.text.trim();
     if (!text) continue;
     const lead = text.replace(/^\s+/, '');
-    if (/^[a-z]/.test(lead)) {
+    if (/^[a-z]/.test(lead) && capitalCount < 2) {
+      capitalCount += 1;
       pushNote(
         annotations,
         content,
@@ -528,7 +810,11 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
         'Start each new sentence with a capital so the marker can see the sentence boundary.',
       );
     }
-    if (/^[A-Za-z].+[,:;]$/.test(text) || (/^[A-Za-z].+[a-z]$/.test(text) && text.length > 12)) {
+    if (
+      missingStopCount < 2 &&
+      (/^[A-Za-z].+[,:;]$/.test(text) || (/^[A-Za-z].+[a-z]$/.test(text) && text.length > 12))
+    ) {
+      missingStopCount += 1;
       pushNote(
         annotations,
         content,
@@ -548,12 +834,18 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
         'Split it into two or three sentences, or add a joining word the marker can follow.',
       );
     }
-    if (wordCountOf(text) <= 4 && wc >= 12 && sentences.length >= 3) {
+  }
+
+  // One choppy note is enough, and a short piece already has a content note.
+  if (wc >= 80) {
+    const firstShort = sentences.find((row) => wordCountOf(row.text.trim()) <= 4);
+    const shortCount = sentences.filter((row) => wordCountOf(row.text.trim()) <= 4).length;
+    if (firstShort && shortCount >= 3) {
       pushNote(
         annotations,
         content,
         'sentence',
-        text,
+        firstShort.text.trim(),
         'Set B sentence control: several very short sentences in a row can sound choppy.',
         'Keep one short line for impact, then join the next idea with a clause that adds detail.',
       );
@@ -572,31 +864,57 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
     );
   }
 
+  let phraseHits = 0;
+  for (const phrase of WEAK_PHRASES) {
+    if (phraseHits >= 3) break;
+    phrase.pattern.lastIndex = 0;
+    const match = phrase.pattern.exec(content);
+    if (!match || match.index == null) continue;
+    const start = match.index;
+    const end = start + match[0].length;
+    if (used.slice(start, end).some(Boolean)) continue;
+    annotations.push({
+      start,
+      end,
+      kind: 'vocabulary',
+      quote: match[0],
+      issue: phrase.issue,
+      suggestion: phrase.suggestion,
+    });
+    for (let i = start; i < end; i += 1) used[i] = true;
+    phraseHits += 1;
+  }
+
   let weakHits = 0;
   eachWord(content, (word, start, end) => {
     if (used.slice(start, end).some(Boolean)) return;
     if (!WEAK_WORDS.has(word.toLowerCase())) return;
     weakHits += 1;
-    if (weakHits > 4) return;
+    if (weakHits > 3) return;
+    const hint = WEAK_WORD_HINT[word.toLowerCase()] ??
+      'Swap it for a verb or noun that shows what happened, how it felt, or how it looked.';
     annotations.push({
       start,
       end,
       kind: 'vocabulary',
       quote: word,
       issue: `Set A vocabulary: “${word}” is a general word. Markers look for a more precise choice.`,
-      suggestion: 'Swap it for a verb or noun that shows what happened, how it felt, or how it looked.',
+      suggestion: hint,
     });
     for (let i = start; i < end; i += 1) used[i] = true;
   });
 
   if (wc < 80) {
+    const scene = namedScene(sceneNouns, content).slice(0, 3).join(', ');
     pushNote(
       annotations,
       content,
       'content',
-      firstSentenceSpan(content).text.trim().slice(0, 48),
-      `Set A content: this is only ${wc} words. A 30-minute Selective task needs developed ideas, not a sketch.`,
-      'Keep your idea, then add what the character saw, heard, and did next so the marker has details to reward.',
+      openingQuote(content),
+      `Set A content: this sitting is only ${wc} words${titleBit}. A 30-minute Selective task needs a developed ${form.toLowerCase()}, not a sketch.`,
+      scene
+        ? `Stay with ${scene}: add what you saw, heard, and did next so the marker has details to reward.`
+        : 'Keep your idea, then add what the character saw, heard, and did next so the marker has details to reward.',
     );
   } else {
     strengths.push('You wrote enough for a marker to follow a developed idea.');
@@ -638,7 +956,7 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
     );
   }
 
-  for (const hint of hints) {
+  const missedHint = hints.find((hint) => {
     const keywords = hint
       .toLowerCase()
       .replace(/[^a-z0-9\s]/g, ' ')
@@ -647,24 +965,48 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
       .slice(0, 5);
     const hay = content.toLowerCase();
     const hits = keywords.filter((word) => hay.includes(word)).length;
-    if (keywords.length > 0 && hits < Math.min(2, keywords.length)) {
-      nextSteps.push(`Cover this task hint in the writing itself: ${hint}`);
-    }
+    return keywords.length > 0 && hits < Math.min(2, keywords.length);
+  });
+  if (missedHint && !examStyle) {
+    nextSteps.push(`Cover this task hint in the writing itself: ${missedHint}`);
   }
 
-  const usableSentences = sentences
-    .map((row) => row.text.trim())
-    .filter((text) => wordCountOf(text) >= 3)
+  const ranked = sentences
+    .map((row, index) => ({
+      row,
+      index,
+      ...sentenceReason(row, annotations, index, sentences.length),
+    }))
+    .filter((row) => wordCountOf(row.row.text.trim()) >= 3)
+    .sort((a, b) => b.score - a.score || a.index - b.index)
     .slice(0, 3);
-  const rewrites: MarkerRewrite[] = usableSentences.map((text, index) => ({
-    original: text,
-    improved: improveSentence(text, promptType, index),
-    why: rewriteWhy(promptType, index === 0 ? 'open' : index === usableSentences.length - 1 ? 'close' : 'develop'),
-    set: 'A',
-  }));
+
+  const rewriteCtx: RewriteContext = {
+    promptType,
+    content,
+    sceneNouns,
+    usedClauseIds: new Set<string>(),
+  };
+  const rewrites: MarkerRewrite[] = [];
+  for (const item of ranked) {
+    const original = item.row.text.trim();
+    const improved = improveStudentSentence(original, rewriteCtx);
+    if (!improved || improved === original) continue;
+    rewrites.push({
+      original,
+      improved,
+      why: rewriteWhy(promptType, item.why),
+      set: item.why === 'accuracy' ? 'B' : 'A',
+    });
+  }
 
   if (annotations.some((row) => row.kind === 'spelling' || row.kind === 'punctuation')) {
     nextSteps.push('Proofread once for Set B: spelling, capitals, apostrophes, and full stops.');
+  }
+  if (wc < 80 && sceneNouns.length > 0) {
+    nextSteps.push(
+      `Stay inside this scene (${namedScene(sceneNouns, content).slice(0, 3).join(', ')}) and grow each line with what happened next.`,
+    );
   }
   nextSteps.push(FORM_SHAPE[promptType] ?? `Shape the piece as a ${form.toLowerCase()}.`);
   if (wc < 160) {
@@ -679,14 +1021,14 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
   if (annotations.some((row) => row.kind === 'spelling') === false && wc >= 20) {
     strengths.push('Everyday spelling is holding, which helps Set B.');
   }
-  if (usableSentences.length > 0) {
+  if (ranked.length > 0) {
     strengths.push('There is a clear idea to build on — the mark will rise when that idea is developed.');
   }
 
   const spellingCount = annotations.filter((row) => row.kind === 'spelling').length;
   const punctuationCount = annotations.filter((row) => row.kind === 'punctuation').length;
   const summary = [
-    `Teacher mark-up for this ${form.toLowerCase()}, using the NSW Selective writing criteria.`,
+    `Teacher mark-up for this ${form.toLowerCase()}${titleBit}, using the NSW Selective writing criteria.`,
     `Set A (content, form, organisation, vocabulary/style) looks at whether the piece does the job of a ${form.toLowerCase()}.`,
     `Set B (sentences, punctuation, spelling) looks at accuracy. This sitting has ${spellingCount} spelling note${spellingCount === 1 ? '' : 's'} and ${punctuationCount} punctuation note${punctuationCount === 1 ? '' : 's'}.`,
     wc < 80
@@ -696,6 +1038,7 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
 
   return normalizeMarkerNotes(
     {
+      version: MARKER_NOTES_VERSION,
       summary,
       strengths: uniqueStrings(strengths).slice(0, 4),
       next_steps: uniqueStrings(nextSteps).slice(0, 5),

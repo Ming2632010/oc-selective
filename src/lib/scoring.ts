@@ -76,9 +76,10 @@ Also judge whether each of the three hint points is clearly covered in the stude
 
 Teacher mark-up (required):
 - Highlight exact phrases from the student writing (spelling, punctuation, sentence control, structure/form, vocabulary, content).
-- Give a better version of 2–4 of the student’s own sentences. Do not invent a new story; rewrite their lines.
+- Do not stamp every short sentence with the same “too short” note. One content comment for an under-developed piece is enough.
+- Give a better version of 2–4 of the student’s weakest sentences. Keep that sentence’s idea. Fix spelling in the rewrite. Prefer one developed sentence, not a second new sentence.
 - Tie every comment to Set A (content, form, organisation, vocabulary/style) or Set B (sentences, punctuation, spelling).
-- Write for a Year 5–6 student in Australian English. Be specific, not generic.
+- Write for a Year 5–6 student in Australian English. Be specific to their words, not generic.
 `.trim();
 
 function clamp(value: number, min: number, max: number): number {
@@ -242,7 +243,7 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
     temperature: 0.2,
     system: [
       'You are a Year 5–6 writing teacher and an NSW Selective marker.',
-      'Mark like a class teacher: highlight exact words and rewrite the student’s own sentences.',
+      'Mark like a class teacher: circle exact errors, give one overall development note if the piece is a sketch, and rewrite the student’s own weakest sentences.',
       'Score consistently against Set A (content, form, organisation, vocabulary/style) and Set B (sentences, punctuation, spelling).',
       'Return ONLY valid JSON matching the required schema.',
       '',
@@ -287,7 +288,7 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
           rewrites: [
             {
               original: 'a full sentence copied from student_writing',
-              improved: 'a stronger version of THAT sentence, not a new story',
+              improved: 'one stronger sentence that keeps their idea, fixes accuracy, and adds one concrete detail from their scene',
               why: 'why a Selective marker would prefer the rewrite',
               set: 'A or B',
             },
