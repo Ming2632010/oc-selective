@@ -18,6 +18,7 @@ type Attempt = {
   id: string;
   draft_number: number;
   content: string;
+  plan_content?: string | null;
   score_set_a: number;
   score_set_b: number;
   overall_score: number;
@@ -49,7 +50,8 @@ export default function WritingResultsPage() {
   const router = useRouter();
   const promptId = params.promptId;
 
-  const [attempt, setAttempt] = useState<Attempt | null>(null);
+  const [attempts, setAttempts] = useState<Attempt[]>([]);
+  const [selectedDraft, setSelectedDraft] = useState(1);
   const [prompt, setPrompt] = useState<Prompt | null>(null);
   const [samplesUnlocked, setSamplesUnlocked] = useState(false);
   const [showSamples, setShowSamples] = useState(false);
@@ -92,9 +94,11 @@ export default function WritingResultsPage() {
         if (!attemptsRes.ok) throw new Error(attemptsData.error || 'Failed to load attempts');
         if (!promptRes.ok) throw new Error(promptData.error || 'Failed to load prompt');
 
-        const attempts = (attemptsData.attempts as Attempt[]) || [];
-        const latest = attempts[attempts.length - 1] ?? null;
-        setAttempt(latest);
+        const loaded = ((attemptsData.attempts as Attempt[]) || [])
+          .slice()
+          .sort((a, b) => a.draft_number - b.draft_number);
+        setAttempts(loaded);
+        setSelectedDraft(loaded[loaded.length - 1]?.draft_number ?? 1);
         setPrompt({
           ...promptData.prompt,
           hint_points: Array.isArray(promptData.prompt.hint_points)
@@ -128,6 +132,11 @@ export default function WritingResultsPage() {
 
     void load();
   }, [promptId, router]);
+
+  const attempt =
+    attempts.find((row) => row.draft_number === selectedDraft) ??
+    attempts[attempts.length - 1] ??
+    null;
 
   const hints = useMemo(() => {
     if (!prompt || !attempt) return [];
@@ -176,6 +185,7 @@ export default function WritingResultsPage() {
   };
 
   const isTest = prompt.kind === 'test';
+  const latestDraft = attempts[attempts.length - 1]?.draft_number ?? attempt.draft_number;
 
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-6">
@@ -188,8 +198,34 @@ export default function WritingResultsPage() {
         <h1 className="text-3xl font-semibold">{prompt.title}</h1>
         {isTest ? (
           <p className="mt-2 text-sm text-stone-600">
-            This test cannot be sat again.
+            This test cannot be sat again. Your sitting is saved here.
           </p>
+        ) : (
+          <p className="mt-2 text-sm text-stone-600">
+            Every submitted draft is saved. Open any draft to review your writing
+            and the mark from that sitting.
+          </p>
+        )}
+        {!isTest && attempts.length > 1 ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {attempts.map((row) => (
+              <button
+                key={row.id}
+                type="button"
+                onClick={() => setSelectedDraft(row.draft_number)}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+                  selectedDraft === row.draft_number
+                    ? 'bg-stone-900 text-white'
+                    : 'border border-stone-300 bg-white text-stone-800 hover:border-stone-500'
+                }`}
+              >
+                Draft {row.draft_number}
+                {typeof row.overall_score === 'number'
+                  ? ` · ${row.overall_score}/25`
+                  : ''}
+              </button>
+            ))}
+          </div>
         ) : null}
       </header>
 
@@ -278,23 +314,30 @@ export default function WritingResultsPage() {
         </section>
       ) : null}
 
+      {attempt.plan_content ? (
+        <section className="rounded-lg border border-stone-200 p-4">
+          <h2 className="mb-2 text-lg font-medium">Your plan</h2>
+          <p className="whitespace-pre-wrap text-stone-800">{attempt.plan_content}</p>
+        </section>
+      ) : null}
+
       <section className="rounded-lg border border-stone-200 p-4">
         <h2 className="mb-2 text-lg font-medium">Your submitted writing</h2>
         <p className="whitespace-pre-wrap text-stone-800">{attempt.content}</p>
       </section>
 
       <div className="flex flex-wrap gap-3">
-        {!isTest && attempt.draft_number < 3 ? (
+        {!isTest && latestDraft < 3 ? (
           <Link
             href={`/dashboard/writing/${promptId}`}
             className="rounded-md bg-stone-900 px-4 py-2 text-white"
           >
-            Revise &amp; Resubmit (Draft {attempt.draft_number + 1})
+            Revise &amp; Resubmit (Draft {latestDraft + 1})
           </Link>
         ) : null}
 
         {nextTask &&
-        (nextTask.prompt_id !== promptId || isTest || attempt.draft_number >= 3) ? (
+        (nextTask.prompt_id !== promptId || isTest || latestDraft >= 3) ? (
           <Link
             href={`/dashboard/writing/${nextTask.prompt_id}`}
             className="rounded-md border border-indigo-200 bg-indigo-50 px-4 py-2 text-indigo-900"

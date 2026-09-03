@@ -42,6 +42,32 @@ type Result = {
   checks?: ChecklistItem[];
 };
 
+type SavedAttempt = {
+  answer_index?: number | null;
+  answer_text?: string | null;
+  answer_order?: number[] | null;
+  is_correct?: boolean;
+  created_at?: string;
+};
+
+function formatMiniAnswer(kind: MiniItemKind, attempt: SavedAttempt, drill: Drill) {
+  if (kind === 'choice') {
+    if (typeof attempt.answer_index === 'number') {
+      return drill.options[attempt.answer_index] ?? `Option ${attempt.answer_index + 1}`;
+    }
+    return 'No option saved';
+  }
+  if (kind === 'order') {
+    const shuffled = Array.isArray(drill.prompt?.shuffled) ? drill.prompt.shuffled : [];
+    const order = Array.isArray(attempt.answer_order) ? attempt.answer_order : [];
+    if (order.length === 0) return 'No order saved';
+    return order
+      .map((index, place) => `${place + 1}. ${shuffled[index] ?? '?'}`)
+      .join(' ');
+  }
+  return attempt.answer_text?.trim() || 'No text saved';
+}
+
 function highlightMisspelling(sentence: string, misspelled: string) {
   if (!sentence || !misspelled) return sentence;
   const index = sentence.toLowerCase().indexOf(misspelled.toLowerCase());
@@ -77,6 +103,7 @@ export default function MiniPracticePage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [attempts, setAttempts] = useState<SavedAttempt[]>([]);
 
   const kind: MiniItemKind = drill?.item_kind ?? 'choice';
   const shuffled = useMemo(
@@ -95,6 +122,7 @@ export default function MiniPracticePage() {
       setAward(null);
       setDrill(null);
       setNextSlug(null);
+      setAttempts([]);
       const token = getToken();
       const studentId = getStudentId();
       if (!token) {
@@ -117,14 +145,12 @@ export default function MiniPracticePage() {
         setNextSlug(
           typeof res.data.next_slug === 'string' ? res.data.next_slug : null,
         );
-        const last = res.data.last_attempt as
-          | {
-              answer_index?: number | null;
-              answer_text?: string | null;
-              answer_order?: number[] | null;
-              is_correct?: boolean;
-            }
-          | undefined;
+        const history = Array.isArray(res.data.attempts)
+          ? (res.data.attempts as SavedAttempt[])
+          : [];
+        setAttempts(history);
+        const last = (res.data.last_attempt as SavedAttempt | undefined)
+          ?? history[history.length - 1];
         if (last && res.data.reveal) {
           if (typeof last.answer_index === 'number') setChosen(last.answer_index);
           if (typeof last.answer_text === 'string') setAnswerText(last.answer_text);
@@ -198,6 +224,9 @@ export default function MiniPracticePage() {
       setNextSlug(
         typeof res.data.next_slug === 'string' ? res.data.next_slug : null,
       );
+      if (res.data.attempt) {
+        setAttempts((prev) => [...prev, res.data.attempt as SavedAttempt]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save answer');
       if (typeof payload.answer_index === 'number') setChosen(null);
@@ -484,6 +513,40 @@ export default function MiniPracticePage() {
       ) : (
         <p className="text-sm text-stone-500">{helpText}</p>
       )}
+
+      {attempts.length > 0 ? (
+        <section className="rounded-lg border border-stone-200 bg-white p-4">
+          <h2 className="text-sm font-semibold text-stone-900">
+            Your saved answers
+          </h2>
+          <p className="mt-1 text-xs text-stone-500">
+            Every try is kept. Open this question any time to review them.
+          </p>
+          <ol className="mt-3 space-y-3">
+            {attempts.map((row, index) => (
+              <li
+                key={`${row.created_at ?? 'try'}-${index}`}
+                className="rounded-md border border-stone-100 bg-stone-50 px-3 py-2 text-sm"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-medium text-stone-800">
+                    Try {index + 1}
+                    {row.is_correct ? ' · Correct' : ' · Not quite'}
+                  </p>
+                  {row.created_at ? (
+                    <p className="text-xs text-stone-500">
+                      {new Date(row.created_at).toLocaleString()}
+                    </p>
+                  ) : null}
+                </div>
+                <p className="mt-1 whitespace-pre-wrap text-stone-700">
+                  {formatMiniAnswer(kind, row, drill)}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
 
       <div className="flex flex-wrap gap-3">
         {result && nextSlug ? (

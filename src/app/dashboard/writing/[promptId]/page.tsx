@@ -426,7 +426,13 @@ export default function WritingPracticePage() {
           <h1 className="text-3xl font-semibold text-stone-900">{prompt.title}</h1>
           {draftNumber > 1 ? (
             <p className="mt-2 text-sm text-stone-600">
-              Your previous draft is copied in so you can revise it.
+              Your previous draft is copied in so you can revise it.{' '}
+              <Link
+                href={`/dashboard/writing/${promptId}/results`}
+                className="text-indigo-700 underline"
+              >
+                Review saved drafts
+              </Link>
             </p>
           ) : null}
         </div>
