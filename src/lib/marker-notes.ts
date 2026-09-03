@@ -329,10 +329,10 @@ function improveSentence(sentence: string, promptType: string, index = 0): strin
       return `${core}, and I could hear my own breathing more than anything else.`;
     }
     if (/\bran\b|\bwent\b|\bmoved\b|\bpocket\b|\btrain\b/.test(lower)) {
-      return `${core} I counted three steps before I dared to look back.`;
+      return `${core}. I counted three steps before I dared to look back.`;
     }
     if (/\bdon't\b|\bknow\b|\blook\b/.test(lower)) {
-      return `${core} My hands found the seat edge and stayed there.`;
+      return `${core}. My hands found the seat edge and stayed there.`;
     }
     const extras = [
       `${core}, and a small, exact detail hung in the next breath.`,
