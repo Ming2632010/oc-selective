@@ -11,7 +11,9 @@ import {
   sumSeeds,
   weekStartSydney,
   WEEKLY_HARVEST_GOAL,
+  buildSeedPatchScene,
   type AwardLine,
+  type SeedPatchScene,
 } from '@/lib/rewards';
 import { MINI_SKILLS, SEED_MINI_DRILLS, type MiniSkill } from '@/lib/seed-mini-drills';
 import { SEED_EXTRA_MINI_DRILLS } from '@/lib/seed-extra-mini-drills';
@@ -990,6 +992,9 @@ export type SeedPatchView = {
   rain_cheques: number;
   focused_minutes_week: number;
   stage: ReturnType<typeof growthStage>;
+  completed_tasks: number;
+  weekly_harvests: number;
+  scene: SeedPatchScene;
   recent: { seeds: number; label: string; source: string; created_at: Date }[];
 };
 
@@ -1075,6 +1080,23 @@ async function recentSeedEvents(studentId: string, limit = 6) {
 
 export async function getSeedPatchView(studentId: string): Promise<SeedPatchView> {
   const row = await loadPatchRow(studentId);
+  const [tasks, harvests, recent] = await Promise.all([
+    query<{ n: string }>(
+      `SELECT COUNT(DISTINCT prompt_id)::text AS n
+       FROM writing_attempts
+       WHERE student_id = $1 AND draft_number >= 1`,
+      [studentId],
+    ),
+    query<{ n: string }>(
+      `SELECT COUNT(*)::text AS n
+       FROM seed_events
+       WHERE student_id = $1 AND label = 'Weekly harvest (90 seeds)'`,
+      [studentId],
+    ),
+    recentSeedEvents(studentId),
+  ]);
+  const completedTasks = Number(tasks.rows[0]?.n ?? 0);
+  const weeklyHarvests = Number(harvests.rows[0]?.n ?? 0);
   return {
     lifetime_seeds: row.lifetime_seeds,
     week_seeds: row.week_seeds,
@@ -1084,7 +1106,14 @@ export async function getSeedPatchView(studentId: string): Promise<SeedPatchView
     rain_cheques: row.rain_cheques,
     focused_minutes_week: Math.round(row.focused_seconds_week / 60),
     stage: growthStage(row.lifetime_seeds),
-    recent: await recentSeedEvents(studentId),
+    completed_tasks: completedTasks,
+    weekly_harvests: weeklyHarvests,
+    scene: buildSeedPatchScene({
+      lifetimeSeeds: row.lifetime_seeds,
+      completedTasks,
+      weeklyHarvests,
+    }),
+    recent,
   };
 }
 

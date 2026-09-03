@@ -12,7 +12,7 @@ import {
 } from '@/lib/client-auth';
 import { UNIT_GROUPS, unitsByGroup, type UnitGroup } from '@/lib/units';
 import { WritingProgressLine, type HistoryPoint } from '@/components/writing/progress-line';
-import { SeedPatch, type SeedPatchData } from '@/components/writing/seed-patch';
+import { GardenView } from '@/components/GardenView';
 import { SubjectChat } from '@/components/writing/subject-chat';
 import { WeekNote } from '@/components/writing/week-note';
 import type { WeekNoteData } from '@/lib/week-note';
@@ -139,7 +139,6 @@ export default function DashboardPage() {
   const [progress, setProgress] = useState<ProgressRow[]>([]);
   const [miniProgress, setMiniProgress] = useState<MiniProgressRow[]>([]);
   const [termTests, setTermTests] = useState<TermTest[]>([]);
-  const [rewards, setRewards] = useState<SeedPatchData | null>(null);
   const [weekNote, setWeekNote] = useState<WeekNoteData | null>(null);
   const [history, setHistory] = useState<HistoryPoint[]>([]);
   const [recommendation, setRecommendation] = useState<Recommendation | null>(
@@ -208,7 +207,6 @@ export default function DashboardPage() {
         setProgress([]);
         setMiniProgress([]);
         setTermTests([]);
-        setRewards(null);
         setWeekNote(null);
         setHistory([]);
         setRecommendation(null);
@@ -221,7 +219,6 @@ export default function DashboardPage() {
         setProgress((res.data.progress as ProgressRow[]) || []);
         setMiniProgress((res.data.mini_progress as MiniProgressRow[]) || []);
         setTermTests((res.data.term_tests as TermTest[]) || []);
-        setRewards((res.data.rewards as SeedPatchData | null) ?? null);
         setWeekNote((res.data.week_note as WeekNoteData | null) ?? null);
         setHistory((res.data.history as HistoryPoint[]) || []);
         setRecommendation(
@@ -415,7 +412,7 @@ export default function DashboardPage() {
             </section>
           ) : null}
 
-          <SeedPatch patch={rewards} />
+          <GardenView studentId={selectedStudentId} />
           <WeekNote note={weekNote} />
 
           <div className="grid gap-4 lg:grid-cols-2">

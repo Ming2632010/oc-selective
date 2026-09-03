@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   calendarDateInSydney,
   daysBetween,
+  buildSeedPatchScene,
   growthStage,
   harvestBonus,
   nextPlotState,
@@ -211,5 +212,45 @@ describe('harvestBonus and growth', () => {
     assert.equal(growthStage(40).id, 'first_leaves');
     assert.equal(growthStage(1000).id, 'harvest');
     assert.equal(growthStage(999).nextAt, 1000);
+  });
+
+  it('grows a flower every 10 seeds, a bush every 30, and a tree every 50', () => {
+    const empty = buildSeedPatchScene({ lifetimeSeeds: 0 });
+    assert.equal(empty.active.id, 'flower');
+    assert.equal(empty.active.filled, 0);
+    assert.equal(empty.active.capacity, 10);
+    assert.equal(empty.garden.length, 0);
+
+    const justHarvested = buildSeedPatchScene({ lifetimeSeeds: 80 });
+    assert.equal(justHarvested.active.filled, 0);
+    assert.equal(justHarvested.active.percent, 0);
+    assert.equal(justHarvested.active.id, 'bush');
+    assert.equal(justHarvested.garden.length, 8);
+    assert.equal(
+      justHarvested.garden.find((plant) => plant.id === 'milestone-10')?.kind,
+      'flower',
+    );
+    assert.equal(
+      justHarvested.garden.find((plant) => plant.id === 'milestone-30')?.kind,
+      'bush',
+    );
+    assert.equal(
+      justHarvested.garden.find((plant) => plant.id === 'milestone-50')?.kind,
+      'tree',
+    );
+    assert.equal(
+      justHarvested.garden.filter((plant) => plant.kind === 'tree').length,
+      1,
+    );
+    assert.equal(
+      justHarvested.garden.filter((plant) => plant.kind === 'bush').length,
+      2,
+    );
+
+    const filling = buildSeedPatchScene({ lifetimeSeeds: 86 });
+    assert.equal(filling.garden.length, 8);
+    assert.equal(filling.active.filled, 6);
+    assert.equal(filling.active.percent, 60);
+    assert.equal(filling.active.id, 'bush');
   });
 });

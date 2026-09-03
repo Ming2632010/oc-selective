@@ -116,6 +116,93 @@ export function growthStage(lifetimeSeeds: number): GrowthStage {
   return current;
 }
 
+export type GardenPlantKind = 'flower' | 'bush' | 'tree';
+
+export type GardenPlant = {
+  id: string;
+  kind: GardenPlantKind;
+  label: string;
+};
+
+export type ActivePatchView = {
+  id: string;
+  label: string;
+  blurb: string;
+  filled: number;
+  capacity: number;
+  percent: number;
+};
+
+export type SeedPatchScene = {
+  active: ActivePatchView;
+  garden: GardenPlant[];
+};
+
+export function harvestedStages(lifetimeSeeds: number): GrowthStage[] {
+  return GROWTH_STAGES.filter(
+    (stage) => stage.nextAt !== null && lifetimeSeeds >= stage.nextAt,
+  );
+}
+
+export function plantKindForMilestone(seeds: number): GardenPlantKind {
+  if (seeds > 0 && seeds % 50 === 0) return 'tree';
+  if (seeds > 0 && seeds % 30 === 0) return 'bush';
+  return 'flower';
+}
+
+const GARDEN_PLANT_CAP = 36;
+const PLOT_CAPACITY = 10;
+
+function plantLabel(kind: GardenPlantKind, seeds: number): string {
+  if (kind === 'tree') return `Tree at ${seeds} seeds`;
+  if (kind === 'bush') return `Bush at ${seeds} seeds`;
+  return `Flower at ${seeds} seeds`;
+}
+
+export function buildSeedPatchScene(input: {
+  lifetimeSeeds: number;
+  completedTasks?: number;
+  weeklyHarvests?: number;
+}): SeedPatchScene {
+  const lifetime = Math.max(0, input.lifetimeSeeds);
+  const harvested = Math.min(GARDEN_PLANT_CAP, Math.floor(lifetime / PLOT_CAPACITY));
+  const garden: GardenPlant[] = [];
+  for (let index = 0; index < harvested; index += 1) {
+    const seeds = (index + 1) * PLOT_CAPACITY;
+    const kind = plantKindForMilestone(seeds);
+    garden.push({
+      id: `milestone-${seeds}`,
+      kind,
+      label: plantLabel(kind, seeds),
+    });
+  }
+
+  const filled = lifetime % PLOT_CAPACITY;
+  const nextSeeds = (Math.floor(lifetime / PLOT_CAPACITY) + 1) * PLOT_CAPACITY;
+  const nextKind = plantKindForMilestone(nextSeeds);
+  const remaining = PLOT_CAPACITY - filled;
+
+  return {
+    active: {
+      id: nextKind,
+      label:
+        nextKind === 'tree'
+          ? 'Tree patch'
+          : nextKind === 'bush'
+            ? 'Bush patch'
+            : 'Flower patch',
+      blurb:
+        filled === 0
+          ? 'A new plot is ready for seeds.'
+          : `${remaining} more seed${remaining === 1 ? '' : 's'} until this ${nextKind} is harvested into the garden.`,
+      filled,
+      capacity: PLOT_CAPACITY,
+      percent: Math.round((filled / PLOT_CAPACITY) * 100),
+    },
+    garden,
+  };
+}
+
 export function seedsForMini(input: {
   isCorrect: boolean;
   alreadyTried: boolean;
