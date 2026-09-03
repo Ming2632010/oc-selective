@@ -46,7 +46,7 @@ describe('buildMarkerNotesHeuristic', () => {
     assert.equal(notes.annotations.filter((row) => row.kind === 'sentence').length <= 1, true);
   });
 
-  it('marks a short empty-seat draft like a teacher: one content note, exact errors, one-sentence rewrites', () => {
+  it('marks a short empty-seat draft with one content note, exact errors, and one-sentence rewrites', () => {
     const content =
       'I sat down. The seat was empty. I dont know wich way to look. It was very nice and then I got scared. The train moved.';
     const notes = buildMarkerNotesHeuristic({
@@ -59,7 +59,9 @@ describe('buildMarkerNotesHeuristic', () => {
         'Resolve the story with a satisfying or surprising ending',
       ],
     });
-    assert.equal(notes.version, 4);
+    assert.equal(notes.version, 5);
+    assert.match(notes.summary, /TrialSeed mark-up/);
+    assert.equal(/teacher/i.test(notes.summary), false);
     assert.equal(notes.annotations.filter((row) => row.kind === 'content').length, 1);
     assert.equal(notes.annotations.filter((row) => row.kind === 'sentence').length, 0);
     assert.ok(notes.annotations.some((row) => row.quote.toLowerCase() === 'dont'));

@@ -303,7 +303,7 @@ export default function WritingResultsPage() {
 
       {notes ? <MarkerSummary notes={notes} /> : (
         <section className="rounded-lg border border-stone-200 p-4">
-          <h2 className="mb-2 text-lg font-medium">Teacher comments</h2>
+          <h2 className="mb-2 text-lg font-medium">TrialSeed feedback</h2>
           <p className="whitespace-pre-wrap text-stone-800">{attempt.ai_feedback}</p>
         </section>
       )}

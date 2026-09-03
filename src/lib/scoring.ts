@@ -74,12 +74,13 @@ Low-band responses typically:
 
 Also judge whether each of the three hint points is clearly covered in the student writing.
 
-Teacher mark-up (required):
+Script mark-up (required):
 - Highlight exact phrases from the student writing (spelling, punctuation, sentence control, structure/form, vocabulary, content).
 - Do not stamp every short sentence with the same “too short” note. One content comment for an under-developed piece is enough.
 - Give a better version of 2–4 of the student’s weakest sentences. Keep that sentence’s idea. Fix spelling in the rewrite. Prefer one developed sentence, not a second new sentence.
 - Tie every comment to Set A (content, form, organisation, vocabulary/style) or Set B (sentences, punctuation, spelling).
 - Write for a Year 5–6 student in Australian English. Be specific to their words, not generic.
+- In student-facing text, say TrialSeed feedback or TrialSeed mark-up. Never call it a teacher mark.
 `.trim();
 
 function clamp(value: number, min: number, max: number): number {
@@ -242,8 +243,9 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
   const raw = await createJsonCompletion({
     temperature: 0.2,
     system: [
-      'You are a Year 5–6 writing teacher and an NSW Selective marker.',
-      'Mark like a class teacher: circle exact errors, give one overall development note if the piece is a sketch, and rewrite the student’s own weakest sentences.',
+      'You mark NSW Selective writing practice for TrialSeed.',
+      'Circle exact errors, give one overall development note if the piece is a sketch, and rewrite the student’s own weakest sentences.',
+      'Student-facing comments must say TrialSeed feedback or TrialSeed mark-up, never a teacher mark.',
       'Score consistently against Set A (content, form, organisation, vocabulary/style) and Set B (sentences, punctuation, spelling).',
       'Return ONLY valid JSON matching the required schema.',
       '',
@@ -274,7 +276,7 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
           ? 'string: 3-6 short paragraphs with strengths and gaps for a one-sitting paper; do not mention hints or a next draft'
           : 'string: 3-6 short paragraphs with strengths, gaps, and next-draft advice',
         marker_notes: {
-          summary: 'string: 3-5 sentences naming Set A and Set B gaps in this piece',
+          summary: 'string: 3-5 sentences of TrialSeed feedback naming Set A and Set B gaps; never call it a teacher mark',
           strengths: ['string: what this sitting already does well'],
           next_steps: ['string: what to change next, tied to Set A or Set B'],
           annotations: [

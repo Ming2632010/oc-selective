@@ -29,11 +29,11 @@ export function MarkedScript({
   return (
     <section className="space-y-4">
       <div className="rounded-lg border border-stone-200 p-4">
-        <h2 className="text-lg font-medium">Teacher mark-up</h2>
+        <h2 className="text-lg font-medium">TrialSeed mark-up</h2>
         <p className="mt-1 text-sm text-stone-600">
-          Highlighted like a class teacher would: spelling and punctuation
-          (Set B), plus structure, vocabulary and detail (Set A). Tap a
-          highlight to read the note.
+          Practice notes on this script against the NSW Selective writing
+          criteria: spelling and punctuation (Set B), plus structure,
+          vocabulary and detail (Set A). Tap a highlight to read the note.
         </p>
         {usedKinds.length > 0 ? (
           <ul className="mt-3 flex flex-wrap gap-2">
@@ -138,7 +138,7 @@ export function MarkerSummary({
   }
   return (
     <section className="rounded-lg border border-stone-200 p-4">
-      <h2 className="mb-2 text-lg font-medium">Teacher comments</h2>
+      <h2 className="mb-2 text-lg font-medium">TrialSeed feedback</h2>
       {notes.summary ? (
         <p className="whitespace-pre-wrap text-stone-800">{notes.summary}</p>
       ) : null}

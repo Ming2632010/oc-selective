@@ -1,6 +1,6 @@
 import { typeLabel } from '@/lib/units';
 
-export const MARKER_NOTES_VERSION = 4;
+export const MARKER_NOTES_VERSION = 5;
 
 export const MARKER_KINDS = [
   'spelling',
@@ -1039,7 +1039,7 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
   const spellingCount = annotations.filter((row) => row.kind === 'spelling').length;
   const punctuationCount = annotations.filter((row) => row.kind === 'punctuation').length;
   const summary = [
-    `Teacher mark-up for this ${form.toLowerCase()}${titleBit}, using the NSW Selective writing criteria.`,
+    `TrialSeed mark-up for this ${form.toLowerCase()}${titleBit}, using the NSW Selective writing criteria.`,
     `Set A (content, form, organisation, vocabulary/style) looks at whether the piece does the job of a ${form.toLowerCase()}.`,
     `Set B (sentences, punctuation, spelling) looks at accuracy. This sitting has ${spellingCount} spelling note${spellingCount === 1 ? '' : 's'} and ${punctuationCount} punctuation note${punctuationCount === 1 ? '' : 's'}.`,
     wc < 80
