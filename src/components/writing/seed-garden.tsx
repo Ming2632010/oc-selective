@@ -1,75 +1,188 @@
-import Image from 'next/image';
-import { GROWTH_STAGES } from '@/lib/rewards';
+import {
+  GROWTH_STAGES,
+  gardenBedStages,
+  gardenSeedCount,
+  growthStageIndex,
+} from '@/lib/rewards';
 
 type StageId = (typeof GROWTH_STAGES)[number]['id'];
 
+/** Shape Green — leaf sage from the botanical painting, used on seed bars. */
+export const SHAPE_GREEN = '#4F7A3A';
+export const SHAPE_GREEN_TRACK = '#E3EDDA';
+export const SHAPE_GREEN_SOFT = '#F1F5EA';
+
+const PLANTER_SRC = [
+  '/marketing/seed-patch/planter-sprout.png',
+  '/marketing/seed-patch/planter-first-leaves.png',
+  '/marketing/seed-patch/planter-seedling.png',
+  '/marketing/seed-patch/planter-branching.png',
+  '/marketing/seed-patch/planter-in-flower.png',
+  '/marketing/seed-patch/planter-harvest.png',
+] as const;
+
+/** Back row of the garden — crates rest on the soil line, left and right of the plot. */
+const GARDEN_SLOTS: { left: string; width: string; z: number }[] = [
+  { left: '1%', width: '13%', z: 2 },
+  { left: '85%', width: '14%', z: 2 },
+  { left: '10%', width: '11%', z: 1 },
+  { left: '77%', width: '11%', z: 1 },
+  { left: '-3%', width: '12%', z: 3 },
+  { left: '90%', width: '12%', z: 3 },
+  { left: '18%', width: '10%', z: 1 },
+  { left: '71%', width: '10%', z: 1 },
+  { left: '6%', width: '9%', z: 1 },
+  { left: '84%', width: '9%', z: 1 },
+  { left: '22%', width: '10%', z: 2 },
+  { left: '67%', width: '10%', z: 2 },
+];
+
+function planterSrc(stageIndex: number): string {
+  const clamped = Math.min(PLANTER_SRC.length - 1, Math.max(0, stageIndex));
+  return PLANTER_SRC[clamped];
+}
+
+function PlanterPhoto({
+  stageIndex,
+  className,
+  alt = '',
+}: {
+  stageIndex: number;
+  className?: string;
+  alt?: string;
+}) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={planterSrc(stageIndex)}
+      alt={alt}
+      className={className}
+      draggable={false}
+    />
+  );
+}
+
 export function SeedGardenScene({
   stageId,
+  lifetimeSeeds = 0,
+  weeklyHarvests = 0,
   className,
 }: {
   stageId: string;
+  lifetimeSeeds?: number;
+  weeklyHarvests?: number;
   className?: string;
 }) {
   const stage = (
     GROWTH_STAGES.some((row) => row.id === stageId) ? stageId : 'sprout'
   ) as StageId;
-  const currentIndex = Math.max(
-    0,
-    GROWTH_STAGES.findIndex((row) => row.id === stage),
-  );
+  const currentIndex = growthStageIndex(stage);
   const label =
     GROWTH_STAGES.find((row) => row.id === stage)?.label ?? 'Sprout';
+  const beds = gardenBedStages({
+    currentIndex,
+    weeklyHarvests,
+    lifetimeSeeds,
+  });
+  const seeds = gardenSeedCount(lifetimeSeeds);
+  const showBasket = weeklyHarvests > 0 || currentIndex >= GROWTH_STAGES.length - 1;
 
   return (
     <figure className={className}>
-      <div className="relative overflow-hidden rounded-xl border border-amber-200/80 bg-[#efe6d4] shadow-sm">
-        <Image
-          src="/marketing/seed-patch-garden.jpg"
-          alt={`Seed Patch garden at the ${label} stage, with pink blossoms when the plot is in flower`}
-          width={1536}
-          height={1024}
-          className="h-auto w-full"
-          sizes="(min-width: 1024px) 720px, 100vw"
-          priority={false}
-        />
-        <ol
-          className="pointer-events-none absolute inset-0 grid grid-cols-6 px-[2.5%] pb-[17%] pt-[24%]"
+      <div className="relative overflow-hidden rounded-xl border border-amber-200/70 bg-[#d7c49a] shadow-sm">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/marketing/seed-patch/garden-hills.jpg"
+          alt=""
+          className="pointer-events-none absolute inset-x-0 top-0 h-[46%] w-full object-cover object-top"
           aria-hidden
-        >
-          {GROWTH_STAGES.map((row, index) => (
-            <li key={row.id} className="relative">
-              {index === currentIndex ? (
-                <span className="absolute left-1/2 top-[52%] block h-[78%] w-[90%] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-amber-400 shadow-[0_0_0_1px_rgba(180,120,40,0.45)]" />
-              ) : null}
-            </li>
-          ))}
-        </ol>
+        />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[52%] bg-gradient-to-b from-transparent via-[#a88854]/55 to-[#6e5738]/80" aria-hidden />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/marketing/seed-patch/garden-soil.jpg"
+            alt=""
+            className="pointer-events-none absolute inset-x-0 top-[36%] h-[28%] w-full object-cover object-top opacity-95"
+            aria-hidden
+          />
+
+          <div className="relative min-h-[19rem] sm:min-h-[24rem]">
+            <ul className="absolute inset-x-0 top-[6%] h-[44%]" aria-hidden>
+              {beds.map((stageIndex, slot) => {
+                const place = GARDEN_SLOTS[slot] ?? GARDEN_SLOTS[0];
+                return (
+                  <li
+                    key={`garden-${slot}-${stageIndex}`}
+                    className="absolute bottom-0"
+                    style={{
+                      left: place.left,
+                      width: place.width,
+                      zIndex: place.z,
+                    }}
+                  >
+                    <PlanterPhoto
+                      stageIndex={stageIndex}
+                      className="h-auto w-full"
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+
+          {showBasket ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src="/marketing/seed-patch/garden-basket.jpg"
+              alt=""
+              className="pointer-events-none absolute bottom-[28%] right-[4%] z-[4] w-[13%] sm:w-[10%]"
+              aria-hidden
+            />
+          ) : null}
+
+          <ul className="absolute inset-x-0 bottom-[10%] h-[22%]" aria-hidden>
+            {Array.from({ length: seeds }, (_, index) => {
+              const side = index % 2 === 0 ? 3 + ((index * 9) % 20) : 76 + ((index * 7) % 20);
+              const bottom = 8 + ((index * 13) % 58);
+              const size = 7 + (index % 3) * 3;
+              return (
+                <li
+                  key={`seed-${index}`}
+                  className="absolute rounded-[45%] bg-[#5a3d24]"
+                  style={{
+                    left: `${side}%`,
+                    bottom: `${bottom}%`,
+                    width: size,
+                    height: Math.round(size * 0.72),
+                    opacity: 0.88,
+                  }}
+                />
+              );
+            })}
+          </ul>
+
+          <div className="absolute bottom-[-10%] left-1/2 z-10 h-[108%] w-[88%] max-w-[26rem] -translate-x-1/2 sm:w-[66%]">
+            <PlanterPhoto
+              stageIndex={currentIndex}
+              alt={label}
+              className="h-full w-full object-contain object-bottom"
+            />
+          </div>
+        </div>
       </div>
-      <ol className="mt-2 grid grid-cols-6 gap-1">
-        {GROWTH_STAGES.map((row, index) => {
-          const state =
-            index < currentIndex
-              ? 'done'
-              : index === currentIndex
-                ? 'now'
-                : 'later';
-          return (
-            <li key={row.id}>
-              <p
-                className={`text-center text-[10px] leading-tight sm:text-xs ${
-                  state === 'now'
-                    ? 'font-semibold text-rose-800'
-                    : state === 'done'
-                      ? 'text-stone-700'
-                      : 'text-stone-400'
-                }`}
-              >
-                {row.label}
-              </p>
-            </li>
-          );
-        })}
-      </ol>
+      <figcaption className="mt-3 text-center">
+        <p className="text-sm font-semibold" style={{ color: SHAPE_GREEN }}>
+          {label}
+        </p>
+        <p className="mt-0.5 text-xs text-stone-600">
+          {beds.length === 0 && seeds === 0
+            ? 'This plot sits in front. Seeds and harvested plants gather in the garden behind it.'
+            : `${seeds} seed${seeds === 1 ? '' : 's'}${
+                beds.length > 0
+                  ? ` and ${beds.length} harvested plant${beds.length === 1 ? '' : 's'}`
+                  : ''
+              } in the garden behind this plot.`}
+        </p>
+      </figcaption>
     </figure>
   );
 }

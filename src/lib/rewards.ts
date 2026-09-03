@@ -116,6 +116,41 @@ export function growthStage(lifetimeSeeds: number): GrowthStage {
   return current;
 }
 
+export function growthStageIndex(stageId: string): number {
+  const index = GROWTH_STAGES.findIndex((stage) => stage.id === stageId);
+  return index >= 0 ? index : 0;
+}
+
+/**
+ * Plants that have left the front plot and sit in the garden:
+ * every completed growth stage, plus each weekly harvest and each
+ * full 1000-seed cycle (the Harvest stage).
+ */
+export function gardenBedStages(input: {
+  currentIndex: number;
+  weeklyHarvests: number;
+  lifetimeSeeds: number;
+}): number[] {
+  const beds: number[] = [];
+  const current = Math.max(0, Math.min(GROWTH_STAGES.length - 1, input.currentIndex));
+  for (let index = 0; index < current; index += 1) {
+    beds.push(index);
+  }
+  const harvestIndex = GROWTH_STAGES.length - 1;
+  const extra =
+    Math.max(0, input.weeklyHarvests) +
+    Math.max(0, Math.floor(input.lifetimeSeeds / 1000));
+  for (let count = 0; count < extra; count += 1) {
+    beds.push(harvestIndex);
+  }
+  return beds.slice(0, 12);
+}
+
+/** How many seeds are sitting in the garden soil behind the current plot. */
+export function gardenSeedCount(lifetimeSeeds: number): number {
+  return Math.min(24, Math.floor(Math.max(0, lifetimeSeeds) / 4));
+}
+
 export function seedsForMini(input: {
   isCorrect: boolean;
   alreadyTried: boolean;
