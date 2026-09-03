@@ -100,8 +100,8 @@ export function SeedGardenScene({
                 style={{
                   left: slot.left,
                   bottom: slot.bottom,
-                  width: `${2.6 * slot.scale}rem`,
-                  opacity: 0.78,
+                  width: `${3.4 * slot.scale}rem`,
+                  opacity: 0.95,
                 }}
               >
                 <PlantSvg kind={plant.kind} className="h-auto w-full" />
@@ -149,8 +149,14 @@ export function ActivePatchBed({
         </p>
       </div>
 
-      <div className="mt-2 flex justify-center">
-        <ActivePlant percent={active.percent} />
+      <div className="mt-1 flex justify-center">
+        <div className="relative flex h-36 w-40 items-end justify-center sm:h-44 sm:w-44">
+          <span
+            className="absolute bottom-1 left-1/2 h-6 w-28 -translate-x-1/2 rounded-[100%] bg-amber-800/50"
+            aria-hidden
+          />
+          <ActivePlant percent={active.percent} />
+        </div>
       </div>
 
       <div className="mt-2 space-y-1">
