@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS writing_attempts (
   word_count INTEGER NOT NULL DEFAULT 0,
   time_spent_seconds INTEGER NOT NULL DEFAULT 0,
   has_seen_sample BOOLEAN NOT NULL DEFAULT FALSE,
+  marker_notes JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (student_id, prompt_id, draft_number)
 );
@@ -58,6 +59,7 @@ ALTER TABLE prompts ADD COLUMN IF NOT EXISTS stimulus_quote TEXT;
 ALTER TABLE prompts ADD COLUMN IF NOT EXISTS purposes TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
 ALTER TABLE prompts ADD COLUMN IF NOT EXISTS purpose_note TEXT;
 ALTER TABLE prompts ADD COLUMN IF NOT EXISTS decode_guide JSONB;
+ALTER TABLE writing_attempts ADD COLUMN IF NOT EXISTS marker_notes JSONB;
 
 CREATE TABLE IF NOT EXISTS writing_warmups (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

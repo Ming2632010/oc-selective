@@ -1,4 +1,9 @@
 import { createJsonCompletion, isOpenAIConfigured } from '@/lib/openai';
+import {
+  buildMarkerNotesHeuristic,
+  combineRemoteMarkerNotes,
+  type MarkerNotes,
+} from '@/lib/marker-notes';
 
 export type ScoresBreakdown = {
   structure: number;
@@ -13,6 +18,7 @@ export type ScoringResult = {
   overall_score: number;
   scores_breakdown: ScoresBreakdown;
   ai_feedback: string;
+  marker_notes: MarkerNotes;
   checked_hint_1: boolean;
   checked_hint_2: boolean;
   checked_hint_3: boolean;
@@ -67,6 +73,12 @@ Low-band responses typically:
 - Use limited vocabulary and frequent accuracy errors
 
 Also judge whether each of the three hint points is clearly covered in the student writing.
+
+Teacher mark-up (required):
+- Highlight exact phrases from the student writing (spelling, punctuation, sentence control, structure/form, vocabulary, content).
+- Give a better version of 2–4 of the student’s own sentences. Do not invent a new story; rewrite their lines.
+- Tie every comment to Set A (content, form, organisation, vocabulary/style) or Set B (sentences, punctuation, spelling).
+- Write for a Year 5–6 student in Australian English. Be specific, not generic.
 `.trim();
 
 function clamp(value: number, min: number, max: number): number {
@@ -100,6 +112,7 @@ function normalizeResult(
     scores_breakdown?: Partial<ScoresBreakdown>;
   },
   content: string,
+  notes: MarkerNotes,
 ): ScoringResult {
   const wc = typeof partial.word_count === 'number' ? partial.word_count : wordCount(content);
 
@@ -130,6 +143,7 @@ function normalizeResult(
       typeof partial.ai_feedback === 'string' && partial.ai_feedback.trim()
         ? partial.ai_feedback.trim()
         : 'Feedback unavailable.',
+    marker_notes: notes,
     checked_hint_1: Boolean(partial.checked_hint_1),
     checked_hint_2: Boolean(partial.checked_hint_2),
     checked_hint_3: Boolean(partial.checked_hint_3),
@@ -197,12 +211,22 @@ export function scoreWritingAttemptHeuristic(input: ScoreInput): ScoringResult {
       : ['Hint checklist:', covered, 'Next draft: strengthen any missing hint, polish word choice, and re-check opening/closing for audience.'].join('\n'),
   ].join('\n');
 
+  const notes = buildMarkerNotesHeuristic({
+    content,
+    promptType: input.promptType,
+    promptTitle: input.promptTitle,
+    hintPoints: input.hintPoints,
+    examStyle: input.examStyle,
+    wordCount: wc,
+  });
+
   return {
     score_set_a,
     score_set_b,
     overall_score,
     scores_breakdown: { structure, vocabulary, audience, grammar },
-    ai_feedback,
+    ai_feedback: notes.summary || ai_feedback,
+    marker_notes: notes,
     checked_hint_1: checked[0] ?? false,
     checked_hint_2: checked[1] ?? false,
     checked_hint_3: checked[2] ?? false,
@@ -217,8 +241,9 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
   const raw = await createJsonCompletion({
     temperature: 0.2,
     system: [
-      'You are an expert marker for the NSW Selective High School Placement Test Writing section.',
-      'Score student practice responses consistently and constructively.',
+      'You are a Year 5–6 writing teacher and an NSW Selective marker.',
+      'Mark like a class teacher: highlight exact words and rewrite the student’s own sentences.',
+      'Score consistently against Set A (content, form, organisation, vocabulary/style) and Set B (sentences, punctuation, spelling).',
       'Return ONLY valid JSON matching the required schema.',
       '',
       SELECTIVE_MARKING_CRITERIA,
@@ -245,8 +270,29 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
           grammar: 'integer 0-5',
         },
         ai_feedback: input.examStyle
-          ? 'string: 3-6 short paragraphs/bullets with strengths and gaps for a one-sitting paper; do not mention hints or a next draft'
-          : 'string: 3-6 short paragraphs/bullets with strengths, gaps, and next-draft advice',
+          ? 'string: 3-6 short paragraphs with strengths and gaps for a one-sitting paper; do not mention hints or a next draft'
+          : 'string: 3-6 short paragraphs with strengths, gaps, and next-draft advice',
+        marker_notes: {
+          summary: 'string: 3-5 sentences naming Set A and Set B gaps in this piece',
+          strengths: ['string: what this sitting already does well'],
+          next_steps: ['string: what to change next, tied to Set A or Set B'],
+          annotations: [
+            {
+              kind: 'spelling|punctuation|sentence|structure|vocabulary|content',
+              quote: 'exact substring copied from student_writing',
+              issue: 'what is wrong, naming Set A or Set B',
+              suggestion: 'how to fix that phrase',
+            },
+          ],
+          rewrites: [
+            {
+              original: 'a full sentence copied from student_writing',
+              improved: 'a stronger version of THAT sentence, not a new story',
+              why: 'why a Selective marker would prefer the rewrite',
+              set: 'A or B',
+            },
+          ],
+        },
         checked_hint_1: 'boolean',
         checked_hint_2: 'boolean',
         checked_hint_3: 'boolean',
@@ -257,9 +303,19 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
 
   const parsed = JSON.parse(raw) as Partial<ScoringResult> & {
     scores_breakdown?: Partial<ScoresBreakdown>;
+    marker_notes?: unknown;
   };
+  const local = buildMarkerNotesHeuristic({
+    content: input.content,
+    promptType: input.promptType,
+    promptTitle: input.promptTitle,
+    hintPoints: input.hintPoints,
+    examStyle: input.examStyle,
+    wordCount: wc,
+  });
+  const notes = combineRemoteMarkerNotes(input.content, local, parsed.marker_notes);
 
-  return normalizeResult({ ...parsed, word_count: parsed.word_count ?? wc }, input.content);
+  return normalizeResult({ ...parsed, word_count: parsed.word_count ?? wc }, input.content, notes);
 }
 
 /**

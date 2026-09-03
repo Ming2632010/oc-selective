@@ -33,7 +33,7 @@ import {
 let schemaReady = false;
 let seededLength = 0;
 let seededPrompts = 0;
-const WRITING_SCHEMA = 8;
+const WRITING_SCHEMA = 9;
 let appliedSchema = 0;
 
 const SEEDED_DRILL_COUNT =
@@ -216,6 +216,10 @@ export async function ensureWritingEnhancements(): Promise<void> {
   );
   await query(`ALTER TABLE prompts ADD COLUMN IF NOT EXISTS purpose_note TEXT`);
   await query(`ALTER TABLE prompts ADD COLUMN IF NOT EXISTS decode_guide JSONB`);
+  await query(`
+    ALTER TABLE writing_attempts
+      ADD COLUMN IF NOT EXISTS marker_notes JSONB
+  `);
   await query(`
     CREATE TABLE IF NOT EXISTS writing_warmups (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

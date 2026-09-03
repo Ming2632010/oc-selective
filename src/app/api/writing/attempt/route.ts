@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { scoreWritingAttempt } from '@/lib/scoring';
+import { buildMarkerNotesHeuristic, markerNotesFromUnknown } from '@/lib/marker-notes';
 import { termReviewLockMessage } from '@/lib/writing-guidance';
 import {
   assertOwnedStudent,
@@ -67,11 +68,15 @@ export async function GET(request: Request) {
       });
     }
 
-    const [attempts, awards, recommendation] = await Promise.all([
-      query(
+    const [attempts, awards, recommendation, promptMeta] = await Promise.all([
+      query<{
+        id: string;
+        content: string;
+        marker_notes: unknown;
+      }>(
         `SELECT id, student_id, prompt_id, draft_number, content, plan_content,
                 score_set_a, score_set_b, overall_score, scores_breakdown,
-                ai_feedback, checked_hint_1, checked_hint_2, checked_hint_3,
+                ai_feedback, marker_notes, checked_hint_1, checked_hint_2, checked_hint_3,
                 word_count, time_spent_seconds, has_seen_sample, created_at
          FROM writing_attempts
          WHERE student_id = $1 AND prompt_id = $2
@@ -80,11 +85,41 @@ export async function GET(request: Request) {
       ),
       getAwardsForPrompt(studentId, promptId),
       getNextRecommendation(studentId),
+      query<{ prompt_type: string; hint_points: unknown; kind: string }>(
+        `SELECT prompt_type, hint_points, kind FROM prompts WHERE id = $1 LIMIT 1`,
+        [promptId],
+      ),
     ]);
+
+    const promptType = promptMeta.rows[0]?.prompt_type || 'narrative';
+    const examStyle = promptMeta.rows[0]?.kind === 'test';
+    const hintPoints = Array.isArray(promptMeta.rows[0]?.hint_points)
+      ? (promptMeta.rows[0]?.hint_points as string[])
+      : [];
+
+    const hydrated = [];
+    for (const row of attempts.rows) {
+      const existing = markerNotesFromUnknown(row.marker_notes, row.content);
+      if (existing) {
+        hydrated.push({ ...row, marker_notes: existing });
+        continue;
+      }
+      const notes = buildMarkerNotesHeuristic({
+        content: row.content,
+        promptType,
+        hintPoints: examStyle ? [] : hintPoints,
+        examStyle,
+      });
+      await query(
+        `UPDATE writing_attempts SET marker_notes = $1::jsonb WHERE id = $2`,
+        [JSON.stringify(notes), row.id],
+      );
+      hydrated.push({ ...row, marker_notes: notes });
+    }
 
     return NextResponse.json({
       awards,
-      attempts: attempts.rows,
+      attempts: hydrated,
       recommendation,
     });
   } catch (error) {
@@ -224,13 +259,13 @@ export async function POST(request: Request) {
       `INSERT INTO writing_attempts (
          student_id, prompt_id, draft_number, content, plan_content,
          score_set_a, score_set_b, overall_score, scores_breakdown,
-         ai_feedback, checked_hint_1, checked_hint_2, checked_hint_3,
+         ai_feedback, marker_notes, checked_hint_1, checked_hint_2, checked_hint_3,
          word_count, time_spent_seconds, has_seen_sample
        ) VALUES (
          $1,$2,$3,$4,$5,
          $6,$7,$8,$9,
-         $10,$11,$12,$13,
-         $14,$15,$16
+         $10,$11::jsonb,$12,$13,$14,
+         $15,$16,$17
        )
        RETURNING *`,
       [
@@ -244,6 +279,7 @@ export async function POST(request: Request) {
         scored.overall_score,
         JSON.stringify(scored.scores_breakdown),
         scored.ai_feedback,
+        JSON.stringify(scored.marker_notes),
         scored.checked_hint_1,
         scored.checked_hint_2,
         scored.checked_hint_3,
