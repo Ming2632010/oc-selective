@@ -28,8 +28,8 @@ function PlantSvg({
   kind: GardenPlantKind | 'active';
   className?: string;
 }) {
-  const stroke = kind === 'week' ? '#15803d' : kind === 'task' ? '#16a34a' : '#166534';
-  const fill = kind === 'week' ? '#4ade80' : kind === 'task' ? '#86efac' : '#22c55e';
+  const stroke = kind === 'week' ? '#14532d' : kind === 'task' ? '#166534' : '#14532d';
+  const fill = kind === 'week' ? '#22c55e' : kind === 'task' ? '#4ade80' : '#16a34a';
   return (
     <svg
       viewBox="0 0 64 80"
@@ -104,7 +104,7 @@ export function SeedGardenScene({
                   opacity: 0.95,
                 }}
               >
-                <PlantSvg kind={plant.kind} className="h-auto w-full" />
+                <PlantSvg kind={plant.kind} className="h-auto w-full drop-shadow-[0_2px_2px_rgba(20,64,30,0.45)]" />
                 <span className="sr-only">{plant.label}</span>
               </span>
             );
