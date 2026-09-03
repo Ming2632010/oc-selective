@@ -299,21 +299,53 @@ function formLooksWrong(promptType: string, content: string) {
   return false;
 }
 
-function improveSentence(sentence: string, promptType: string): string {
+function matchCase(source: string, replacement: string) {
+  if (source === source.toUpperCase() && source.length > 1) return replacement.toUpperCase();
+  if (source[0] && source[0] === source[0].toUpperCase()) {
+    return replacement.charAt(0).toUpperCase() + replacement.slice(1);
+  }
+  return replacement;
+}
+
+function tidyAccuracy(text: string) {
+  return text.replace(/[A-Za-z']+/g, (word) => {
+    const key = word.toLowerCase();
+    if (COMMON_MISSPELLINGS[key]) return matchCase(word, COMMON_MISSPELLINGS[key]);
+    if (MISSING_APOSTROPHE[key] && !word.includes("'")) return MISSING_APOSTROPHE[key];
+    return word;
+  });
+}
+
+function improveSentence(sentence: string, promptType: string, index = 0): string {
   const trimmed = sentence.trim().replace(/\s+/g, ' ');
-  const core = trimmed.replace(/[.!?]+$/, '');
+  const core = tidyAccuracy(trimmed.replace(/[.!?]+$/, ''));
   if (!core) return trimmed;
+  const lower = core.toLowerCase();
   if (promptType === 'narrative' || promptType === 'diary_entry') {
-    if (/^[A-Z][^.!?]{0,40}$/.test(core)) {
-      return `${core}, and for a moment the air held still.`;
+    if (/\bsat\b|\bstood\b|\bturned\b|\bopened\b|\bhandle\b/.test(lower)) {
+      return `${core}, slower than I meant to, and the sound of it stayed in the room.`;
     }
-    return `${core} — a small, exact detail a marker can see.`;
+    if (/\bempty\b|\bquiet\b|\bdark\b|\bdust\b|\bhung\b/.test(lower)) {
+      return `${core}, and I could hear my own breathing more than anything else.`;
+    }
+    if (/\bran\b|\bwent\b|\bmoved\b|\bpocket\b|\btrain\b/.test(lower)) {
+      return `${core} I counted three steps before I dared to look back.`;
+    }
+    if (/\bdon't\b|\bknow\b|\blook\b/.test(lower)) {
+      return `${core} My hands found the seat edge and stayed there.`;
+    }
+    const extras = [
+      `${core}, and a small, exact detail hung in the next breath.`,
+      `${core} Then something shifted, just enough to make the next line matter.`,
+      `${core} I kept the moment going instead of stopping there.`,
+    ];
+    return extras[index % extras.length];
   }
   if (promptType === 'news_report') {
-    return `${core}, officials said, as people nearby tried to make sense of what came next.`;
+    return `${core}, witnesses said, as people nearby tried to make sense of what came next.`;
   }
   if (promptType === 'formal_letter' || promptType === 'email') {
-    return `${core} I am writing to ask that this be looked into this week.`;
+    return `${core}. I am writing to ask that this be looked into this week.`;
   }
   if (promptType === 'persuasive_text' || promptType === 'speech' || promptType === 'advertisement') {
     return `${core} That is why this should change now, not later.`;
@@ -626,7 +658,7 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
     .slice(0, 3);
   const rewrites: MarkerRewrite[] = usableSentences.map((text, index) => ({
     original: text,
-    improved: improveSentence(text, promptType),
+    improved: improveSentence(text, promptType, index),
     why: rewriteWhy(promptType, index === 0 ? 'open' : index === usableSentences.length - 1 ? 'close' : 'develop'),
     set: 'A',
   }));

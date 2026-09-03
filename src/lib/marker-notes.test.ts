@@ -40,6 +40,8 @@ describe('buildMarkerNotesHeuristic', () => {
     assert.ok(notes.annotations.some((row) => row.kind === 'content'));
     assert.ok(notes.rewrites.length >= 2);
     assert.ok(notes.rewrites[0].improved.length > notes.rewrites[0].original.length);
+    const improved = notes.rewrites.map((row) => row.improved);
+    assert.equal(new Set(improved).size, improved.length);
     assert.ok(notes.next_steps.some((row) => /hint/i.test(row) || /paragraph/i.test(row) || /160/i.test(row)));
   });
 });
