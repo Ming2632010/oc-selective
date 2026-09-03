@@ -5,6 +5,10 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { apiFetch, getStudentId, getToken } from '@/lib/client-auth';
 import { getUnitInfo, typeLabel } from '@/lib/units';
+import {
+  MINI_ITEM_KIND_LABELS,
+  type MiniItemKind,
+} from '@/lib/mini-item-kinds';
 import { MINI_SKILL_LABELS, type MiniSkill } from '@/lib/seed-mini-drills';
 
 type Prompt = {
@@ -28,6 +32,15 @@ type MiniDrillCard = {
   title: string;
   attempted: boolean;
   source?: 'seed' | 'ai';
+  item_kind?: MiniItemKind;
+};
+
+const KIND_BADGE: Record<MiniItemKind, string> = {
+  choice: 'bg-indigo-50 text-indigo-700',
+  spelling: 'bg-amber-50 text-amber-800',
+  rewrite: 'bg-sky-50 text-sky-800',
+  order: 'bg-violet-50 text-violet-800',
+  short_write: 'bg-teal-50 text-teal-800',
 };
 
 type ExtraMeta = {
@@ -182,9 +195,9 @@ export default function UnitPage() {
           <div>
             <h2 className="text-lg font-semibold text-stone-900">Mini practice</h2>
             <p className="mt-1 text-sm text-stone-600">
-              Short questions on format, audience, word choice, punctuation, and
-              structure — at Selective Year 5–6 level. {miniDone}/{drills.length}{' '}
-              tried.
+              Multiple-choice plus short writing: spelling, rewrite, sentence
+              order, and 1–2 sentence practice — at Selective Year 5–6 level.{' '}
+              {miniDone}/{drills.length} tried.
             </p>
           </div>
           {extra?.can_generate ? (
@@ -221,9 +234,15 @@ export default function UnitPage() {
                 className="block rounded-lg border border-stone-200 bg-white px-4 py-4 transition hover:border-stone-400 hover:shadow-sm"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                  <span
+                    className={`rounded-md px-2 py-0.5 text-xs font-medium ${
+                      KIND_BADGE[drill.item_kind ?? 'choice']
+                    }`}
+                  >
                     {drill.source === 'ai' ? 'Extra · ' : ''}
-                    {MINI_SKILL_LABELS[drill.skill] ?? drill.skill}
+                    {drill.item_kind && drill.item_kind !== 'choice'
+                      ? MINI_ITEM_KIND_LABELS[drill.item_kind]
+                      : MINI_SKILL_LABELS[drill.skill] ?? drill.skill}
                   </span>
                   <span
                     className={`text-xs font-medium ${
