@@ -185,6 +185,7 @@ export default function WritingResultsPage() {
   };
 
   const isTest = prompt.kind === 'test';
+  const latestDraft = attempts[attempts.length - 1]?.draft_number ?? attempt.draft_number;
 
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-6">
@@ -326,17 +327,17 @@ export default function WritingResultsPage() {
       </section>
 
       <div className="flex flex-wrap gap-3">
-        {!isTest && attempt.draft_number < 3 ? (
+        {!isTest && latestDraft < 3 ? (
           <Link
             href={`/dashboard/writing/${promptId}`}
             className="rounded-md bg-stone-900 px-4 py-2 text-white"
           >
-            Revise &amp; Resubmit (Draft {attempt.draft_number + 1})
+            Revise &amp; Resubmit (Draft {latestDraft + 1})
           </Link>
         ) : null}
 
         {nextTask &&
-        (nextTask.prompt_id !== promptId || isTest || attempt.draft_number >= 3) ? (
+        (nextTask.prompt_id !== promptId || isTest || latestDraft >= 3) ? (
           <Link
             href={`/dashboard/writing/${nextTask.prompt_id}`}
             className="rounded-md border border-indigo-200 bg-indigo-50 px-4 py-2 text-indigo-900"
