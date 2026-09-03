@@ -21,6 +21,7 @@ import { getUnitInfo, typeLabel } from '@/lib/units';
 import { buildWeekNote, type WeekNoteData } from '@/lib/week-note';
 import {
   recommendNextTask,
+  termReviewAccess,
   weakestDimension,
   type AttemptSummary,
   type NextTaskRecommendation,
@@ -474,7 +475,15 @@ export type TermTestRow = {
   module_id: number;
   overall_score: number | null;
   sat: boolean;
+  locked: boolean;
+  practice_tried: number;
+  practice_total: number;
 };
+
+export async function getTermReviewAccess(studentId: string, moduleId: number) {
+  const progress = await getUnitProgress(studentId);
+  return termReviewAccess(progress, moduleId);
+}
 
 export async function getTermTests(studentId: string): Promise<TermTestRow[]> {
   const result = await query<{
@@ -501,14 +510,22 @@ export async function getTermTests(studentId: string): Promise<TermTestRow[]> {
     [studentId],
   );
 
-  return result.rows.map((row) => ({
-    id: row.id,
-    title: row.title,
-    prompt_type: row.prompt_type,
-    module_id: row.module_id,
-    overall_score: row.overall_score,
-    sat: Boolean(row.attempt_id),
-  }));
+  const progress = await getUnitProgress(studentId);
+  return result.rows.map((row) => {
+    const sat = Boolean(row.attempt_id);
+    const access = termReviewAccess(progress, row.module_id);
+    return {
+      id: row.id,
+      title: row.title,
+      prompt_type: row.prompt_type,
+      module_id: row.module_id,
+      overall_score: row.overall_score,
+      sat,
+      locked: !sat && access.locked,
+      practice_tried: access.tried,
+      practice_total: access.total,
+    };
+  });
 }
 
 export async function hasCompletedWarmup(

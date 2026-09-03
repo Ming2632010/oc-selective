@@ -5,9 +5,12 @@ import {
   isUnitUnlocked,
   maxDraftForPrompt,
   recommendNextTask,
+  termReviewAccess,
+  termReviewLockMessage,
   weakestDimension,
   type AttemptSummary,
   type PromptSummary,
+  type UnitProgressRow,
 } from './writing-guidance';
 import { markMiniChoice, SEED_MINI_DRILLS } from './seed-mini-drills';
 
@@ -25,6 +28,44 @@ describe('highestUnlockedUnit', () => {
     assert.equal(isUnitUnlocked(2), true);
     assert.equal(isUnitUnlocked(11), true);
     assert.equal(isUnitUnlocked(0), false);
+  });
+});
+
+describe('termReviewAccess', () => {
+  const progress: UnitProgressRow[] = [
+    {
+      module_id: 1,
+      prompt_count: 3,
+      completed_count: 2,
+      is_completed: false,
+    },
+    {
+      module_id: 2,
+      prompt_count: 3,
+      completed_count: 3,
+      is_completed: true,
+    },
+  ];
+
+  it('locks a term review until every full task in the unit is tried', () => {
+    const locked = termReviewAccess(progress, 1);
+    assert.equal(locked.locked, true);
+    assert.equal(locked.tried, 2);
+    assert.equal(locked.total, 3);
+    assert.match(termReviewLockMessage(locked), /2\/3/);
+  });
+
+  it('unlocks when each full writing task has at least one attempt', () => {
+    const open = termReviewAccess(progress, 2);
+    assert.equal(open.locked, false);
+    assert.equal(termReviewLockMessage(open), '');
+  });
+
+  it('stays locked when the unit has no progress row', () => {
+    const missing = termReviewAccess(progress, 9);
+    assert.equal(missing.locked, true);
+    assert.equal(missing.tried, 0);
+    assert.equal(missing.total, 0);
   });
 });
 

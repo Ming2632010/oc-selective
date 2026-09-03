@@ -6,9 +6,11 @@ import {
   scoreWarmupAnswers,
   warmupBankForPrompt,
 } from '@/lib/warmup-questions';
+import { termReviewLockMessage } from '@/lib/writing-guidance';
 import {
   assertOwnedStudent,
   ensureWritingEnhancements,
+  getTermReviewAccess,
   hasCompletedWarmup,
 } from '@/lib/writing-state';
 
@@ -43,13 +45,20 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
 
-    const prompt = await query<{ kind: string }>(
-      `SELECT COALESCE(kind, 'practice') AS kind
+    const prompt = await query<{ kind: string; module_id: number }>(
+      `SELECT COALESCE(kind, 'practice') AS kind, module_id
        FROM prompts WHERE id = $1 AND is_active = TRUE LIMIT 1`,
       [promptId],
     );
     if (!prompt.rows[0] || prompt.rows[0].kind !== 'test') {
       return NextResponse.json({ error: 'Warm-up is only for term reviews' }, { status: 400 });
+    }
+    const access = await getTermReviewAccess(studentId, prompt.rows[0].module_id);
+    if (access.locked) {
+      return NextResponse.json(
+        { error: termReviewLockMessage(access) },
+        { status: 403 },
+      );
     }
 
     const completed = await hasCompletedWarmup(studentId, promptId);
@@ -102,13 +111,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
 
-    const prompt = await query<{ kind: string }>(
-      `SELECT COALESCE(kind, 'practice') AS kind
+    const prompt = await query<{ kind: string; module_id: number }>(
+      `SELECT COALESCE(kind, 'practice') AS kind, module_id
        FROM prompts WHERE id = $1 AND is_active = TRUE LIMIT 1`,
       [promptId],
     );
     if (!prompt.rows[0] || prompt.rows[0].kind !== 'test') {
       return NextResponse.json({ error: 'Warm-up is only for term reviews' }, { status: 400 });
+    }
+    const access = await getTermReviewAccess(studentId, prompt.rows[0].module_id);
+    if (access.locked) {
+      return NextResponse.json(
+        { error: termReviewLockMessage(access) },
+        { status: 403 },
+      );
     }
 
     if (await hasCompletedWarmup(studentId, promptId)) {

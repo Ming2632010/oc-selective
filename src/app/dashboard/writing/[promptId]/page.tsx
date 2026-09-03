@@ -88,6 +88,8 @@ export default function WritingPracticePage() {
   const [submitting, setSubmitting] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [alreadyFinished, setAlreadyFinished] = useState(false);
+  const [reviewLocked, setReviewLocked] = useState(false);
+  const [lockReason, setLockReason] = useState('');
   const [isTest, setIsTest] = useState(false);
   const [uiPhase, setUiPhase] = useState<UiPhase>('paper');
   const [warmupResult, setWarmupResult] = useState<{
@@ -167,6 +169,15 @@ export default function WritingPracticePage() {
         const testTask = p.kind === 'test' || promptData.kind === 'test';
         setIsTest(testTask);
         setPrompt({ ...p, hint_points: hints });
+        if (testTask && (p.is_locked || promptData.prompt?.is_locked)) {
+          setReviewLocked(true);
+          setLockReason(
+            typeof promptData.lock_reason === 'string' && promptData.lock_reason
+              ? promptData.lock_reason
+              : 'Try every full writing task in this unit at least once before the term review.',
+          );
+          return;
+        }
 
         const attempts = (attemptsData.attempts as AttemptRow[] | undefined) ?? [];
         const maxDraft = attempts.reduce(
@@ -288,6 +299,26 @@ export default function WritingPracticePage() {
 
   if (loading) {
     return <main className="mx-auto max-w-4xl p-6">Loading writing task…</main>;
+  }
+
+  if (reviewLocked) {
+    return (
+      <main className="mx-auto max-w-4xl space-y-4 p-6">
+        <p className="text-sm uppercase tracking-wide text-indigo-700">
+          Term review
+        </p>
+        <h1 className="text-2xl font-semibold text-stone-900">
+          {prompt?.title ?? 'Term review locked'}
+        </h1>
+        <p className="text-stone-700">
+          {lockReason ||
+            'Try every full writing task in this unit at least once before the term review.'}
+        </p>
+        <Link href="/dashboard" className="text-sm text-indigo-700 underline">
+          Back to dashboard
+        </Link>
+      </main>
+    );
   }
 
   if (alreadyFinished) {

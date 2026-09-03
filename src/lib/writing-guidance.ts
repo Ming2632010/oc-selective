@@ -61,6 +61,38 @@ export function isUnitUnlocked(unitId: number): boolean {
   return unitId >= 1 && unitId <= ALL_UNITS_OPEN;
 }
 
+export type TermReviewAccess = {
+  locked: boolean;
+  tried: number;
+  total: number;
+};
+
+/**
+ * A term review stays locked until every full writing task in that unit
+ * has at least one attempt (draft 1 or later).
+ */
+export function termReviewAccess(
+  progress: UnitProgressRow[],
+  moduleId: number,
+): TermReviewAccess {
+  const row = progress.find((item) => item.module_id === moduleId);
+  const total = row?.prompt_count ?? 0;
+  const tried = row?.completed_count ?? 0;
+  return {
+    locked: total <= 0 || tried < total,
+    tried,
+    total,
+  };
+}
+
+export function termReviewLockMessage(access: TermReviewAccess): string {
+  if (!access.locked) return '';
+  if (access.total <= 0) {
+    return 'Try every full writing task in this unit at least once before the term review.';
+  }
+  return `Try every full writing task in this unit at least once (${access.tried}/${access.total} tried).`;
+}
+
 export function weakestDimension(
   attempts: AttemptSummary[],
   lookback = 6,
