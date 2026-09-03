@@ -8,46 +8,46 @@ import type {
 type Slot = { left: string; bottom: string; scale: number };
 
 const TREE_SLOTS: Slot[] = [
-  { left: '7%', bottom: '52%', scale: 1.2 },
-  { left: '20%', bottom: '58%', scale: 1 },
-  { left: '80%', bottom: '56%', scale: 1.1 },
-  { left: '93%', bottom: '50%', scale: 1.25 },
-  { left: '13%', bottom: '64%', scale: 0.88 },
-  { left: '87%', bottom: '63%', scale: 0.9 },
-  { left: '28%', bottom: '60%', scale: 0.8 },
-  { left: '72%', bottom: '61%', scale: 0.82 },
+  { left: '8%', bottom: '54%', scale: 1.2 },
+  { left: '92%', bottom: '52%', scale: 1.22 },
+  { left: '18%', bottom: '62%', scale: 0.95 },
+  { left: '82%', bottom: '61%', scale: 1 },
+  { left: '4%', bottom: '46%', scale: 0.88 },
+  { left: '96%', bottom: '45%', scale: 0.9 },
+  { left: '26%', bottom: '66%', scale: 0.8 },
+  { left: '74%', bottom: '66%', scale: 0.82 },
 ];
 
 const BUSH_SLOTS: Slot[] = [
-  { left: '5%', bottom: '32%', scale: 1.05 },
-  { left: '16%', bottom: '36%', scale: 0.95 },
-  { left: '84%', bottom: '34%', scale: 1 },
-  { left: '95%', bottom: '30%', scale: 0.9 },
-  { left: '26%', bottom: '40%', scale: 0.85 },
-  { left: '74%', bottom: '40%', scale: 0.85 },
-  { left: '9%', bottom: '44%', scale: 0.78 },
-  { left: '91%', bottom: '43%', scale: 0.78 },
-  { left: '32%', bottom: '28%', scale: 0.75 },
-  { left: '68%', bottom: '28%', scale: 0.75 },
+  { left: '6%', bottom: '34%', scale: 1.05 },
+  { left: '94%', bottom: '32%', scale: 1.05 },
+  { left: '16%', bottom: '40%', scale: 0.92 },
+  { left: '84%', bottom: '39%', scale: 0.95 },
+  { left: '10%', bottom: '24%', scale: 0.85 },
+  { left: '90%', bottom: '24%', scale: 0.85 },
+  { left: '22%', bottom: '46%', scale: 0.78 },
+  { left: '78%', bottom: '46%', scale: 0.78 },
+  { left: '3%', bottom: '42%', scale: 0.75 },
+  { left: '97%', bottom: '41%', scale: 0.75 },
 ];
 
 const FLOWER_SLOTS: Slot[] = [
-  { left: '3%', bottom: '16%', scale: 0.9 },
-  { left: '10%', bottom: '12%', scale: 1 },
-  { left: '17%', bottom: '18%', scale: 0.92 },
-  { left: '24%', bottom: '11%', scale: 0.84 },
-  { left: '76%', bottom: '11%', scale: 0.86 },
-  { left: '83%', bottom: '17%', scale: 1 },
-  { left: '90%', bottom: '13%', scale: 0.9 },
-  { left: '97%', bottom: '18%', scale: 0.82 },
-  { left: '8%', bottom: '26%', scale: 0.78 },
-  { left: '92%', bottom: '26%', scale: 0.78 },
-  { left: '30%', bottom: '16%', scale: 0.72 },
-  { left: '70%', bottom: '16%', scale: 0.72 },
-  { left: '4%', bottom: '38%', scale: 0.7 },
-  { left: '96%', bottom: '38%', scale: 0.7 },
-  { left: '21%', bottom: '24%', scale: 0.7 },
-  { left: '79%', bottom: '24%', scale: 0.7 },
+  { left: '4%', bottom: '14%', scale: 0.95 },
+  { left: '96%', bottom: '15%', scale: 0.95 },
+  { left: '12%', bottom: '11%', scale: 1 },
+  { left: '88%', bottom: '12%', scale: 1 },
+  { left: '20%', bottom: '17%', scale: 0.88 },
+  { left: '80%', bottom: '17%', scale: 0.88 },
+  { left: '8%', bottom: '22%', scale: 0.8 },
+  { left: '92%', bottom: '22%', scale: 0.8 },
+  { left: '26%', bottom: '12%', scale: 0.78 },
+  { left: '74%', bottom: '12%', scale: 0.78 },
+  { left: '3%', bottom: '30%', scale: 0.72 },
+  { left: '97%', bottom: '30%', scale: 0.72 },
+  { left: '16%', bottom: '27%', scale: 0.7 },
+  { left: '84%', bottom: '27%', scale: 0.7 },
+  { left: '28%', bottom: '21%', scale: 0.68 },
+  { left: '72%', bottom: '21%', scale: 0.68 },
 ];
 
 const FLOWER_COLOURS = ['#facc15', '#fb7185', '#e879f9', '#ffffff', '#fb923c', '#38bdf8'];
@@ -225,7 +225,10 @@ export function SeedGardenScene({
 
   return (
     <figure className={className}>
-      <div className="relative h-[32rem] overflow-hidden rounded-2xl sm:h-[40rem]">
+      <div
+        data-testid="seed-garden"
+        className="relative h-[32rem] overflow-hidden rounded-2xl sm:h-[40rem]"
+      >
         <div
           className="absolute inset-0"
           style={{
