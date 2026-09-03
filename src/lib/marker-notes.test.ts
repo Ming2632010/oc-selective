@@ -59,7 +59,7 @@ describe('buildMarkerNotesHeuristic', () => {
         'Resolve the story with a satisfying or surprising ending',
       ],
     });
-    assert.equal(notes.version, 3);
+    assert.equal(notes.version, 4);
     assert.equal(notes.annotations.filter((row) => row.kind === 'content').length, 1);
     assert.equal(notes.annotations.filter((row) => row.kind === 'sentence').length, 0);
     assert.ok(notes.annotations.some((row) => row.quote.toLowerCase() === 'dont'));
@@ -83,6 +83,19 @@ describe('buildMarkerNotesHeuristic', () => {
     assert.ok(notes.rewrites.some((row) => /sat down on the empty seat/i.test(row.improved)));
     assert.equal(notes.next_steps.filter((row) => /Cover this task hint/i.test(row)).length <= 1, true);
     assert.match(notes.annotations.find((row) => row.kind === 'content')?.suggestion ?? '', /seat|train/i);
+  });
+
+  it('rewrites a locked-door sketch from the student’s own lines without a nonsense comparison', () => {
+    const content = 'The handle turned. Dust hung in the air. I ran out with a glowing jar in my pocket.';
+    const notes = buildMarkerNotesHeuristic({
+      content,
+      promptType: 'narrative',
+      promptTitle: 'The locked door',
+    });
+    const dust = notes.rewrites.find((row) => /dust/i.test(row.original));
+    assert.ok(dust);
+    assert.match(dust?.improved ?? '', /Dust hung in the air/i);
+    assert.equal(/more than the handle/i.test(dust?.improved ?? ''), false);
   });
 });
 

@@ -1,6 +1,6 @@
 import { typeLabel } from '@/lib/units';
 
-export const MARKER_NOTES_VERSION = 3;
+export const MARKER_NOTES_VERSION = 4;
 
 export const MARKER_KINDS = [
   'spelling',
@@ -526,10 +526,15 @@ export function improveStudentSentence(sentence: string, ctx: RewriteContext): s
     });
   }
   if (/\bempty\b|\bquiet\b|\bdark\b|\bdust\b|\bhung\b/.test(lower)) {
+    const hearNouns = new Set(['train', 'room', 'air', 'door', 'seat', 'wind', 'rain', 'street', 'carriage']);
+    const hear = nouns.find((item) => {
+      const key = item.split(' ')[0] ?? item;
+      return hearNouns.has(key) && !lower.includes(key);
+    });
     options.push({
       id: 'empty-hear',
-      text: noun
-        ? `${core}, and I could hear my own breathing more than the ${noun}`
+      text: hear
+        ? `${core}, and I could hear my own breathing more than the ${hear}`
         : `${core}, and I could hear my own breathing more than anything else`,
     });
   }
