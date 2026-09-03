@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { scoreWritingAttempt } from '@/lib/scoring';
+import { termReviewLockMessage } from '@/lib/writing-guidance';
 import {
   assertOwnedStudent,
   awardWritingSeeds,
@@ -9,6 +10,7 @@ import {
   getAwardsForPrompt,
   getGuidanceForStudent,
   getNextRecommendation,
+  getTermReviewAccess,
 } from '@/lib/writing-state';
 
 export const runtime = 'nodejs';
@@ -175,6 +177,13 @@ export async function POST(request: Request) {
         return NextResponse.json(
           { error: 'This test can only be sat once.' },
           { status: 409 },
+        );
+      }
+      const access = await getTermReviewAccess(studentId, prompt.module_id);
+      if (access.locked) {
+        return NextResponse.json(
+          { error: termReviewLockMessage(access) },
+          { status: 403 },
         );
       }
     } else {

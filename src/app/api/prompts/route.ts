@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
+import { termReviewLockMessage } from '@/lib/writing-guidance';
 import {
   assertOwnedStudent,
   ensureWritingEnhancements,
+  getTermReviewAccess,
   hasCompletedWarmup,
 } from '@/lib/writing-state';
 
@@ -79,6 +81,8 @@ export async function GET(request: Request) {
       let includeSamples = false;
       let maxDraft = 0;
       let warmupCompleted = false;
+      let reviewLocked = false;
+      let lockReason = '';
 
       if (studentId) {
         const owned = await assertOwnedStudent(userId, studentId);
@@ -98,18 +102,24 @@ export async function GET(request: Request) {
         warmupCompleted = isTest
           ? await hasCompletedWarmup(studentId, promptId)
           : true;
+        if (isTest && maxDraft < 1) {
+          const access = await getTermReviewAccess(studentId, prompt.module_id);
+          reviewLocked = access.locked;
+          lockReason = termReviewLockMessage(access);
+        }
       }
 
       return NextResponse.json({
         prompt: includeSamples
-          ? { ...prompt, is_locked: false }
-          : { ...stripSamples(prompt), is_locked: false },
+          ? { ...prompt, is_locked: reviewLocked }
+          : { ...stripSamples(prompt), is_locked: reviewLocked },
         samples_unlocked: includeSamples,
         max_draft: maxDraft,
         max_attempts: isTest ? 1 : 3,
         kind: isTest ? 'test' : 'practice',
         unit_locked: false,
         warmup_completed: warmupCompleted,
+        lock_reason: reviewLocked ? lockReason : '',
       });
     }
 

@@ -56,6 +56,9 @@ type TermTest = {
   module_id: number;
   overall_score: number | null;
   sat: boolean;
+  locked?: boolean;
+  practice_tried?: number;
+  practice_total?: number;
 };
 
 type Recommendation = {
@@ -427,8 +430,9 @@ export default function DashboardPage() {
               <h2 className="text-lg font-medium text-stone-900">Writing units</h2>
               <p className="mt-1 text-sm text-stone-600">
                 Start any unit. Each one has mini practice and three full
-                writing tasks. After each group, sit the term review — one test
-                per unit, one attempt only.
+                writing tasks. Term reviews stay locked until you have tried
+                every full writing task in that unit at least once. One
+                sitting, one attempt only.
               </p>
             </div>
             {UNIT_GROUPS.map((group) => {
@@ -518,8 +522,9 @@ export default function DashboardPage() {
                       <p className="mt-1 text-sm text-stone-700">
                         {groupTests.length} test
                         {groupTests.length === 1 ? '' : 's'} — one for each{' '}
-                        {group.toLowerCase()} unit. Exam-style: one sitting, AI
-                        marking, no re-attempt.
+                        {group.toLowerCase()} unit. Unlock a review by trying
+                        all three full writing tasks in that unit. Exam-style:
+                        one sitting, AI marking, no re-attempt.
                       </p>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -530,12 +535,10 @@ export default function DashboardPage() {
                         const href = test.sat
                           ? `/dashboard/writing/${test.id}/results`
                           : `/dashboard/writing/${test.id}`;
-                        return (
-                          <Link
-                            key={test.id}
-                            href={href}
-                            className="flex flex-col justify-between rounded-lg border border-indigo-100 bg-white p-4 transition hover:border-indigo-300 hover:shadow-sm"
-                          >
+                        const tried = test.practice_tried ?? 0;
+                        const total = test.practice_total ?? 0;
+                        const card = (
+                          <>
                             <div className="space-y-1.5">
                               <span className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
                                 {unit?.title ?? `Unit ${test.module_id}`}
@@ -549,8 +552,31 @@ export default function DashboardPage() {
                                 ? typeof test.overall_score === 'number'
                                   ? `Sat · ${test.overall_score}/25`
                                   : 'Sat · marked'
-                                : 'Not started'}
+                                : test.locked
+                                  ? total > 0
+                                    ? `Locked · ${tried}/${total} writing tasks tried`
+                                    : 'Locked · try the unit writing tasks first'
+                                  : 'Ready · not started'}
                             </p>
+                          </>
+                        );
+                        if (test.locked) {
+                          return (
+                            <div
+                              key={test.id}
+                              className="flex flex-col justify-between rounded-lg border border-indigo-100 bg-white/70 p-4 opacity-80"
+                            >
+                              {card}
+                            </div>
+                          );
+                        }
+                        return (
+                          <Link
+                            key={test.id}
+                            href={href}
+                            className="flex flex-col justify-between rounded-lg border border-indigo-100 bg-white p-4 transition hover:border-indigo-300 hover:shadow-sm"
+                          >
+                            {card}
                           </Link>
                         );
                       })}
