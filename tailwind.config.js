@@ -6,7 +6,22 @@ const config = {
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
-    extend: {},
+    extend: {
+      keyframes: {
+        sway: {
+          '0%, 100%': { transform: 'rotate(-3deg)' },
+          '50%': { transform: 'rotate(3deg)' },
+        },
+        'cloud-drift': {
+          '0%, 100%': { transform: 'translateX(0)' },
+          '50%': { transform: 'translateX(12px)' },
+        },
+      },
+      animation: {
+        sway: 'sway 3.8s ease-in-out infinite',
+        'cloud-drift': 'cloud-drift 14s ease-in-out infinite',
+      },
+    },
   },
   plugins: [],
 };

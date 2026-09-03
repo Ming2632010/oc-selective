@@ -1,64 +1,213 @@
-import type { ActivePatchView, GardenPlant, GardenPlantKind, SeedPatchScene } from '@/lib/rewards';
+import type {
+  ActivePatchView,
+  GardenPlant,
+  GardenPlantKind,
+  SeedPatchScene,
+} from '@/lib/rewards';
 
-const GARDEN_SLOTS: { left: string; bottom: string; scale: number }[] = [
-  { left: '7%', bottom: '56%', scale: 0.92 },
-  { left: '18%', bottom: '64%', scale: 0.78 },
-  { left: '29%', bottom: '54%', scale: 0.88 },
-  { left: '71%', bottom: '55%', scale: 0.9 },
-  { left: '82%', bottom: '63%', scale: 0.76 },
-  { left: '91%', bottom: '52%', scale: 0.84 },
-  { left: '11%', bottom: '46%', scale: 0.7 },
-  { left: '22%', bottom: '44%', scale: 0.66 },
-  { left: '78%', bottom: '44%', scale: 0.68 },
-  { left: '88%', bottom: '46%', scale: 0.64 },
-  { left: '5%', bottom: '72%', scale: 0.58 },
-  { left: '16%', bottom: '76%', scale: 0.55 },
-  { left: '27%', bottom: '73%', scale: 0.6 },
-  { left: '73%', bottom: '74%', scale: 0.56 },
-  { left: '84%', bottom: '77%', scale: 0.54 },
-  { left: '94%', bottom: '70%', scale: 0.58 },
-  { left: '38%', bottom: '70%', scale: 0.5 },
-  { left: '62%', bottom: '71%', scale: 0.5 },
+type Slot = { left: string; bottom: string; scale: number };
+
+const TREE_SLOTS: Slot[] = [
+  { left: '7%', bottom: '52%', scale: 1.2 },
+  { left: '20%', bottom: '58%', scale: 1 },
+  { left: '80%', bottom: '56%', scale: 1.1 },
+  { left: '93%', bottom: '50%', scale: 1.25 },
+  { left: '13%', bottom: '64%', scale: 0.88 },
+  { left: '87%', bottom: '63%', scale: 0.9 },
+  { left: '28%', bottom: '60%', scale: 0.8 },
+  { left: '72%', bottom: '61%', scale: 0.82 },
 ];
 
-function PlantSvg({
-  kind,
-  className,
-}: {
-  kind: GardenPlantKind | 'active';
-  className?: string;
-}) {
-  const stroke = kind === 'week' ? '#14532d' : kind === 'task' ? '#166534' : '#14532d';
-  const fill = kind === 'week' ? '#22c55e' : kind === 'task' ? '#4ade80' : '#16a34a';
+const BUSH_SLOTS: Slot[] = [
+  { left: '5%', bottom: '32%', scale: 1.05 },
+  { left: '16%', bottom: '36%', scale: 0.95 },
+  { left: '84%', bottom: '34%', scale: 1 },
+  { left: '95%', bottom: '30%', scale: 0.9 },
+  { left: '26%', bottom: '40%', scale: 0.85 },
+  { left: '74%', bottom: '40%', scale: 0.85 },
+  { left: '9%', bottom: '44%', scale: 0.78 },
+  { left: '91%', bottom: '43%', scale: 0.78 },
+  { left: '32%', bottom: '28%', scale: 0.75 },
+  { left: '68%', bottom: '28%', scale: 0.75 },
+];
+
+const FLOWER_SLOTS: Slot[] = [
+  { left: '3%', bottom: '16%', scale: 0.9 },
+  { left: '10%', bottom: '12%', scale: 1 },
+  { left: '17%', bottom: '18%', scale: 0.92 },
+  { left: '24%', bottom: '11%', scale: 0.84 },
+  { left: '76%', bottom: '11%', scale: 0.86 },
+  { left: '83%', bottom: '17%', scale: 1 },
+  { left: '90%', bottom: '13%', scale: 0.9 },
+  { left: '97%', bottom: '18%', scale: 0.82 },
+  { left: '8%', bottom: '26%', scale: 0.78 },
+  { left: '92%', bottom: '26%', scale: 0.78 },
+  { left: '30%', bottom: '16%', scale: 0.72 },
+  { left: '70%', bottom: '16%', scale: 0.72 },
+  { left: '4%', bottom: '38%', scale: 0.7 },
+  { left: '96%', bottom: '38%', scale: 0.7 },
+  { left: '21%', bottom: '24%', scale: 0.7 },
+  { left: '79%', bottom: '24%', scale: 0.7 },
+];
+
+const FLOWER_COLOURS = ['#facc15', '#fb7185', '#e879f9', '#ffffff', '#fb923c', '#38bdf8'];
+
+function FlowerSvg({ colour }: { colour: string }) {
   return (
-    <svg
-      viewBox="0 0 64 80"
-      className={className}
-      aria-hidden
-    >
-      <path d="M32 78 V28" stroke={stroke} strokeWidth="3.5" strokeLinecap="round" />
-      <ellipse cx="20" cy="36" rx="12" ry="8" fill={fill} transform="rotate(-28 20 36)" />
-      <ellipse cx="44" cy="34" rx="13" ry="8" fill={fill} transform="rotate(30 44 34)" />
-      {kind !== 'task' ? (
-        <ellipse cx="32" cy="22" rx="10" ry="7" fill="#bbf7d0" />
-      ) : null}
-      {kind === 'stage' || kind === 'active' || kind === 'week' ? (
-        <circle cx="32" cy="16" r={kind === 'active' ? 6 : 4} fill="#4ade80" />
-      ) : null}
+    <svg viewBox="0 0 64 80" className="h-full w-full overflow-visible" aria-hidden>
+      <path d="M32 78 V34" stroke="#166534" strokeWidth="3" strokeLinecap="round" />
+      <ellipse cx="22" cy="52" rx="10" ry="5" fill="#22c55e" transform="rotate(-32 22 52)" />
+      <ellipse cx="42" cy="50" rx="10" ry="5" fill="#16a34a" transform="rotate(28 42 50)" />
+      <circle cx="32" cy="24" r="7" fill={colour} />
+      <circle cx="22" cy="28" r="6" fill={colour} />
+      <circle cx="42" cy="28" r="6" fill={colour} />
+      <circle cx="26" cy="16" r="6" fill={colour} />
+      <circle cx="38" cy="16" r="6" fill={colour} />
+      <circle cx="32" cy="24" r="4" fill="#fde68a" />
     </svg>
   );
 }
 
-function ActivePlant({ percent }: { percent: number }) {
-  const scale = 0.45 + (Math.max(8, percent) / 100) * 0.7;
+function BushSvg() {
   return (
-    <div
-      className="flex h-32 w-28 items-end justify-center sm:h-40 sm:w-32"
-      style={{ transform: `scale(${scale})`, transformOrigin: 'bottom center' }}
-    >
-      <PlantSvg kind="active" className="h-full w-full drop-shadow-sm" />
-    </div>
+    <svg viewBox="0 0 80 64" className="h-full w-full overflow-visible" aria-hidden>
+      <ellipse cx="40" cy="50" rx="28" ry="14" fill="#15803d" />
+      <ellipse cx="24" cy="38" rx="16" ry="14" fill="#16a34a" />
+      <ellipse cx="56" cy="36" rx="17" ry="15" fill="#22c55e" />
+      <ellipse cx="40" cy="28" rx="18" ry="16" fill="#4ade80" />
+      <circle cx="30" cy="34" r="3" fill="#facc15" />
+      <circle cx="50" cy="30" r="3" fill="#fb7185" />
+    </svg>
   );
+}
+
+function TreeSvg() {
+  return (
+    <svg viewBox="0 0 80 110" className="h-full w-full overflow-visible" aria-hidden>
+      <path d="M40 108 V58" stroke="#7c4a1e" strokeWidth="8" strokeLinecap="round" />
+      <ellipse cx="40" cy="44" rx="28" ry="22" fill="#166534" />
+      <ellipse cx="24" cy="50" rx="16" ry="14" fill="#15803d" />
+      <ellipse cx="56" cy="50" rx="16" ry="14" fill="#16a34a" />
+      <ellipse cx="40" cy="32" rx="18" ry="14" fill="#22c55e" />
+    </svg>
+  );
+}
+
+function GrassTuft({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 40 24" className={className} aria-hidden>
+      <path d="M8 24 C10 10, 6 6, 12 2" stroke="#16a34a" strokeWidth="2" fill="none" />
+      <path d="M18 24 C18 12, 14 8, 20 4" stroke="#22c55e" strokeWidth="2.2" fill="none" />
+      <path d="M28 24 C30 12, 26 8, 32 3" stroke="#15803d" strokeWidth="2" fill="none" />
+    </svg>
+  );
+}
+
+function GrowingPlotPlant({
+  percent,
+  kind,
+}: {
+  percent: number;
+  kind: GardenPlantKind;
+}) {
+  if (percent <= 0) {
+    return (
+      <svg viewBox="0 0 64 28" className="mb-3 h-7 w-16" aria-hidden>
+        <ellipse cx="20" cy="16" rx="5" ry="3" fill="#a16207" />
+        <ellipse cx="32" cy="18" rx="6" ry="3.5" fill="#854d0e" />
+        <ellipse cx="44" cy="16" rx="5" ry="3" fill="#a16207" />
+      </svg>
+    );
+  }
+  if (percent < 40) {
+    return (
+      <svg viewBox="0 0 24 40" className="h-[55%] w-auto drop-shadow" aria-hidden>
+        <path d="M12 40 V14" stroke="#4d7c0f" strokeWidth="2.4" strokeLinecap="round" />
+        <ellipse cx="12" cy="12" rx="5" ry="7" fill="#86efac" />
+      </svg>
+    );
+  }
+  if (kind === 'tree') {
+    return (
+      <span className="flex h-[82%] w-[70%] items-end">
+        <TreeSvg />
+      </span>
+    );
+  }
+  if (kind === 'bush') {
+    return (
+      <span className="flex h-[78%] w-[68%] items-end">
+        <BushSvg />
+      </span>
+    );
+  }
+  return (
+    <span className="flex h-[72%] w-[46%] items-end">
+      <FlowerSvg colour="#4ade80" />
+    </span>
+  );
+}
+
+function GardenPlantMark({
+  plant,
+  slot,
+  delay,
+  colour,
+}: {
+  plant: GardenPlant;
+  slot: Slot;
+  delay: string;
+  colour: string;
+}) {
+  const width =
+    plant.kind === 'tree'
+      ? 6.4 * slot.scale
+      : plant.kind === 'bush'
+        ? 5 * slot.scale
+        : 3.1 * slot.scale;
+  return (
+    <span
+      title={plant.label}
+      className="absolute z-[1] -translate-x-1/2"
+      style={{
+        left: slot.left,
+        bottom: slot.bottom,
+        width: `${width}rem`,
+      }}
+    >
+      <span
+        className="block origin-bottom animate-sway"
+        style={{ animationDelay: delay }}
+      >
+        {plant.kind === 'tree' ? (
+          <TreeSvg />
+        ) : plant.kind === 'bush' ? (
+          <BushSvg />
+        ) : (
+          <FlowerSvg colour={colour} />
+        )}
+      </span>
+      <span className="sr-only">{plant.label}</span>
+    </span>
+  );
+}
+
+function slotsFor(kind: GardenPlantKind, count: number): Slot[] {
+  const source =
+    kind === 'tree' ? TREE_SLOTS : kind === 'bush' ? BUSH_SLOTS : FLOWER_SLOTS;
+  const slots: Slot[] = [];
+  for (let index = 0; index < count; index += 1) {
+    const base = source[index % source.length];
+    const wrap = Math.floor(index / source.length);
+    const left = Math.min(97, Math.max(3, parseFloat(base.left) + wrap * 3));
+    const bottom = Math.min(68, Math.max(10, parseFloat(base.bottom) + wrap * 2));
+    slots.push({
+      left: `${left}%`,
+      bottom: `${bottom}%`,
+      scale: base.scale * (wrap ? 0.85 : 1),
+    });
+  }
+  return slots;
 }
 
 export function SeedGardenScene({
@@ -70,55 +219,170 @@ export function SeedGardenScene({
   lifetimeSeeds: number;
   className?: string;
 }) {
-  const plants = scene.garden.slice(0, GARDEN_SLOTS.length);
+  const trees = scene.garden.filter((plant) => plant.kind === 'tree');
+  const bushes = scene.garden.filter((plant) => plant.kind === 'bush');
+  const flowers = scene.garden.filter((plant) => plant.kind === 'flower');
 
   return (
     <figure className={className}>
-      <div className="relative isolate overflow-hidden rounded-2xl border border-emerald-200/80 shadow-sm">
+      <div className="relative h-[32rem] overflow-hidden rounded-2xl sm:h-[40rem]">
         <div
           className="absolute inset-0"
           style={{
             background:
-              'linear-gradient(180deg, #dbeafe 0%, #ecfdf5 28%, #bbf7d0 52%, #86efac 68%, #4d7c0f 100%)',
+              'linear-gradient(180deg, #7dd3fc 0%, #bae6fd 22%, #fef9c3 38%, #bbf7d0 48%, #4ade80 68%, #15803d 100%)',
+          }}
+        />
+
+        <span
+          className="absolute right-[10%] top-[7%] h-14 w-14 rounded-full bg-amber-200 shadow-[0_0_46px_16px_rgba(253,224,71,0.55)] sm:h-[4.5rem] sm:w-[4.5rem]"
+          aria-hidden
+        />
+        <span
+          className="absolute left-[8%] top-[10%] h-8 w-16 rounded-full bg-white/80 animate-cloud-drift"
+          aria-hidden
+        />
+        <span
+          className="absolute left-[14%] top-[12%] h-6 w-12 rounded-full bg-white/70 animate-cloud-drift"
+          aria-hidden
+        />
+        <span
+          className="absolute right-[28%] top-[14%] h-7 w-20 rounded-full bg-white/75 animate-cloud-drift"
+          style={{ animationDelay: '2s' }}
+          aria-hidden
+        />
+
+        <svg
+          className="absolute inset-x-0 top-[26%] h-[34%] w-full"
+          viewBox="0 0 400 140"
+          preserveAspectRatio="none"
+          aria-hidden
+        >
+          <path
+            d="M0 88 Q 70 36 140 78 T 280 70 T 400 86 V140 H0 Z"
+            fill="#3f6212"
+          />
+          <path
+            d="M0 102 Q 90 54 170 96 T 400 100 V140 H0 Z"
+            fill="#4d7c0f"
+          />
+          <path
+            d="M0 116 Q 110 78 200 112 T 400 114 V140 H0 Z"
+            fill="#166534"
+          />
+        </svg>
+
+        <div
+          className="absolute inset-x-0 bottom-0 h-[52%]"
+          style={{
+            background:
+              'linear-gradient(180deg, rgba(74,222,128,0.15) 0%, #4ade80 10%, #22c55e 36%, #15803d 100%)',
           }}
         />
         <div
-          className="absolute inset-x-0 bottom-0 h-[46%]"
+          className="absolute inset-x-0 bottom-0 h-[28%]"
           style={{
             background:
-              'linear-gradient(180deg, rgba(120, 80, 40, 0.15) 0%, #a16207 18%, #78350f 100%)',
+              'repeating-linear-gradient(90deg, rgba(21,128,61,0.16) 0 9px, rgba(134,239,172,0.12) 9px 18px)',
           }}
         />
-        <div className="relative h-72 sm:h-80">
-          {plants.map((plant, index) => {
-            const slot = GARDEN_SLOTS[index];
-            return (
-              <span
-                key={plant.id}
-                title={plant.label}
-                className="absolute -translate-x-1/2"
-                style={{
-                  left: slot.left,
-                  bottom: slot.bottom,
-                  width: `${3.4 * slot.scale}rem`,
-                  opacity: 0.95,
-                }}
-              >
-                <PlantSvg kind={plant.kind} className="h-auto w-full drop-shadow-[0_2px_2px_rgba(20,64,30,0.45)]" />
-                <span className="sr-only">{plant.label}</span>
-              </span>
-            );
-          })}
 
-          <div className="absolute bottom-[6%] left-1/2 z-10 w-[min(92%,22rem)] -translate-x-1/2 sm:w-[22rem]">
-            <ActivePatchBed
-              active={scene.active}
-              lifetimeSeeds={lifetimeSeeds}
-            />
-          </div>
+        <GrassTuft className="absolute bottom-[20%] left-[7%] h-7 w-11 opacity-80" />
+        <GrassTuft className="absolute bottom-[14%] left-[22%] h-6 w-9 opacity-70" />
+        <GrassTuft className="absolute bottom-[18%] left-[34%] h-5 w-8 opacity-60" />
+        <GrassTuft className="absolute bottom-[16%] right-[10%] h-7 w-11 opacity-80" />
+        <GrassTuft className="absolute bottom-[12%] right-[24%] h-6 w-9 opacity-70" />
+        <GrassTuft className="absolute bottom-[20%] right-[36%] h-5 w-8 opacity-60" />
+
+        {slotsFor('tree', trees.length).map((slot, index) => (
+          <GardenPlantMark
+            key={trees[index].id}
+            plant={trees[index]}
+            slot={slot}
+            delay={`${index * 0.35}s`}
+            colour={FLOWER_COLOURS[index % FLOWER_COLOURS.length]}
+          />
+        ))}
+        {slotsFor('bush', bushes.length).map((slot, index) => (
+          <GardenPlantMark
+            key={bushes[index].id}
+            plant={bushes[index]}
+            slot={slot}
+            delay={`${index * 0.28}s`}
+            colour={FLOWER_COLOURS[index % FLOWER_COLOURS.length]}
+          />
+        ))}
+        {slotsFor('flower', flowers.length).map((slot, index) => (
+          <GardenPlantMark
+            key={flowers[index].id}
+            plant={flowers[index]}
+            slot={slot}
+            delay={`${index * 0.18}s`}
+            colour={FLOWER_COLOURS[index % FLOWER_COLOURS.length]}
+          />
+        ))}
+
+        <div className="absolute left-1/2 top-[56%] z-20 -translate-x-1/2 -translate-y-1/2">
+          <ActivePlot active={scene.active} lifetimeSeeds={lifetimeSeeds} />
         </div>
+
+        <p className="absolute left-3 top-3 z-20 rounded-md border border-amber-800/40 bg-amber-100/85 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-950 shadow-sm">
+          Seed Patch
+        </p>
       </div>
     </figure>
+  );
+}
+
+export function ActivePlot({
+  active,
+  lifetimeSeeds,
+}: {
+  active: ActivePatchView;
+  lifetimeSeeds: number;
+}) {
+  const ring = `conic-gradient(#22c55e ${active.percent}%, #d6d3d1 ${active.percent}% 100%)`;
+  const nextKind = (['flower', 'bush', 'tree'].includes(active.id)
+    ? active.id
+    : 'flower') as GardenPlantKind;
+  const remaining = Math.max(0, active.capacity - active.filled);
+
+  return (
+    <div className="flex flex-col items-center">
+      <div className="mb-2 flex flex-col items-center">
+        <div className="rounded-md border-2 border-amber-800 bg-amber-100 px-4 py-1 text-center shadow-md">
+          <span className="block text-3xl font-semibold tabular-nums leading-none text-amber-950 sm:text-4xl">
+            {lifetimeSeeds}
+          </span>
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-900/80">
+            seeds
+          </span>
+        </div>
+        <span className="h-5 w-1.5 bg-amber-900" aria-hidden />
+      </div>
+      <div className="relative h-52 w-52 sm:h-64 sm:w-64">
+        <div
+          className="absolute inset-0 rounded-full shadow-[0_16px_36px_rgba(28,25,23,0.32)]"
+          style={{ background: ring }}
+        />
+        <div
+          className="absolute inset-[11px] flex flex-col items-center justify-end overflow-hidden rounded-full pb-7 sm:inset-[13px] sm:pb-9"
+          style={{
+            background:
+              'radial-gradient(circle at 50% 38%, #d6b07c 0%, #a16207 48%, #78350f 100%)',
+          }}
+        >
+          <GrowingPlotPlant percent={active.percent} kind={nextKind} />
+        </div>
+      </div>
+      <p className="mt-2 max-w-[16rem] text-center text-xs font-medium text-emerald-950/90">
+        {active.percent >= 100
+          ? 'Ready to harvest into the garden'
+          : remaining === 10
+            ? 'Sow seeds to grow this plot'
+            : `${remaining} more to harvest`}
+      </p>
+    </div>
   );
 }
 
@@ -129,57 +393,7 @@ export function ActivePatchBed({
   active: ActivePatchView;
   lifetimeSeeds: number;
 }) {
-  return (
-    <div className="rounded-2xl border-2 border-amber-800/40 bg-gradient-to-b from-amber-100 to-amber-200 px-4 pb-4 pt-3 shadow-lg">
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800">
-            Current patch
-          </p>
-          <p className="text-lg font-semibold text-stone-900">{active.label}</p>
-          <p className="text-xs text-stone-600">{active.blurb}</p>
-        </div>
-        <p className="text-right">
-          <span className="block text-3xl font-semibold tabular-nums text-emerald-800 sm:text-4xl">
-            {lifetimeSeeds}
-          </span>
-          <span className="text-xs font-medium uppercase tracking-wide text-stone-500">
-            seed{lifetimeSeeds === 1 ? '' : 's'}
-          </span>
-        </p>
-      </div>
-
-      <div className="mt-1 flex justify-center">
-        <div className="relative flex h-36 w-40 items-end justify-center sm:h-44 sm:w-44">
-          <span
-            className="absolute bottom-1 left-1/2 h-6 w-28 -translate-x-1/2 rounded-[100%] bg-amber-800/50"
-            aria-hidden
-          />
-          <ActivePlant percent={active.percent} />
-        </div>
-      </div>
-
-      <div className="mt-2 space-y-1">
-        <div className="flex justify-between text-xs text-stone-600">
-          <span>
-            {active.percent >= 100
-              ? 'Ready to harvest'
-              : `${active.filled}/${active.capacity} to harvest`}
-          </span>
-          <span>{active.percent}%</span>
-        </div>
-        <div className="h-3 overflow-hidden rounded-full bg-emerald-100">
-          <div
-            className="h-full rounded-full"
-            style={{
-              width: `${active.percent}%`,
-              background: 'linear-gradient(90deg, #86efac 0%, #22c55e 55%, #15803d 100%)',
-            }}
-          />
-        </div>
-      </div>
-    </div>
-  );
+  return <ActivePlot active={active} lifetimeSeeds={lifetimeSeeds} />;
 }
 
 export function SeedGardenPath({

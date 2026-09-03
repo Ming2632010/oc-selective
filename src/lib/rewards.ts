@@ -116,7 +116,7 @@ export function growthStage(lifetimeSeeds: number): GrowthStage {
   return current;
 }
 
-export type GardenPlantKind = 'stage' | 'week' | 'task';
+export type GardenPlantKind = 'flower' | 'bush' | 'tree';
 
 export type GardenPlant = {
   id: string;
@@ -144,51 +144,60 @@ export function harvestedStages(lifetimeSeeds: number): GrowthStage[] {
   );
 }
 
+export function plantKindForMilestone(seeds: number): GardenPlantKind {
+  if (seeds > 0 && seeds % 50 === 0) return 'tree';
+  if (seeds > 0 && seeds % 30 === 0) return 'bush';
+  return 'flower';
+}
+
+const GARDEN_PLANT_CAP = 36;
+const PLOT_CAPACITY = 10;
+
+function plantLabel(kind: GardenPlantKind, seeds: number): string {
+  if (kind === 'tree') return `Tree at ${seeds} seeds`;
+  if (kind === 'bush') return `Bush at ${seeds} seeds`;
+  return `Flower at ${seeds} seeds`;
+}
+
 export function buildSeedPatchScene(input: {
   lifetimeSeeds: number;
   completedTasks?: number;
   weeklyHarvests?: number;
 }): SeedPatchScene {
-  const stage = growthStage(input.lifetimeSeeds);
-  const capacity = stage.nextAt ? stage.nextAt - stage.min : 1;
-  const filled = stage.nextAt
-    ? Math.max(0, Math.min(capacity, input.lifetimeSeeds - stage.min))
-    : capacity;
-  const percent = stage.nextAt ? Math.round((filled / capacity) * 100) : 100;
-
-  const garden: GardenPlant[] = harvestedStages(input.lifetimeSeeds).map((row) => ({
-    id: `stage-${row.id}`,
-    kind: 'stage',
-    label: row.label,
-  }));
-
-  const weeklyHarvests = Math.max(0, Math.floor(input.weeklyHarvests ?? 0));
-  for (let index = 0; index < weeklyHarvests; index += 1) {
+  const lifetime = Math.max(0, input.lifetimeSeeds);
+  const harvested = Math.min(GARDEN_PLANT_CAP, Math.floor(lifetime / PLOT_CAPACITY));
+  const garden: GardenPlant[] = [];
+  for (let index = 0; index < harvested; index += 1) {
+    const seeds = (index + 1) * PLOT_CAPACITY;
+    const kind = plantKindForMilestone(seeds);
     garden.push({
-      id: `week-${index + 1}`,
-      kind: 'week',
-      label: `Week ${index + 1} harvest`,
+      id: `milestone-${seeds}`,
+      kind,
+      label: plantLabel(kind, seeds),
     });
   }
 
-  const completedTasks = Math.max(0, Math.floor(input.completedTasks ?? 0));
-  const taskCap = 18;
-  for (let index = 0; index < Math.min(completedTasks, taskCap); index += 1) {
-    garden.push({
-      id: `task-${index + 1}`,
-      kind: 'task',
-      label: `Finished task ${index + 1}`,
-    });
-  }
+  const filled = lifetime % PLOT_CAPACITY;
+  const nextSeeds = (Math.floor(lifetime / PLOT_CAPACITY) + 1) * PLOT_CAPACITY;
+  const nextKind = plantKindForMilestone(nextSeeds);
+  const remaining = PLOT_CAPACITY - filled;
 
   return {
     active: {
-      id: stage.id,
-      label: stage.label,
-      blurb: stage.blurb,
+      id: nextKind,
+      label:
+        nextKind === 'tree'
+          ? 'Tree patch'
+          : nextKind === 'bush'
+            ? 'Bush patch'
+            : 'Flower patch',
+      blurb:
+        filled === 0
+          ? 'A new plot is ready for seeds.'
+          : `${remaining} more seed${remaining === 1 ? '' : 's'} until this ${nextKind} is harvested into the garden.`,
       filled,
-      capacity,
-      percent,
+      capacity: PLOT_CAPACITY,
+      percent: Math.round((filled / PLOT_CAPACITY) * 100),
     },
     garden,
   };

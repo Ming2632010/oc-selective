@@ -214,20 +214,43 @@ describe('harvestBonus and growth', () => {
     assert.equal(growthStage(999).nextAt, 1000);
   });
 
-  it('keeps only the current patch active and moves finished stages into the garden', () => {
-    const empty = buildSeedPatchScene({ lifetimeSeeds: 0, completedTasks: 0 });
-    assert.equal(empty.active.id, 'sprout');
-    assert.equal(empty.active.percent, 0);
+  it('grows a flower every 10 seeds, a bush every 30, and a tree every 50', () => {
+    const empty = buildSeedPatchScene({ lifetimeSeeds: 0 });
+    assert.equal(empty.active.id, 'flower');
+    assert.equal(empty.active.filled, 0);
+    assert.equal(empty.active.capacity, 10);
     assert.equal(empty.garden.length, 0);
 
-    const mid = buildSeedPatchScene({ lifetimeSeeds: 80, completedTasks: 2, weeklyHarvests: 1 });
-    assert.equal(mid.active.id, 'first_leaves');
-    assert.equal(mid.active.filled, 40);
-    assert.equal(mid.active.capacity, 80);
-    assert.equal(mid.active.percent, 50);
-    assert.ok(mid.garden.some((plant) => plant.id === 'stage-sprout'));
-    assert.equal(mid.garden.filter((plant) => plant.kind === 'task').length, 2);
-    assert.equal(mid.garden.filter((plant) => plant.kind === 'week').length, 1);
-    assert.equal(mid.garden.some((plant) => plant.id === 'stage-first_leaves'), false);
+    const justHarvested = buildSeedPatchScene({ lifetimeSeeds: 80 });
+    assert.equal(justHarvested.active.filled, 0);
+    assert.equal(justHarvested.active.percent, 0);
+    assert.equal(justHarvested.active.id, 'bush');
+    assert.equal(justHarvested.garden.length, 8);
+    assert.equal(
+      justHarvested.garden.find((plant) => plant.id === 'milestone-10')?.kind,
+      'flower',
+    );
+    assert.equal(
+      justHarvested.garden.find((plant) => plant.id === 'milestone-30')?.kind,
+      'bush',
+    );
+    assert.equal(
+      justHarvested.garden.find((plant) => plant.id === 'milestone-50')?.kind,
+      'tree',
+    );
+    assert.equal(
+      justHarvested.garden.filter((plant) => plant.kind === 'tree').length,
+      1,
+    );
+    assert.equal(
+      justHarvested.garden.filter((plant) => plant.kind === 'bush').length,
+      2,
+    );
+
+    const filling = buildSeedPatchScene({ lifetimeSeeds: 86 });
+    assert.equal(filling.garden.length, 8);
+    assert.equal(filling.active.filled, 6);
+    assert.equal(filling.active.percent, 60);
+    assert.equal(filling.active.id, 'bush');
   });
 });
