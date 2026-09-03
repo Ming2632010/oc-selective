@@ -90,7 +90,7 @@ function stemsTooClose(left: string, right: string) {
   const wb = contentWords(right);
   if (wa.size < 6 || wb.size < 6) return false;
   let overlap = 0;
-  for (const word of wa) {
+  for (const word of Array.from(wa)) {
     if (wb.has(word)) overlap += 1;
   }
   const union = wa.size + wb.size - overlap;
