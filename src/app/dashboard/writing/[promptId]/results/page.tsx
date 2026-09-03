@@ -12,6 +12,8 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { SeedAwardBanner } from '@/components/writing/seed-patch';
+import { MarkedScript, MarkerSummary } from '@/components/writing/marked-script';
+import { markerNotesFromUnknown } from '@/lib/marker-notes';
 import { getStudentId, getToken } from '@/lib/client-auth';
 
 type Attempt = {
@@ -29,6 +31,7 @@ type Attempt = {
     grammar: number;
   };
   ai_feedback: string;
+  marker_notes?: unknown;
   checked_hint_1: boolean;
   checked_hint_2: boolean;
   checked_hint_3: boolean;
@@ -146,6 +149,11 @@ export default function WritingResultsPage() {
       { label: prompt.hint_points[2] || 'Hint 3', checked: attempt.checked_hint_3 },
     ];
   }, [prompt, attempt]);
+
+  const notes = useMemo(
+    () => (attempt ? markerNotesFromUnknown(attempt.marker_notes, attempt.content) : null),
+    [attempt],
+  );
 
   const chartData = useMemo(() => {
     const b = attempt?.scores_breakdown || {
@@ -293,10 +301,12 @@ export default function WritingResultsPage() {
         <p className="mt-3 text-sm text-stone-600">{attempt.word_count} words</p>
       </section>
 
-      <section className="rounded-lg border border-stone-200 p-4">
-        <h2 className="mb-2 text-lg font-medium">AI feedback</h2>
-        <p className="whitespace-pre-wrap text-stone-800">{attempt.ai_feedback}</p>
-      </section>
+      {notes ? <MarkerSummary notes={notes} /> : (
+        <section className="rounded-lg border border-stone-200 p-4">
+          <h2 className="mb-2 text-lg font-medium">TrialSeed feedback</h2>
+          <p className="whitespace-pre-wrap text-stone-800">{attempt.ai_feedback}</p>
+        </section>
+      )}
 
       {!isTest ? (
         <section className="rounded-lg border border-stone-200 p-4">
@@ -321,10 +331,14 @@ export default function WritingResultsPage() {
         </section>
       ) : null}
 
-      <section className="rounded-lg border border-stone-200 p-4">
-        <h2 className="mb-2 text-lg font-medium">Your submitted writing</h2>
-        <p className="whitespace-pre-wrap text-stone-800">{attempt.content}</p>
-      </section>
+      {notes ? (
+        <MarkedScript content={attempt.content} notes={notes} />
+      ) : (
+        <section className="rounded-lg border border-stone-200 p-4">
+          <h2 className="mb-2 text-lg font-medium">Your submitted writing</h2>
+          <p className="whitespace-pre-wrap text-stone-800">{attempt.content}</p>
+        </section>
+      )}
 
       <div className="flex flex-wrap gap-3">
         {!isTest && latestDraft < 3 ? (
