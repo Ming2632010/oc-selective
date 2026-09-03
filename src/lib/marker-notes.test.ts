@@ -59,7 +59,7 @@ describe('buildMarkerNotesHeuristic', () => {
         'Resolve the story with a satisfying or surprising ending',
       ],
     });
-    assert.equal(notes.version, 2);
+    assert.equal(notes.version, 3);
     assert.equal(notes.annotations.filter((row) => row.kind === 'content').length, 1);
     assert.equal(notes.annotations.filter((row) => row.kind === 'sentence').length, 0);
     assert.ok(notes.annotations.some((row) => row.quote.toLowerCase() === 'dont'));

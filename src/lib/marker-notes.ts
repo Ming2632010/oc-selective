@@ -1,6 +1,6 @@
 import { typeLabel } from '@/lib/units';
 
-export const MARKER_NOTES_VERSION = 2;
+export const MARKER_NOTES_VERSION = 3;
 
 export const MARKER_KINDS = [
   'spelling',
@@ -485,6 +485,7 @@ export function improveStudentSentence(sentence: string, ctx: RewriteContext): s
   const extra = nouns.find((noun) => !lower.includes(noun.split(' ')[0] ?? noun));
   const noun = extra ?? nouns[0];
   const used = ctx.usedClauseIds;
+  const alreadyImproved = tidyAccuracy(trimmed.replace(/[.!?]+$/, '')) !== core;
 
   if (ctx.promptType === 'news_report') {
     return finishSentence(`${core}, witnesses said, as people nearby tried to make sense of what came next`);
@@ -498,6 +499,11 @@ export function improveStudentSentence(sentence: string, ctx: RewriteContext): s
     ctx.promptType === 'advertisement'
   ) {
     return finishSentence(`${core}. That is why this should change now, not later`);
+  }
+
+  // If weak words were already swapped, keep that as the rewrite unless the line is still a stub.
+  if (alreadyImproved && wordCountOf(core) >= 10) {
+    return finishSentence(core);
   }
 
   const options: { id: string; text: string }[] = [];
