@@ -209,7 +209,7 @@ function ProgressRing({ percent }: { percent: number }) {
         cy="50"
         r={radius}
         fill="none"
-        stroke="#d6d0c6"
+        stroke="#efe8dc"
         strokeWidth="4.5"
       />
       <motion.circle
@@ -217,7 +217,7 @@ function ProgressRing({ percent }: { percent: number }) {
         cy="50"
         r={radius}
         fill="none"
-        stroke="#5f7358"
+        stroke="#3d4f38"
         strokeWidth="4.5"
         strokeLinecap="round"
         strokeDasharray={circumference}
