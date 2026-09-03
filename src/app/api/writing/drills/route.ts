@@ -120,6 +120,27 @@ function payloadOrder(payload: unknown): number[] | null {
   return order.map((item) => Number(item));
 }
 
+type AttemptRow = {
+  answer_index: number | null;
+  answer_text: string | null;
+  answer_payload: unknown;
+  is_correct: boolean;
+  created_at: Date | string;
+};
+
+function publicAttempt(row: AttemptRow) {
+  return {
+    answer_index: row.answer_index,
+    answer_text: row.answer_text,
+    answer_order: payloadOrder(row.answer_payload),
+    is_correct: row.is_correct,
+    created_at:
+      row.created_at instanceof Date
+        ? row.created_at.toISOString()
+        : String(row.created_at),
+  };
+}
+
 export async function GET(request: Request) {
   try {
     const userId = await getAuthUserId(request);
@@ -162,31 +183,19 @@ export async function GET(request: Request) {
         }
       }
 
-      let last: {
-        answer_index: number | null;
-        answer_text: string | null;
-        answer_payload: unknown;
-        is_correct: boolean;
-        feedback: unknown;
-      } | null = null;
+      let history: AttemptRow[] = [];
       if (studentId) {
-        const attempts = await query<{
-          answer_index: number | null;
-          answer_text: string | null;
-          answer_payload: unknown;
-          is_correct: boolean;
-          feedback: unknown;
-        }>(
-          `SELECT answer_index, answer_text, answer_payload, is_correct, feedback
+        const attempts = await query<AttemptRow>(
+          `SELECT answer_index, answer_text, answer_payload, is_correct, created_at
            FROM mini_drill_attempts
            WHERE student_id = $1 AND drill_id = $2
-           ORDER BY created_at DESC
-           LIMIT 1`,
+           ORDER BY created_at ASC`,
           [studentId, drill.id],
         );
-        last = attempts.rows[0] ?? null;
+        history = attempts.rows;
       }
 
+      const last = history[history.length - 1] ?? null;
       const lastOrder = last ? payloadOrder(last.answer_payload) : null;
       const marked = last
         ? markMiniItem({
@@ -202,14 +211,8 @@ export async function GET(request: Request) {
 
       return NextResponse.json({
         drill: publicDrill(drill),
-        last_attempt: last
-          ? {
-              answer_index: last.answer_index,
-              answer_text: last.answer_text,
-              answer_order: lastOrder,
-              is_correct: last.is_correct,
-            }
-          : null,
+        last_attempt: last ? publicAttempt(last) : null,
+        attempts: history.map(publicAttempt),
         next_slug: await nextDrillSlug(
           drill.module_id,
           drill.sort_order,
@@ -392,10 +395,11 @@ export async function POST(request: Request) {
        LIMIT 1`,
       [studentId, drill.id],
     );
-    await query(
+    const saved = await query<AttemptRow>(
       `INSERT INTO mini_drill_attempts (
          student_id, drill_id, answer_index, answer_text, answer_payload, is_correct, feedback
-       ) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7::jsonb)`,
+       ) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7::jsonb)
+       RETURNING answer_index, answer_text, answer_payload, is_correct, created_at`,
       [
         studentId,
         drill.id,
@@ -429,6 +433,7 @@ export async function POST(request: Request) {
       ),
       drill: publicDrill(drill),
       award,
+      attempt: saved.rows[0] ? publicAttempt(saved.rows[0]) : null,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to save drill';

@@ -196,7 +196,8 @@ export default function UnitPage() {
             <h2 className="text-lg font-semibold text-stone-900">Mini practice</h2>
             <p className="mt-1 text-sm text-stone-600">
               Multiple-choice plus short writing: spelling, rewrite, sentence
-              order, and 1–2 sentence practice — at Selective Year 5–6 level.{' '}
+              order, and 1–2 sentence practice — at Selective Year 5–6 level.
+              Tried questions keep your answer so you can open them again.{' '}
               {miniDone}/{drills.length} tried.
             </p>
           </div>
@@ -263,8 +264,9 @@ export default function UnitPage() {
         <div>
           <h2 className="text-lg font-semibold text-stone-900">Full writing tasks</h2>
           <p className="mt-1 text-sm text-stone-600">
-            Three 30-minute Selective-style tasks. Each one allows up to three
-            drafts. Term review tests sit on the dashboard under this group.
+            Three 30-minute Selective-style tasks. Each draft is saved. Open
+            Review to see your writing and marks any time. Term review tests sit
+            on the dashboard under this group.
           </p>
         </div>
         {prompts.length === 0 && !error ? (
@@ -273,17 +275,21 @@ export default function UnitPage() {
           <ul className="space-y-3">
             {prompts.map((prompt) => (
               <li key={prompt.id}>
-                <Link
-                  href={`/dashboard/writing/${prompt.id}`}
-                  className="block rounded-lg border border-stone-200 bg-white px-4 py-4 transition hover:border-stone-400 hover:shadow-sm"
-                >
+                <div className="rounded-lg border border-stone-200 bg-white px-4 py-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="space-y-1.5">
+                    <Link
+                      href={
+                        prompt.maxDraft >= 3
+                          ? `/dashboard/writing/${prompt.id}/results`
+                          : `/dashboard/writing/${prompt.id}`
+                      }
+                      className="space-y-1.5 hover:underline"
+                    >
                       <span className="rounded-md bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-700">
                         {typeLabel(prompt.prompt_type)}
                       </span>
                       <p className="font-medium text-stone-900">{prompt.title}</p>
-                    </div>
+                    </Link>
                     <span
                       className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBadgeClasses(
                         prompt.maxDraft,
@@ -292,7 +298,36 @@ export default function UnitPage() {
                       {draftStatusLabel(prompt.maxDraft)}
                     </span>
                   </div>
-                </Link>
+                  <div className="mt-3 flex flex-wrap gap-3 text-sm">
+                    {prompt.maxDraft >= 3 ? (
+                      <Link
+                        href={`/dashboard/writing/${prompt.id}/results`}
+                        className="font-medium text-indigo-700 hover:underline"
+                      >
+                        Review saved drafts
+                      </Link>
+                    ) : (
+                      <>
+                        <Link
+                          href={`/dashboard/writing/${prompt.id}`}
+                          className="font-medium text-indigo-700 hover:underline"
+                        >
+                          {prompt.maxDraft > 0
+                            ? `Continue draft ${prompt.maxDraft + 1}`
+                            : 'Start this task'}
+                        </Link>
+                        {prompt.maxDraft > 0 ? (
+                          <Link
+                            href={`/dashboard/writing/${prompt.id}/results`}
+                            className="text-stone-600 hover:underline"
+                          >
+                            Review saved drafts
+                          </Link>
+                        ) : null}
+                      </>
+                    )}
+                  </div>
+                </div>
               </li>
             ))}
           </ul>
