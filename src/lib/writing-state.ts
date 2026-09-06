@@ -35,7 +35,7 @@ import {
 let schemaReady = false;
 let seededLength = 0;
 let seededPrompts = 0;
-const WRITING_SCHEMA = 10;
+const WRITING_SCHEMA = 11;
 let appliedSchema = 0;
 
 const SEEDED_DRILL_COUNT =
@@ -262,6 +262,13 @@ export async function ensureWritingEnhancements(): Promise<void> {
   await query(`
     CREATE INDEX IF NOT EXISTS idx_seed_events_student
       ON seed_events (student_id, created_at DESC)
+  `);
+  await query(`
+    ALTER TABLE prompts DROP CONSTRAINT IF EXISTS prompts_module_id_check
+  `);
+  await query(`
+    ALTER TABLE prompts
+      ADD CONSTRAINT prompts_module_id_check CHECK (module_id BETWEEN 1 AND 12)
   `);
 
   for (const prompt of SEED_PROMPTS) {
