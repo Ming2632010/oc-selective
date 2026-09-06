@@ -22,6 +22,8 @@ import { getUnitInfo, typeLabel } from '@/lib/units';
 import { buildWeekNote, type WeekNoteData } from '@/lib/week-note';
 import {
   recommendNextTask,
+  bonusExamAccess,
+  bonusExamLockMessage,
   termReviewAccess,
   weakestDimension,
   type AttemptSummary,
@@ -33,7 +35,7 @@ import {
 let schemaReady = false;
 let seededLength = 0;
 let seededPrompts = 0;
-const WRITING_SCHEMA = 9;
+const WRITING_SCHEMA = 10;
 let appliedSchema = 0;
 
 const SEEDED_DRILL_COUNT =
@@ -560,6 +562,97 @@ export async function getTermReviewAccess(studentId: string, moduleId: number) {
   return termReviewAccess(progress, moduleId);
 }
 
+async function getTermReviewCounts(studentId: string): Promise<{
+  sat: number;
+  total: number;
+}> {
+  const result = await query<{ total: string; sat: string }>(
+    `SELECT COUNT(*)::text AS total,
+            COUNT(a.id)::text AS sat
+     FROM prompts p
+     LEFT JOIN LATERAL (
+       SELECT id
+       FROM writing_attempts
+       WHERE student_id = $1 AND prompt_id = p.id
+       LIMIT 1
+     ) a ON TRUE
+     WHERE p.is_active = TRUE
+       AND COALESCE(p.kind, 'practice') = 'test'`,
+    [studentId],
+  );
+  return {
+    total: Number(result.rows[0]?.total ?? 0),
+    sat: Number(result.rows[0]?.sat ?? 0),
+  };
+}
+
+export async function getBonusExamAccess(studentId: string) {
+  const [progress, reviews] = await Promise.all([
+    getUnitProgress(studentId),
+    getTermReviewCounts(studentId),
+  ]);
+  return bonusExamAccess({
+    progress,
+    reviewsSat: reviews.sat,
+    reviewsTotal: reviews.total,
+  });
+}
+
+export type BonusPaperRow = {
+  id: string;
+  title: string;
+  prompt_type: string;
+  overall_score: number | null;
+  sat: boolean;
+  locked: boolean;
+};
+
+export async function getBonusPapers(studentId: string): Promise<{
+  access: ReturnType<typeof bonusExamAccess>;
+  lock_reason: string;
+  papers: BonusPaperRow[];
+}> {
+  const access = await getBonusExamAccess(studentId);
+  const result = await query<{
+    id: string;
+    title: string;
+    prompt_type: string;
+    overall_score: number | null;
+    attempt_id: string | null;
+  }>(
+    `SELECT p.id, p.title, p.prompt_type,
+            a.overall_score, a.id AS attempt_id
+     FROM prompts p
+     LEFT JOIN LATERAL (
+       SELECT id, overall_score
+       FROM writing_attempts
+       WHERE student_id = $1 AND prompt_id = p.id
+       ORDER BY draft_number DESC
+       LIMIT 1
+     ) a ON TRUE
+     WHERE p.is_active = TRUE
+       AND p.kind = 'bonus'
+     ORDER BY p.title ASC`,
+    [studentId],
+  );
+
+  return {
+    access,
+    lock_reason: bonusExamLockMessage(access),
+    papers: result.rows.map((row) => {
+      const sat = Boolean(row.attempt_id);
+      return {
+        id: row.id,
+        title: row.title,
+        prompt_type: row.prompt_type,
+        overall_score: row.overall_score,
+        sat,
+        locked: !sat && access.locked,
+      };
+    }),
+  };
+}
+
 export async function getTermTests(studentId: string): Promise<TermTestRow[]> {
   const result = await query<{
     id: string;
@@ -637,6 +730,7 @@ export async function getGuidanceForStudent(studentId: string): Promise<{
   history: Awaited<ReturnType<typeof getScoreHistory>>;
   mini_progress: Awaited<ReturnType<typeof getMiniProgress>>;
   term_tests: TermTestRow[];
+  bonus_papers: Awaited<ReturnType<typeof getBonusPapers>>;
   rewards: SeedPatchView;
   week_note: WeekNoteData;
 }> {
@@ -645,6 +739,7 @@ export async function getGuidanceForStudent(studentId: string): Promise<{
     progress,
     mini_progress,
     term_tests,
+    bonus_papers,
     promptRows,
     attemptRows,
     history,
@@ -654,6 +749,7 @@ export async function getGuidanceForStudent(studentId: string): Promise<{
     getUnitProgress(studentId),
     getMiniProgress(studentId),
     getTermTests(studentId),
+    getBonusPapers(studentId),
     query<PromptSummary>(
       `SELECT id, title, prompt_type, module_id,
               COALESCE(kind, 'practice') AS kind
@@ -696,6 +792,7 @@ export async function getGuidanceForStudent(studentId: string): Promise<{
     history,
     mini_progress,
     term_tests,
+    bonus_papers,
     rewards,
     week_note,
   };
@@ -1197,7 +1294,7 @@ export async function awardMiniSeeds(input: {
 export async function awardWritingSeeds(input: {
   studentId: string;
   promptId: string;
-  kind: 'practice' | 'test';
+  kind: 'practice' | 'test' | 'bonus';
   draftNumber: number;
   overallScore: number;
   wordCount: number;
@@ -1211,7 +1308,7 @@ export async function awardWritingSeeds(input: {
     timeSpentSeconds: input.timeSpentSeconds,
   });
   return persistSeedAwards(input.studentId, lines, {
-    source: input.kind === 'test' ? 'test' : 'writing',
+    source: input.kind === 'practice' ? 'writing' : input.kind,
     meta: {
       prompt_id: input.promptId,
       draft_number: input.draftNumber,

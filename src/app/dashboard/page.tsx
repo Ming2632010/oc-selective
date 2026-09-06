@@ -10,7 +10,7 @@ import {
   getToken,
   setStudentId,
 } from '@/lib/client-auth';
-import { UNIT_GROUPS, unitsByGroup, type UnitGroup } from '@/lib/units';
+import { typeLabel, UNIT_GROUPS, unitsByGroup, type UnitGroup } from '@/lib/units';
 import { WritingProgressLine, type HistoryPoint } from '@/components/writing/progress-line';
 import { SeedPatch, type SeedPatchData } from '@/components/writing/seed-patch';
 import { SubjectChat } from '@/components/writing/subject-chat';
@@ -59,6 +59,27 @@ type TermTest = {
   locked?: boolean;
   practice_tried?: number;
   practice_total?: number;
+};
+
+type BonusPaper = {
+  id: string;
+  title: string;
+  prompt_type: string;
+  overall_score: number | null;
+  sat: boolean;
+  locked: boolean;
+};
+
+type BonusPapersState = {
+  access: {
+    locked: boolean;
+    writingTried: number;
+    writingTotal: number;
+    reviewsSat: number;
+    reviewsTotal: number;
+  };
+  lock_reason: string;
+  papers: BonusPaper[];
 };
 
 type Recommendation = {
@@ -139,6 +160,7 @@ export default function DashboardPage() {
   const [progress, setProgress] = useState<ProgressRow[]>([]);
   const [miniProgress, setMiniProgress] = useState<MiniProgressRow[]>([]);
   const [termTests, setTermTests] = useState<TermTest[]>([]);
+  const [bonusPapers, setBonusPapers] = useState<BonusPapersState | null>(null);
   const [rewards, setRewards] = useState<SeedPatchData | null>(null);
   const [weekNote, setWeekNote] = useState<WeekNoteData | null>(null);
   const [history, setHistory] = useState<HistoryPoint[]>([]);
@@ -208,6 +230,7 @@ export default function DashboardPage() {
         setProgress([]);
         setMiniProgress([]);
         setTermTests([]);
+        setBonusPapers(null);
         setRewards(null);
         setWeekNote(null);
         setHistory([]);
@@ -221,6 +244,7 @@ export default function DashboardPage() {
         setProgress((res.data.progress as ProgressRow[]) || []);
         setMiniProgress((res.data.mini_progress as MiniProgressRow[]) || []);
         setTermTests((res.data.term_tests as TermTest[]) || []);
+        setBonusPapers((res.data.bonus_papers as BonusPapersState | null) ?? null);
         setRewards((res.data.rewards as SeedPatchData | null) ?? null);
         setWeekNote((res.data.week_note as WeekNoteData | null) ?? null);
         setHistory((res.data.history as HistoryPoint[]) || []);
@@ -586,6 +610,106 @@ export default function DashboardPage() {
               </div>
               );
             })}
+
+            {bonusPapers ? (
+              <section
+                data-testid="bonus-exam-papers"
+                className="relative overflow-hidden rounded-2xl border border-amber-300/40 p-6 text-amber-50 shadow-lg"
+                style={{
+                  background:
+                    'linear-gradient(160deg, #1e293b 0%, #0f766e 42%, #134e4a 72%, #1c1917 100%)',
+                }}
+              >
+                <div
+                  className="pointer-events-none absolute inset-0 opacity-20"
+                  style={{
+                    backgroundImage:
+                      'repeating-linear-gradient(0deg, rgba(255,255,255,0.08) 0 1px, transparent 1px 28px), repeating-linear-gradient(90deg, rgba(255,244,214,0.06) 0 1px, transparent 1px 22px)',
+                  }}
+                  aria-hidden
+                />
+                <div className="relative space-y-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-200">
+                        Bonus exam papers
+                      </p>
+                      <h3 className="mt-1 text-2xl font-semibold text-white">
+                        Exam-style writing, after the course
+                      </h3>
+                      <p className="mt-2 max-w-2xl text-sm text-teal-50/90">
+                        Original TrialSeed papers in the forms used on recent
+                        Selective writing tests. One sitting, 30 minutes, no
+                        re-attempt. Unlock them by trying every full writing
+                        task and every term review at least once.
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-amber-200/50 bg-amber-100/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-100">
+                      {bonusPapers.access.locked ? 'Locked' : 'Unlocked'}
+                    </span>
+                  </div>
+                  {bonusPapers.access.locked ? (
+                    <p className="rounded-lg bg-black/20 px-3 py-2 text-sm text-amber-100">
+                      {bonusPapers.lock_reason ||
+                        `${bonusPapers.access.writingTried}/${bonusPapers.access.writingTotal} writing · ${bonusPapers.access.reviewsSat}/${bonusPapers.access.reviewsTotal} reviews`}
+                    </p>
+                  ) : null}
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {(bonusPapers.papers.length
+                      ? bonusPapers.papers
+                      : Array.from({ length: 6 }).map((_, index) => ({
+                          id: `pending-${index}`,
+                          title: 'Exam paper',
+                          prompt_type: 'narrative',
+                          overall_score: null,
+                          sat: false,
+                          locked: true,
+                        }))
+                    ).map((paper) => {
+                      const href = paper.sat
+                        ? `/dashboard/writing/${paper.id}/results`
+                        : `/dashboard/writing/${paper.id}`;
+                      const card = (
+                        <>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-amber-200">
+                            {typeLabel(paper.prompt_type)}
+                          </p>
+                          <p className="mt-1 font-medium text-white">{paper.title}</p>
+                          <p className="mt-3 text-sm text-teal-50/85">
+                            {paper.sat
+                              ? typeof paper.overall_score === 'number'
+                                ? `Sat · ${paper.overall_score}/25`
+                                : 'Sat · marked'
+                              : paper.locked
+                                ? 'Locked until the course is tried'
+                                : 'Ready · 30 minutes'}
+                          </p>
+                        </>
+                      );
+                      if (paper.locked || paper.id.startsWith('pending-')) {
+                        return (
+                          <div
+                            key={paper.id}
+                            className="rounded-xl border border-white/15 bg-white/10 p-4 opacity-80"
+                          >
+                            {card}
+                          </div>
+                        );
+                      }
+                      return (
+                        <Link
+                          key={paper.id}
+                          href={href}
+                          className="rounded-xl border border-amber-200/30 bg-white/12 p-4 transition hover:border-amber-200/70 hover:bg-white/18"
+                        >
+                          {card}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              </section>
+            ) : null}
           </section>
         </>
       )}

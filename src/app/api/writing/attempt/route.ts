@@ -7,12 +7,14 @@ import {
   markerNotesFromUnknown,
   notesNeedRebuild,
 } from '@/lib/marker-notes';
-import { termReviewLockMessage } from '@/lib/writing-guidance';
+import { bonusExamLockMessage, termReviewLockMessage } from '@/lib/writing-guidance';
+import { isExamStyleKind } from '@/lib/seed-prompts';
 import {
   assertOwnedStudent,
   awardWritingSeeds,
   ensureWritingEnhancements,
   getAwardsForPrompt,
+  getBonusExamAccess,
   getGuidanceForStudent,
   getNextRecommendation,
   getTermReviewAccess,
@@ -66,6 +68,7 @@ export async function GET(request: Request) {
         history: guidance.history,
         mini_progress: guidance.mini_progress,
         term_tests: guidance.term_tests,
+        bonus_papers: guidance.bonus_papers,
         rewards: guidance.rewards,
         week_note: guidance.week_note,
         attempts: [],
@@ -96,7 +99,7 @@ export async function GET(request: Request) {
     ]);
 
     const promptType = promptMeta.rows[0]?.prompt_type || 'narrative';
-    const examStyle = promptMeta.rows[0]?.kind === 'test';
+    const examStyle = isExamStyleKind(promptMeta.rows[0]?.kind);
     const hintPoints = Array.isArray(promptMeta.rows[0]?.hint_points)
       ? (promptMeta.rows[0]?.hint_points as string[])
       : [];
@@ -202,7 +205,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
     }
 
-    const isTest = prompt.kind === 'test';
+    const isExam = isExamStyleKind(prompt.kind);
 
     const existing = await query<{ draft_number: number }>(
       `SELECT draft_number FROM writing_attempts
@@ -212,19 +215,29 @@ export async function POST(request: Request) {
     );
     const maxDraft = existing.rows[0]?.draft_number ?? 0;
 
-    if (isTest) {
+    if (isExam) {
       if (existing.rows.length > 0 || draftNumber !== 1) {
         return NextResponse.json(
-          { error: 'This test can only be sat once.' },
+          { error: 'This paper can only be sat once.' },
           { status: 409 },
         );
       }
-      const access = await getTermReviewAccess(studentId, prompt.module_id);
-      if (access.locked) {
-        return NextResponse.json(
-          { error: termReviewLockMessage(access) },
-          { status: 403 },
-        );
+      if (prompt.kind === 'bonus') {
+        const access = await getBonusExamAccess(studentId);
+        if (access.locked) {
+          return NextResponse.json(
+            { error: bonusExamLockMessage(access) },
+            { status: 403 },
+          );
+        }
+      } else {
+        const access = await getTermReviewAccess(studentId, prompt.module_id);
+        if (access.locked) {
+          return NextResponse.json(
+            { error: termReviewLockMessage(access) },
+            { status: 403 },
+          );
+        }
       }
     } else {
       if (existing.rows.some((row) => row.draft_number === draftNumber)) {
@@ -253,11 +266,11 @@ export async function POST(request: Request) {
 
     const scored = await scoreWritingAttempt({
       content,
-      hintPoints: isTest ? [] : hintPoints,
+      hintPoints: isExam ? [] : hintPoints,
       promptType: prompt.prompt_type,
       promptTitle: prompt.title,
       promptDescription: prompt.description,
-      examStyle: isTest,
+      examStyle: isExam,
     });
 
     const inserted = await query(
@@ -297,7 +310,7 @@ export async function POST(request: Request) {
     const award = await awardWritingSeeds({
       studentId,
       promptId,
-      kind: isTest ? 'test' : 'practice',
+      kind: prompt.kind === 'bonus' ? 'bonus' : isExam ? 'test' : 'practice',
       draftNumber,
       overallScore: scored.overall_score,
       wordCount: scored.word_count,

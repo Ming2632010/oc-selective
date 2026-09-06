@@ -145,7 +145,7 @@ export function seedsForMini(input: {
 }
 
 export function seedsForWriting(input: {
-  kind: 'practice' | 'test';
+  kind: 'practice' | 'test' | 'bonus';
   draftNumber: number;
   overallScore: number;
   wordCount: number;
@@ -158,8 +158,11 @@ export function seedsForWriting(input: {
   const words = Math.max(0, input.wordCount);
   const seconds = Math.max(0, input.timeSpentSeconds);
 
-  if (input.kind === 'test') {
-    lines.push({ seeds: 40, label: 'Sat the term review' });
+  if (input.kind === 'test' || input.kind === 'bonus') {
+    lines.push({
+      seeds: 40,
+      label: input.kind === 'bonus' ? 'Sat a bonus exam paper' : 'Sat the term review',
+    });
     lines.push({ seeds: score, label: `Paper scored ${score}/25` });
     if (score >= 22) {
       lines.push({ seeds: 15, label: 'Excellent paper (22+)' });

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { SEED_PROMPTS } from './seed-prompts';
+import { BONUS_EXAM_PROMPTS } from './seed-bonus-exams';
+import { isExamStyleKind, SEED_PROMPTS } from './seed-prompts';
 import { UNITS, unitsByGroup } from './units';
 
 describe('writing prompt bank', () => {
@@ -44,6 +45,31 @@ describe('writing prompt bank', () => {
     assert.ok(withQuote.length >= 3, 'quote stimuli');
     assert.ok(withImage.some((p) => p.kind === 'practice'));
     assert.ok(withImage.some((p) => p.kind === 'test'));
+  });
+
+  it('keeps six original bonus exam papers out of the unit banks', () => {
+    assert.equal(BONUS_EXAM_PROMPTS.length, 6);
+    assert.ok(BONUS_EXAM_PROMPTS.every((p) => p.kind === 'bonus'));
+    assert.ok(BONUS_EXAM_PROMPTS.every((p) => p.module_id === 12));
+    assert.ok(BONUS_EXAM_PROMPTS.every((p) => p.time_limit_minutes === 30));
+    const titles = BONUS_EXAM_PROMPTS.map((p) => p.title.toLowerCase());
+    const banned = ['superhero', '2099', 'shipping container', 'on the loose', 'film making'];
+    assert.ok(
+      banned.every((word) => titles.every((title) => !title.includes(word))),
+      'bonus titles stay original',
+    );
+    const types = BONUS_EXAM_PROMPTS.map((p) => p.prompt_type).sort();
+    assert.deepEqual(types, [
+      'diary_entry',
+      'email',
+      'narrative',
+      'news_report',
+      'news_report',
+      'speech',
+    ]);
+    assert.equal(isExamStyleKind('bonus'), true);
+    assert.equal(isExamStyleKind('test'), true);
+    assert.equal(isExamStyleKind('practice'), false);
   });
 
   it('includes mixed-purpose jobs on some practice and some tests', () => {

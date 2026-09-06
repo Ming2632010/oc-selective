@@ -19,7 +19,7 @@ type Prompt = {
   hint_points: string[];
   time_limit_minutes: number;
   is_locked: boolean;
-  kind?: 'practice' | 'test';
+  kind?: 'practice' | 'test' | 'bonus';
   stimulus_image?: string | null;
   stimulus_quote?: string | null;
   purposes?: string[] | null;
@@ -166,7 +166,11 @@ export default function WritingPracticePage() {
 
         const p = promptData.prompt as Prompt;
         const hints = Array.isArray(p.hint_points) ? p.hint_points : [];
-        const testTask = p.kind === 'test' || promptData.kind === 'test';
+        const testTask =
+          p.kind === 'test' ||
+          p.kind === 'bonus' ||
+          promptData.kind === 'test' ||
+          promptData.kind === 'bonus';
         setIsTest(testTask);
         setPrompt({ ...p, hint_points: hints });
         if (testTask && (p.is_locked || promptData.prompt?.is_locked)) {
@@ -174,7 +178,9 @@ export default function WritingPracticePage() {
           setLockReason(
             typeof promptData.lock_reason === 'string' && promptData.lock_reason
               ? promptData.lock_reason
-              : 'Try every full writing task in this unit at least once before the term review.',
+              : p.kind === 'bonus'
+                ? 'Unlock these exam papers by trying every full writing task and every term review at least once.'
+                : 'Try every full writing task in this unit at least once before the term review.',
           );
           return;
         }
@@ -305,7 +311,7 @@ export default function WritingPracticePage() {
     return (
       <main className="mx-auto max-w-4xl space-y-4 p-6">
         <p className="text-sm uppercase tracking-wide text-indigo-700">
-          Term review
+          {prompt?.kind === 'bonus' ? 'Bonus exam paper' : 'Term review'}
         </p>
         <h1 className="text-2xl font-semibold text-stone-900">
           {prompt?.title ?? 'Term review locked'}
@@ -326,7 +332,7 @@ export default function WritingPracticePage() {
       <main className="mx-auto max-w-4xl space-y-4 p-6">
         <p className="text-stone-700">
           {isTest
-            ? 'This term review has been sat. You cannot re-attempt.'
+            ? 'This exam paper has been sat. You cannot re-attempt.'
             : 'All three drafts are done for this task.'}
         </p>
         <Link
@@ -368,7 +374,9 @@ export default function WritingPracticePage() {
       <main className="mx-auto max-w-4xl space-y-6 p-6">
         <section className="space-y-4 rounded-lg border border-stone-200 bg-white p-6">
           <p className="text-sm uppercase tracking-wide text-stone-500">
-            Term review · one sitting
+            {prompt.kind === 'bonus'
+              ? 'Bonus exam paper · one sitting'
+              : 'Term review · one sitting'}
           </p>
           <h1 className="text-3xl font-semibold text-stone-900">Writing paper</h1>
           <p className="text-stone-700">
@@ -420,7 +428,9 @@ export default function WritingPracticePage() {
         <div>
           <p className="text-sm uppercase tracking-wide text-stone-500">
             {isTest
-              ? 'Term review · one sitting'
+              ? prompt.kind === 'bonus'
+                ? 'Bonus exam paper · one sitting'
+                : 'Term review · one sitting'
               : `Unit ${prompt.module_id} · Draft ${draftNumber}/3 · ${typeLabel(prompt.prompt_type)}`}
           </p>
           <h1 className="text-3xl font-semibold text-stone-900">{prompt.title}</h1>

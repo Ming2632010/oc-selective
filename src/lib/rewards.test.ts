@@ -93,6 +93,18 @@ describe('seedsForWriting', () => {
     assert.equal(testAward, 50);
   });
 
+  it('pays a bonus exam paper like a term review', () => {
+    const lines = seedsForWriting({
+      kind: 'bonus',
+      draftNumber: 1,
+      overallScore: 10,
+      wordCount: 50,
+      timeSpentSeconds: 60,
+    });
+    assert.equal(sumSeeds(lines), 50);
+    assert.ok(lines.some((line) => line.label === 'Sat a bonus exam paper'));
+  });
+
   it('adds score, quality, and stamina lines on a strong timed test', () => {
     const lines = seedsForWriting({
       kind: 'test',
