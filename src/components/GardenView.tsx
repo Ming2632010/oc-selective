@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AnimatePresence,
   motion,
@@ -117,22 +117,46 @@ function kindNoun(kind: GardenPlantKind): string {
   return kind === 'tree' ? 'tree' : kind === 'bush' ? 'bush' : 'flower';
 }
 
+type GardenMemory = {
+  harvested: string[];
+  previousPercent: number | null;
+};
+
+const NO_MEMORY: GardenMemory = { harvested: [], previousPercent: null };
+
 /**
- * Plants harvested while the student was on another page should still fly out
- * of the plot when they come back, so the last seen garden is remembered.
+ * Seeds are earned on the writing pages, so the garden is usually remounted by
+ * the time it can show a reward. Remembering the last scene this tab showed
+ * lets new plants fly out of the plot and lets the ring grow from where the
+ * student left it.
  */
-function newlyHarvested(studentId: string, plants: GardenPlant[]): string[] {
+function recallGarden(
+  studentId: string,
+  plants: GardenPlant[],
+  percent: number,
+): GardenMemory {
+  if (typeof window === 'undefined') return NO_MEMORY;
   const ids = plants.map((plant) => plant.id);
-  if (typeof window === 'undefined') return [];
   const key = `trialseed:garden:${studentId}`;
   try {
     const stored = window.sessionStorage.getItem(key);
-    window.sessionStorage.setItem(key, JSON.stringify(ids));
-    if (!stored) return [];
-    const seen = new Set(JSON.parse(stored) as string[]);
-    return ids.filter((id) => !seen.has(id));
+    window.sessionStorage.setItem(key, JSON.stringify({ ids, percent }));
+    if (!stored) return NO_MEMORY;
+    const parsed = JSON.parse(stored) as
+      | string[]
+      | { ids?: string[]; percent?: number };
+    const seenIds = Array.isArray(parsed) ? parsed : (parsed.ids ?? []);
+    const seenPercent =
+      !Array.isArray(parsed) && typeof parsed.percent === 'number'
+        ? parsed.percent
+        : null;
+    const seen = new Set(seenIds);
+    return {
+      harvested: ids.filter((id) => !seen.has(id)),
+      previousPercent: seenPercent,
+    };
   } catch {
-    return [];
+    return NO_MEMORY;
   }
 }
 
@@ -412,15 +436,21 @@ function GrownPlant({
 
 function ProgressRing({
   percent,
+  from,
+  ready,
   reduceMotion,
 }: {
   percent: number;
+  from: number;
+  /** The arc mounts with the loaded scene so it can grow from the last visit. */
+  ready: boolean;
   reduceMotion: boolean;
 }) {
   const radius = 52;
   const circumference = 2 * Math.PI * radius;
-  const clamped = Math.min(100, Math.max(0, percent));
-  const offset = circumference * (1 - clamped / 100);
+  const clamp = (value: number) => Math.min(100, Math.max(0, value));
+  const offset = circumference * (1 - clamp(percent) / 100);
+  const startOffset = circumference * (1 - clamp(from) / 100);
 
   return (
     <svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full -rotate-90">
@@ -434,19 +464,21 @@ function ProgressRing({
         strokeWidth="8"
         opacity="0.1"
       />
-      <motion.circle
-        cx="60"
-        cy="60"
-        r={radius}
-        fill="none"
-        stroke="#C49B7A"
-        strokeWidth="8"
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        initial={{ strokeDashoffset: circumference }}
-        animate={{ strokeDashoffset: offset }}
-        transition={reduceMotion ? { duration: 0 } : RING_SPRING}
-      />
+      {ready ? (
+        <motion.circle
+          cx="60"
+          cy="60"
+          r={radius}
+          fill="none"
+          stroke="#C49B7A"
+          strokeWidth="8"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          initial={{ strokeDashoffset: startOffset }}
+          animate={{ strokeDashoffset: offset }}
+          transition={reduceMotion ? { duration: 0 } : RING_SPRING}
+        />
+      ) : null}
       <circle
         cx="60"
         cy="60"
@@ -498,16 +530,14 @@ export function GardenView({ studentId }: { studentId: string | null }) {
   const prefersReducedMotion = useReducedMotion();
   const reduceMotion = Boolean(prefersReducedMotion);
   const [stats, setStats] = useState<GardenStats | null>(null);
-  const [harvestIds, setHarvestIds] = useState<string[]>([]);
+  const [memory, setMemory] = useState<GardenMemory>(NO_MEMORY);
   const [failed, setFailed] = useState(false);
   const pulse = useAnimationControls();
-  const lastPercent = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setFailed(false);
-    setHarvestIds([]);
-    lastPercent.current = null;
+    setMemory(NO_MEMORY);
 
     async function load() {
       if (!studentId) {
@@ -528,7 +558,7 @@ export function GardenView({ studentId }: { studentId: string | null }) {
         (res.data.scene as SeedPatchScene | undefined) ??
         buildSeedPatchScene({ lifetimeSeeds: lifetime });
       setStats({ lifetime_seeds: lifetime, scene });
-      setHarvestIds(newlyHarvested(studentId, scene.garden));
+      setMemory(recallGarden(studentId, scene.garden, scene.active.percent));
     }
 
     void load();
@@ -542,17 +572,14 @@ export function GardenView({ studentId }: { studentId: string | null }) {
   const percent = scene.active.percent;
 
   useEffect(() => {
-    if (!stats) return;
-    if (lastPercent.current === null) {
-      lastPercent.current = percent;
-      return;
-    }
-    if (lastPercent.current === percent) return;
-    lastPercent.current = percent;
-    if (!reduceMotion) {
-      void pulse.start({ scale: [1, 1.04, 1] }, { duration: 0.6, ease: 'easeOut' });
-    }
-  }, [percent, pulse, reduceMotion, stats]);
+    if (!stats || reduceMotion) return;
+    const previous = memory.previousPercent;
+    if (previous === null || previous === percent) return;
+    void pulse.start(
+      { scale: [1, 1.04, 1] },
+      { duration: 0.7, ease: 'easeOut', delay: 0.15 },
+    );
+  }, [memory, percent, pulse, reduceMotion, stats]);
 
   const grouped = useMemo(() => {
     const trees: GardenPlant[] = [];
@@ -579,7 +606,7 @@ export function GardenView({ studentId }: { studentId: string | null }) {
         key={plant.id}
         plant={plant}
         slot={slotFor(kind, index)}
-        fromPatch={harvestIds.includes(plant.id)}
+        fromPatch={memory.harvested.includes(plant.id)}
         delay={index * PLANT_STAGGER}
         reduceMotion={reduceMotion}
       />
@@ -614,7 +641,8 @@ export function GardenView({ studentId }: { studentId: string | null }) {
         </AnimatePresence>
 
         <motion.div
-          className="absolute left-1/2 top-[55%] z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+          className="absolute left-1/2 top-[55%] z-20 flex flex-col items-center"
+          style={{ x: '-50%', y: '-50%' }}
           animate={pulse}
         >
           <p className="flex items-baseline gap-2 leading-none">
@@ -636,7 +664,12 @@ export function GardenView({ studentId }: { studentId: string | null }) {
             className="relative mt-3 h-44 w-44 rounded-full sm:h-52 sm:w-52 lg:h-60 lg:w-60"
             style={{ boxShadow: '0 24px 38px -20px rgba(45,90,74,0.6)' }}
           >
-            <ProgressRing percent={percent} reduceMotion={reduceMotion} />
+            <ProgressRing
+              percent={percent}
+              from={memory.previousPercent ?? 0}
+              ready={Boolean(stats)}
+              reduceMotion={reduceMotion}
+            />
             <div
               className="absolute inset-[11%] flex items-end justify-center overflow-hidden rounded-full pb-[13%]"
               style={{
