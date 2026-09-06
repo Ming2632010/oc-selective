@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import {
   getSiteUrl,
@@ -9,6 +10,12 @@ import {
 } from '@/lib/site';
 
 const siteUrl = getSiteUrl();
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -68,7 +75,7 @@ export default function RootLayout({
   children: ReactNode;
 }) {
   return (
-    <html lang="en-AU">
+    <html lang="en-AU" className={inter.variable}>
       <body className="min-h-screen bg-stone-50 text-stone-900 antialiased">
         {children}
       </body>

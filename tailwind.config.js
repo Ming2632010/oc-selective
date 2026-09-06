@@ -7,6 +7,15 @@ const config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        inter: [
+          'var(--font-inter)',
+          'Inter',
+          'ui-sans-serif',
+          'system-ui',
+          'sans-serif',
+        ],
+      },
       keyframes: {
         sway: {
           '0%, 100%': { transform: 'rotate(-3deg)' },
