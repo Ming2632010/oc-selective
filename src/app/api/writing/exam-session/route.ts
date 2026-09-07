@@ -66,15 +66,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'This paper can only be sat once.' }, { status: 409 });
     }
 
-    const access =
-      prompt.kind === 'bonus'
-        ? await getBonusExamAccess(studentId)
-        : await getTermReviewAccess(studentId, prompt.module_id);
-    const lockMessage =
-      prompt.kind === 'bonus' ? bonusExamLockMessage(access) : termReviewLockMessage(access);
-    const locked = access.locked;
-    if (locked) {
-      return NextResponse.json({ error: lockMessage }, { status: 403 });
+    if (prompt.kind === 'bonus') {
+      const access = await getBonusExamAccess(studentId);
+      if (access.locked) {
+        return NextResponse.json({ error: bonusExamLockMessage(access) }, { status: 403 });
+      }
+    } else {
+      const access = await getTermReviewAccess(studentId, prompt.module_id);
+      if (access.locked) {
+        return NextResponse.json({ error: termReviewLockMessage(access) }, { status: 403 });
+      }
     }
 
     const session = await startWritingExamSession(

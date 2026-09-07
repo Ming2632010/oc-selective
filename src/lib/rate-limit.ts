@@ -7,7 +7,7 @@ const MAX_ENTRIES = 10_000;
 export function isRateLimited(key: string, limit: number, windowMs: number): boolean {
   const now = Date.now();
   if (entries.size >= MAX_ENTRIES) {
-    for (const [entryKey, entry] of entries) {
+    for (const [entryKey, entry] of Array.from(entries.entries())) {
       if (entry.resetsAt <= now) entries.delete(entryKey);
     }
   }
