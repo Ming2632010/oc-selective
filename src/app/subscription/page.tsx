@@ -89,6 +89,10 @@ export default function SubscriptionPage() {
   }, [data, studentId]);
 
   const hasBilling = (data?.subscriptions?.length ?? 0) > 0;
+  const unassignedWriting = (data?.subscriptions ?? []).find(
+    (subscription) =>
+      subscription.subject === 'writing' && subscription.active && !subscription.student_id,
+  );
 
   async function subscribe(subject: Subject) {
     setError(null);
@@ -120,6 +124,40 @@ export default function SubscriptionPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not open billing portal');
       setManaging(false);
+    }
+  }
+
+  async function assignLegacyWritingAccess() {
+    if (!unassignedWriting || !studentId) return;
+    setError(null);
+    setBusy(`assign:${unassignedWriting.id}`);
+    try {
+      const res = await apiFetch('/api/subscription/assign-legacy', {
+        method: 'POST',
+        body: JSON.stringify({
+          subscription_id: unassignedWriting.id,
+          student_id: studentId,
+        }),
+      });
+      if (!res.response.ok) {
+        throw new Error(res.data.error || 'Could not assign access');
+      }
+      setData((current) =>
+        current
+          ? {
+              ...current,
+              subscriptions: current.subscriptions.map((subscription) =>
+                subscription.id === unassignedWriting.id
+                  ? { ...subscription, student_id: studentId }
+                  : subscription,
+              ),
+            }
+          : current,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not assign access');
+    } finally {
+      setBusy(null);
     }
   }
 
@@ -179,6 +217,26 @@ export default function SubscriptionPage() {
             <p className="text-sm text-warm-muted">
               Add a child profile on the <Link href="/dashboard">dashboard</Link> before purchasing access.
             </p>
+          ) : null}
+          {unassignedWriting ? (
+            <section className="rounded-lg border border-terracotta bg-[#FFF8F1] p-4">
+              <h2 className="font-serif text-xl font-semibold text-warm-ink">
+                Assign your existing Selective Writing access
+              </h2>
+              <p className="mt-1 text-sm text-warm-muted">
+                Your existing access is ready to be assigned once to the child selected above.
+              </p>
+              <button
+                type="button"
+                onClick={() => void assignLegacyWritingAccess()}
+                disabled={!studentId || busy === `assign:${unassignedWriting.id}`}
+                className="mt-3 rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
+              >
+                {busy === `assign:${unassignedWriting.id}`
+                  ? 'Assigning…'
+                  : 'Assign access to this child'}
+              </button>
+            </section>
           ) : null}
         <section className="grid gap-4 sm:grid-cols-2">
           {SUBJECTS.map((subject) => {
