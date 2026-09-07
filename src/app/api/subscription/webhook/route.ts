@@ -3,7 +3,7 @@ import type Stripe from 'stripe';
 import { query } from '@/lib/db';
 import { sendPaymentFailedReminder } from '@/lib/email';
 import { getStripeClient, getWebhookSecret } from '@/lib/stripe';
-import { isSubject } from '@/lib/subjects';
+import { isAvailableSubject, isSubject, priceIdForSubject } from '@/lib/subjects';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -44,8 +44,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     session.client_reference_id ||
     null;
   const subject = session.metadata?.subject as string | undefined;
+  const studentId = session.metadata?.studentId as string | undefined;
 
-  if (!userId || !subject || !isSubject(subject)) {
+  if (!userId || !studentId || !subject || !isSubject(subject) || !isAvailableSubject(subject)) {
     console.warn(
       '[subscription/webhook] checkout.session.completed missing/invalid userId or subject',
     );
@@ -57,6 +58,18 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   // do not insert a second year of access.
   const paymentRef = session.id;
   const priceId = (session.metadata?.priceId as string | undefined) ?? null;
+  if (!priceId || priceId !== priceIdForSubject(subject)) {
+    console.warn('[subscription/webhook] checkout session has an unexpected price');
+    return;
+  }
+  const student = await query<{ id: string }>(
+    `SELECT id FROM students WHERE id = $1 AND user_id = $2 LIMIT 1`,
+    [studentId, userId],
+  );
+  if (!student.rows[0]) {
+    console.warn('[subscription/webhook] checkout session has an invalid student');
+    return;
+  }
   const customerId = idOf(session.customer);
   const expiresAt = new Date(Date.now() + ONE_YEAR_MS).toISOString();
 
@@ -69,14 +82,14 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
   await query(
     `INSERT INTO user_subscriptions
-       (user_id, subject, status, stripe_subscription_id, stripe_price_id, expires_at)
-     VALUES ($1, $2, 'active', $3, $4, $5)
+       (user_id, student_id, subject, status, stripe_subscription_id, stripe_price_id, expires_at)
+     VALUES ($1, $2, $3, 'active', $4, $5, $6)
      ON CONFLICT (stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL
      DO UPDATE SET status = 'active',
                    stripe_price_id = EXCLUDED.stripe_price_id,
                    expires_at = EXCLUDED.expires_at,
                    updated_at = NOW()`,
-    [userId, subject, paymentRef, priceId, expiresAt],
+    [userId, studentId, subject, paymentRef, priceId, expiresAt],
   );
 }
 

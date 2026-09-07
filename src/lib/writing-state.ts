@@ -1067,7 +1067,19 @@ export async function unlockExtraPack(studentId: string, moduleId: number) {
 
 export async function assertOwnedStudent(userId: string, studentId: string) {
   const result = await query<{ id: string }>(
-    `SELECT id FROM students WHERE id = $1 AND user_id = $2 LIMIT 1`,
+    `SELECT student.id
+     FROM students student
+     WHERE student.id = $1
+       AND student.user_id = $2
+       AND EXISTS (
+         SELECT 1 FROM user_subscriptions subscription
+         WHERE subscription.student_id = student.id
+           AND subscription.user_id = $2
+           AND subscription.subject = 'writing'
+           AND subscription.status = 'active'
+           AND (subscription.expires_at IS NULL OR subscription.expires_at > NOW())
+       )
+     LIMIT 1`,
     [studentId, userId],
   );
   return result.rows[0] ?? null;

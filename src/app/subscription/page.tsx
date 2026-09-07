@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiFetch, getToken } from '@/lib/client-auth';
+import { apiFetch, getStudentId, getToken, setStudentId as persistStudentId } from '@/lib/client-auth';
 import {
   SUBJECTS,
   SUBJECT_BLURBS,
@@ -16,6 +16,7 @@ import {
 type SubscriptionItem = {
   id: string;
   subject: string;
+  student_id: string | null;
   status: string;
   expires_at: string | null;
   active: boolean;
@@ -25,6 +26,7 @@ type StatusResponse = {
   subscriptions: SubscriptionItem[];
   has_active: boolean;
 };
+type Student = { id: string; name: string; grade: string };
 
 export default function SubscriptionPage() {
   const router = useRouter();
@@ -34,6 +36,8 @@ export default function SubscriptionPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [managing, setManaging] = useState(false);
   const [expiredNotice, setExpiredNotice] = useState(false);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [studentId, setStudentId] = useState<string>('');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -55,6 +59,16 @@ export default function SubscriptionPage() {
           throw new Error(res.data.error || 'Failed to load subscription status');
         }
         setData(res.data as StatusResponse);
+        const studentsRes = await apiFetch('/api/students');
+        if (studentsRes.response.ok) {
+          const list = (studentsRes.data.students as Student[]) || [];
+          setStudents(list);
+          setStudentId(
+            getStudentId() && list.some((student) => student.id === getStudentId())
+              ? getStudentId()!
+              : list[0]?.id || '',
+          );
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load status');
       } finally {
@@ -67,12 +81,12 @@ export default function SubscriptionPage() {
   const activeBySubject = useMemo(() => {
     const map = new Map<string, SubscriptionItem>();
     for (const sub of data?.subscriptions ?? []) {
-      if (sub.active && !map.has(sub.subject)) {
+      if (sub.active && sub.student_id === studentId && !map.has(sub.subject)) {
         map.set(sub.subject, sub);
       }
     }
     return map;
-  }, [data]);
+  }, [data, studentId]);
 
   const hasBilling = (data?.subscriptions?.length ?? 0) > 0;
 
@@ -82,7 +96,7 @@ export default function SubscriptionPage() {
     try {
       const res = await apiFetch('/api/subscription/create-checkout', {
         method: 'POST',
-        body: JSON.stringify({ subject }),
+        body: JSON.stringify({ subject, student_id: studentId }),
       });
       if (!res.response.ok || !res.data.checkout_url) {
         throw new Error(res.data.error || 'Could not start checkout');
@@ -142,6 +156,30 @@ export default function SubscriptionPage() {
       {loading ? (
         <p className="text-stone-600">Loading…</p>
       ) : (
+        <>
+          <label className="block max-w-sm text-sm font-medium text-warm-ink">
+            Choose the child for this access
+            <select
+              value={studentId}
+              onChange={(event) => {
+                setStudentId(event.target.value);
+                persistStudentId(event.target.value);
+              }}
+              className="mt-1 block w-full rounded-lg border border-warm-border bg-warm-card px-3 py-2 text-sm"
+            >
+              {students.length ? null : <option value="">Add a child first</option>}
+              {students.map((student) => (
+                <option key={student.id} value={student.id}>
+                  {student.name} · {student.grade}
+                </option>
+              ))}
+            </select>
+          </label>
+          {!students.length ? (
+            <p className="text-sm text-warm-muted">
+              Add a child profile on the <Link href="/dashboard">dashboard</Link> before purchasing access.
+            </p>
+          ) : null}
         <section className="grid gap-4 sm:grid-cols-2">
           {SUBJECTS.map((subject) => {
             const active = activeBySubject.get(subject);
@@ -204,7 +242,7 @@ export default function SubscriptionPage() {
                   <button
                     type="button"
                     onClick={() => subscribe(subject)}
-                    disabled={busy === subject}
+                    disabled={busy === subject || !studentId}
                     className="mt-6 rounded-full bg-terracotta px-4 py-2.5 text-sm font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
                   >
                     {busy === subject
@@ -221,6 +259,7 @@ export default function SubscriptionPage() {
             );
           })}
         </section>
+        </>
       )}
 
       <p className="text-center text-sm text-warm-muted">

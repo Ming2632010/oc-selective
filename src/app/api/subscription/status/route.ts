@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
 type SubscriptionRow = {
   id: string;
   subject: string;
+  student_id: string | null;
   status: string;
   stripe_subscription_id: string | null;
   stripe_price_id: string | null;
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
     }
 
     const result = await query<SubscriptionRow>(
-      `SELECT id, subject, status, stripe_subscription_id, stripe_price_id, expires_at
+      `SELECT id, subject, student_id, status, stripe_subscription_id, stripe_price_id, expires_at
        FROM user_subscriptions
        WHERE user_id = $1
        ORDER BY subject ASC, created_at DESC`,
@@ -33,6 +34,7 @@ export async function GET(request: Request) {
     const subscriptions = result.rows.map((row) => ({
       id: row.id,
       subject: row.subject,
+      student_id: row.student_id,
       status: row.status,
       expires_at: row.expires_at ? new Date(row.expires_at).toISOString() : null,
       stripe_subscription_id: row.stripe_subscription_id,
