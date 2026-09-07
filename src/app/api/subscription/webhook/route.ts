@@ -148,6 +148,45 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
   await sendPaymentFailedReminder(email);
 }
 
+async function claimWebhookEvent(event: Stripe.Event): Promise<boolean> {
+  const result = await query(
+    `INSERT INTO stripe_webhook_events (event_id, event_type)
+     VALUES ($1, $2)
+     ON CONFLICT (event_id) DO UPDATE
+       SET status = 'processing',
+           attempts = stripe_webhook_events.attempts + 1,
+           received_at = NOW(),
+           last_error = NULL
+       WHERE stripe_webhook_events.status = 'failed'
+          OR (
+            stripe_webhook_events.status = 'processing'
+            AND stripe_webhook_events.received_at < NOW() - INTERVAL '10 minutes'
+          )
+     RETURNING event_id`,
+    [event.id, event.type],
+  );
+  return (result.rowCount ?? result.rows.length) > 0;
+}
+
+async function completeWebhookEvent(eventId: string) {
+  await query(
+    `UPDATE stripe_webhook_events
+     SET status = 'completed', processed_at = NOW(), last_error = NULL
+     WHERE event_id = $1`,
+    [eventId],
+  );
+}
+
+async function failWebhookEvent(eventId: string, error: unknown) {
+  const message = error instanceof Error ? error.message.slice(0, 1_000) : 'Unknown webhook failure';
+  await query(
+    `UPDATE stripe_webhook_events
+     SET status = 'failed', last_error = $2
+     WHERE event_id = $1`,
+    [eventId, message],
+  );
+}
+
 export async function POST(request: Request) {
   let event: Stripe.Event;
 
@@ -166,6 +205,10 @@ export async function POST(request: Request) {
   }
 
   try {
+    if (!(await claimWebhookEvent(event))) {
+      return NextResponse.json({ received: true, duplicate: true });
+    }
+
     switch (event.type) {
       case 'checkout.session.completed':
         await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
@@ -183,10 +226,15 @@ export async function POST(request: Request) {
         break;
     }
 
+    await completeWebhookEvent(event.id);
     return NextResponse.json({ received: true });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Webhook handler failed';
-    console.error(`[subscription/webhook] handler error for ${event.type}:`, message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error(`[subscription/webhook] handler error for ${event.type}:`, error);
+    try {
+      await failWebhookEvent(event.id, error);
+    } catch (ledgerError) {
+      console.error('[subscription/webhook] failed to update event ledger:', ledgerError);
+    }
+    return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 });
   }
 }

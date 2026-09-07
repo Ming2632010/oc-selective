@@ -36,3 +36,16 @@ CREATE TABLE IF NOT EXISTS writing_exam_sessions (
 
 CREATE INDEX IF NOT EXISTS idx_writing_exam_sessions_deadline
   ON writing_exam_sessions (student_id, prompt_id, deadline_at);
+
+-- Stripe retries webhook deliveries. Keep a durable ledger so a completed
+-- delivery cannot grant duplicate access after a process restart.
+CREATE TABLE IF NOT EXISTS stripe_webhook_events (
+  event_id TEXT PRIMARY KEY,
+  event_type TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'processing'
+    CHECK (status IN ('processing', 'completed', 'failed')),
+  attempts INTEGER NOT NULL DEFAULT 1,
+  received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  processed_at TIMESTAMPTZ,
+  last_error TEXT
+);
