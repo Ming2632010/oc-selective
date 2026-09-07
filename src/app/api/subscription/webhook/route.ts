@@ -58,6 +58,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   // do not insert a second year of access.
   const paymentRef = session.id;
   const priceId = (session.metadata?.priceId as string | undefined) ?? null;
+  const discount = session.discounts?.[0];
+  const promotionCodeId = idOf(discount?.promotion_code);
+  const couponId = idOf(discount?.coupon);
   if (!priceId || priceId !== priceIdForSubject(subject)) {
     console.warn('[subscription/webhook] checkout session has an unexpected price');
     return;
@@ -82,14 +85,30 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
   await query(
     `INSERT INTO user_subscriptions
-       (user_id, student_id, subject, status, stripe_subscription_id, stripe_price_id, expires_at)
-     VALUES ($1, $2, $3, 'active', $4, $5, $6)
+       (user_id, student_id, subject, status, stripe_subscription_id, stripe_price_id,
+        stripe_promotion_code_id, stripe_coupon_id, amount_paid, currency, expires_at)
+     VALUES ($1, $2, $3, 'active', $4, $5, $6, $7, $8, $9, $10)
      ON CONFLICT (stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL
      DO UPDATE SET status = 'active',
                    stripe_price_id = EXCLUDED.stripe_price_id,
                    expires_at = EXCLUDED.expires_at,
+                   stripe_promotion_code_id = EXCLUDED.stripe_promotion_code_id,
+                   stripe_coupon_id = EXCLUDED.stripe_coupon_id,
+                   amount_paid = EXCLUDED.amount_paid,
+                   currency = EXCLUDED.currency,
                    updated_at = NOW()`,
-    [userId, studentId, subject, paymentRef, priceId, expiresAt],
+    [
+      userId,
+      studentId,
+      subject,
+      paymentRef,
+      priceId,
+      promotionCodeId,
+      couponId,
+      session.amount_total,
+      session.currency,
+      expiresAt,
+    ],
   );
 }
 

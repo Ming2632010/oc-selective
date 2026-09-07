@@ -12,6 +12,10 @@ CREATE TABLE IF NOT EXISTS user_subscriptions (
     CHECK (status IN ('active', 'expired', 'cancelled')),
   stripe_subscription_id TEXT,
   stripe_price_id TEXT,
+  stripe_promotion_code_id TEXT,
+  stripe_coupon_id TEXT,
+  amount_paid INTEGER,
+  currency TEXT,
   expires_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

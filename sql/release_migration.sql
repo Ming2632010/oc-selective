@@ -3,6 +3,14 @@
 
 ALTER TABLE user_subscriptions
   ADD COLUMN IF NOT EXISTS student_id UUID REFERENCES students (id) ON DELETE CASCADE;
+ALTER TABLE user_subscriptions
+  ADD COLUMN IF NOT EXISTS stripe_promotion_code_id TEXT;
+ALTER TABLE user_subscriptions
+  ADD COLUMN IF NOT EXISTS stripe_coupon_id TEXT;
+ALTER TABLE user_subscriptions
+  ADD COLUMN IF NOT EXISTS amount_paid INTEGER;
+ALTER TABLE user_subscriptions
+  ADD COLUMN IF NOT EXISTS currency TEXT;
 
 -- Legacy account-level licences are assigned to the oldest active child. Parents
 -- with additional children can buy a separate licence for each of them.
