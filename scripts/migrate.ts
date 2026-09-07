@@ -9,6 +9,11 @@ const files = [
 ];
 
 async function main() {
+  // Next.js loads `.env.local` for the app, but standalone `tsx` scripts do
+  // not. Load it when present so local migration runs match local development.
+  if (!process.env.DATABASE_URL) {
+    process.loadEnvFile('.env.local');
+  }
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL is required');
   }
