@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { generateToken, verifyPassword } from '@/lib/auth';
 import { query } from '@/lib/db';
+import { isRateLimited } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,6 +33,12 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'email and password are required' },
         { status: 400 },
+      );
+    }
+    if (isRateLimited(`login:${email}`, 10, 15 * 60 * 1000)) {
+      return NextResponse.json(
+        { error: 'Too many login attempts. Try again in a few minutes.' },
+        { status: 429 },
       );
     }
 
@@ -73,8 +80,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Login failed';
-    console.error('[auth/login]', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('[auth/login]', error);
+    return NextResponse.json({ error: 'Unable to log in. Please try again.' }, { status: 500 });
   }
 }

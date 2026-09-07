@@ -9,13 +9,16 @@ import {
 } from '@/lib/marker-notes';
 import { bonusExamLockMessage, termReviewLockMessage } from '@/lib/writing-guidance';
 import { isExamStyleKind } from '@/lib/seed-prompts';
+import { isRateLimited } from '@/lib/rate-limit';
 import {
   assertOwnedStudent,
   awardWritingSeeds,
+  claimWritingExamSubmission,
   ensureWritingEnhancements,
   getAwardsForPrompt,
   getBonusExamAccess,
   getGuidanceForStudent,
+  getWritingExamSession,
   getNextRecommendation,
   getTermReviewAccess,
 } from '@/lib/writing-state';
@@ -189,6 +192,12 @@ export async function POST(request: Request) {
     if (!owned) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
+    if (isRateLimited(`writing-score:${studentId}`, 10, 60 * 60 * 1000)) {
+      return NextResponse.json(
+        { error: 'Too many submissions. Please wait before submitting another response.' },
+        { status: 429 },
+      );
+    }
 
     const promptResult = await query<{
       id: string;
@@ -212,6 +221,21 @@ export async function POST(request: Request) {
     }
 
     const isExam = isExamStyleKind(prompt.kind);
+    if (isExam) {
+      const session = await getWritingExamSession(studentId, promptId);
+      if (!session) {
+        return NextResponse.json(
+          { error: 'Start the exam from its introduction before submitting.' },
+          { status: 409 },
+        );
+      }
+      if (session.submitted_at || session.deadline_at.getTime() < Date.now()) {
+        return NextResponse.json(
+          { error: 'This exam session is closed.' },
+          { status: 409 },
+        );
+      }
+    }
 
     const existing = await query<{ draft_number: number }>(
       `SELECT draft_number FROM writing_attempts
@@ -279,6 +303,13 @@ export async function POST(request: Request) {
       examStyle: isExam,
     });
 
+    if (isExam && !(await claimWritingExamSubmission(studentId, promptId))) {
+      return NextResponse.json(
+        { error: 'This exam session is closed.' },
+        { status: 409 },
+      );
+    }
+
     const inserted = await query(
       `INSERT INTO writing_attempts (
          student_id, prompt_id, draft_number, content, plan_content,
@@ -336,8 +367,10 @@ export async function POST(request: Request) {
       { status: 201 },
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to save attempt';
-    console.error('[writing/attempt POST]', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('[writing/attempt POST]', error);
+    return NextResponse.json(
+      { error: 'Unable to save this attempt. Please try again.' },
+      { status: 500 },
+    );
   }
 }

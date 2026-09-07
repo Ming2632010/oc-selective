@@ -6,6 +6,7 @@ import {
   ensureWritingEnhancements,
   unlockExtraPack,
 } from '@/lib/writing-state';
+import { isRateLimited } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -39,6 +40,12 @@ export async function POST(request: Request) {
     if (!owned) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
+    if (isRateLimited(`drill-generation:${studentId}`, 5, 60 * 60 * 1000)) {
+      return NextResponse.json(
+        { error: 'Too many requests for extra questions. Please try again later.' },
+        { status: 429 },
+      );
+    }
 
     await deactivateCopiedExtraDrills(studentId, moduleId);
 
@@ -70,9 +77,10 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Failed to add extra questions';
-    console.error('[writing/drills/generate]', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('[writing/drills/generate]', error);
+    return NextResponse.json(
+      { error: 'Unable to add extra questions. Please try again.' },
+      { status: 500 },
+    );
   }
 }

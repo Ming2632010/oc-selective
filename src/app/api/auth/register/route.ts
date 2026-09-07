@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { generateToken, hashPassword } from '@/lib/auth';
 import { query } from '@/lib/db';
+import { isRateLimited } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -41,6 +42,12 @@ export async function POST(request: Request) {
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
+    }
+    if (isRateLimited(`register:${email}`, 5, 60 * 60 * 1000)) {
+      return NextResponse.json(
+        { error: 'Too many registration attempts. Try again later.' },
+        { status: 429 },
+      );
     }
 
     if (password.length < 6) {
@@ -101,8 +108,7 @@ export async function POST(request: Request) {
       { status: 201 },
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Registration failed';
-    console.error('[auth/register]', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('[auth/register]', error);
+    return NextResponse.json({ error: 'Unable to register. Please try again.' }, { status: 500 });
   }
 }

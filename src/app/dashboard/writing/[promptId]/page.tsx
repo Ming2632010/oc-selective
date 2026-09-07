@@ -128,6 +128,33 @@ export default function WritingPracticePage() {
     setUiPhase('paper');
   }
 
+  async function startExamPaper() {
+    if (!prompt || !auth) return;
+    setError(null);
+    try {
+      const res = await fetch('/api/writing/exam-session', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${auth.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ student_id: auth.studentId, prompt_id: prompt.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not start the exam');
+
+      const deadline = new Date(data.deadline_at).getTime();
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      const total = (prompt.time_limit_minutes || 30) * 60;
+      setTotalSeconds(total);
+      setSecondsLeft(remaining);
+      setStartedAt(Date.now() - Math.max(0, total - remaining) * 1000);
+      setUiPhase('paper');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not start the exam');
+    }
+  }
+
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -397,7 +424,7 @@ export default function WritingPracticePage() {
           ) : null}
           <button
             type="button"
-            onClick={() => beginPaper(prompt)}
+            onClick={() => void startExamPaper()}
             className="rounded-md bg-stone-900 px-4 py-2 text-white"
           >
             Start the paper

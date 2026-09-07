@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { isSubject } from '@/lib/subjects';
+import { isRateLimited } from '@/lib/rate-limit';
 import {
   assertOwnedStudent,
   ensureWritingEnhancements,
@@ -109,6 +110,12 @@ export async function POST(request: Request) {
     if (!owned) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
+    if (isRateLimited(`subject-chat:${studentId}`, 30, 10 * 60 * 1000)) {
+      return NextResponse.json(
+        { error: 'Too many messages. Please wait a few minutes before sending another.' },
+        { status: 429 },
+      );
+    }
 
     const inserted = await query(
       `INSERT INTO subject_messages (user_id, student_id, subject, sender, body)
@@ -119,8 +126,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ message: inserted.rows[0] }, { status: 201 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to send chat';
-    console.error('[subjects/chat POST]', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('[subjects/chat POST]', error);
+    return NextResponse.json(
+      { error: 'Unable to send this message. Please try again.' },
+      { status: 500 },
+    );
   }
 }
