@@ -1080,24 +1080,39 @@ export async function unlockExtraPack(studentId: string, moduleId: number) {
   };
 }
 
-export async function assertOwnedStudent(userId: string, studentId: string) {
+export type WritingAccessState = 'granted' | 'unlicensed' | 'not-found';
+
+export async function getWritingAccessState(
+  userId: string,
+  studentId: string,
+): Promise<WritingAccessState> {
   const result = await query<{ id: string }>(
     `SELECT student.id
      FROM students student
      WHERE student.id = $1
        AND student.user_id = $2
-       AND EXISTS (
-         SELECT 1 FROM user_subscriptions subscription
-         WHERE subscription.student_id = student.id
-           AND subscription.user_id = $2
-           AND subscription.subject = 'writing'
-           AND subscription.status = 'active'
-           AND (subscription.expires_at IS NULL OR subscription.expires_at > NOW())
-       )
      LIMIT 1`,
     [studentId, userId],
   );
-  return result.rows[0] ?? null;
+  if (!result.rows[0]) return 'not-found';
+
+  const entitlement = await query<{ id: string }>(
+    `SELECT id FROM user_subscriptions
+     WHERE student_id = $1
+       AND user_id = $2
+       AND subject = 'writing'
+       AND status = 'active'
+       AND (expires_at IS NULL OR expires_at > NOW())
+     LIMIT 1`,
+    [studentId, userId],
+  );
+  return entitlement.rows[0] ? 'granted' : 'unlicensed';
+}
+
+export async function assertOwnedStudent(userId: string, studentId: string) {
+  return (await getWritingAccessState(userId, studentId)) === 'granted'
+    ? { id: studentId }
+    : null;
 }
 
 export type WritingExamSession = {

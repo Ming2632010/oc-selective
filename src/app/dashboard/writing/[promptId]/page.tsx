@@ -89,6 +89,7 @@ export default function WritingPracticePage() {
   const [timedOut, setTimedOut] = useState(false);
   const [alreadyFinished, setAlreadyFinished] = useState(false);
   const [reviewLocked, setReviewLocked] = useState(false);
+  const [needsAccess, setNeedsAccess] = useState(false);
   const [lockReason, setLockReason] = useState('');
   const [isTest, setIsTest] = useState(false);
   const [uiPhase, setUiPhase] = useState<UiPhase>('paper');
@@ -241,7 +242,9 @@ export default function WritingPracticePage() {
           beginPaper({ ...p, hint_points: hints });
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load writing task');
+        const message = err instanceof Error ? err.message : 'Failed to load writing task';
+        setNeedsAccess(message.includes('Selective Writing access is required'));
+        setError(message);
       } finally {
         setLoading(false);
       }
@@ -374,8 +377,22 @@ export default function WritingPracticePage() {
 
   if (!prompt) {
     return (
-      <main className="mx-auto max-w-4xl p-6">
-        <p className="text-red-700">{error || 'Prompt unavailable'}</p>
+      <main className="mx-auto max-w-4xl space-y-4 p-6">
+        {needsAccess ? (
+          <>
+            <h1 className="text-2xl font-semibold text-stone-900">
+              Selective Writing access is needed
+            </h1>
+            <p className="text-stone-700">
+              Choose this child’s yearly access before opening a Writing paper.
+            </p>
+            <Link href="/subscription" className="text-sm text-indigo-700 underline">
+              Manage Selective Writing access
+            </Link>
+          </>
+        ) : (
+          <p className="text-red-700">{error || 'Prompt unavailable'}</p>
+        )}
       </main>
     );
   }
