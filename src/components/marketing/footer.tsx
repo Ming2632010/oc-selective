@@ -3,17 +3,17 @@ import { Shield } from 'lucide-react';
 
 export function MarketingFooter() {
   return (
-    <footer className="border-t border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+    <footer className="border-t border-warm-border bg-warm-card">
+      <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 text-sm text-warm-muted sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <p>© {new Date().getFullYear()} TrialSeed. All rights reserved.</p>
         <div className="flex flex-wrap gap-6">
-          <Link href="/privacy" className="hover:text-slate-800">
+          <Link href="/privacy" className="text-warm-muted hover:text-brand-dark">
             Privacy
           </Link>
-          <a href="mailto:hello@trialseed.com.au" className="hover:text-slate-800">
+          <a href="mailto:hello@trialseed.com.au" className="text-warm-muted hover:text-brand-dark">
             Contact
           </a>
-          <Link href="/login" className="hover:text-slate-800">
+          <Link href="/login" className="text-warm-muted hover:text-brand-dark">
             Log in
           </Link>
         </div>

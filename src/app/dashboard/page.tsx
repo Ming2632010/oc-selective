@@ -299,22 +299,22 @@ export default function DashboardPage() {
 
   return (
     <main className="mx-auto max-w-5xl space-y-8 p-6">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-300 pb-4">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-warm-border pb-4">
         <div>
-          <p className="text-sm uppercase tracking-wide text-stone-500">Dashboard</p>
-          <h1 className="text-3xl font-semibold text-stone-900">Hi, {userName}</h1>
+          <p className="text-sm uppercase tracking-wide text-warm-subtle">Dashboard</p>
+          <h1 className="text-3xl font-semibold text-warm-ink">Hi, {userName}</h1>
         </div>
         <div className="flex items-center gap-3">
           <Link
             href="/subscription"
-            className="rounded-md border border-stone-300 px-3 py-2 text-sm text-stone-800"
+            className="rounded-full border border-brand px-4 py-2 text-sm font-medium text-brand hover:bg-[#EDF3ED]"
           >
             Subscription
           </Link>
           <button
             type="button"
             onClick={logout}
-            className="rounded-md border border-stone-300 px-3 py-2 text-sm"
+            className="rounded-full border border-brand px-4 py-2 text-sm font-medium text-brand hover:bg-[#EDF3ED]"
           >
             Log out
           </button>
@@ -331,7 +331,7 @@ export default function DashboardPage() {
         const classes =
           banner.tone === 'warn'
             ? 'border-amber-300 bg-amber-50 text-amber-900'
-            : 'border-sky-300 bg-sky-50 text-sky-900';
+            : 'border-[#C9DDD0] bg-[#EEF6F0] text-brand-dark';
         return (
           <div
             className={`flex flex-wrap items-center justify-between gap-3 rounded-md border px-4 py-3 ${classes}`}
@@ -339,7 +339,7 @@ export default function DashboardPage() {
             <p className="text-sm">{banner.message}</p>
             <Link
               href="/subscription"
-              className="rounded-md bg-stone-900 px-3 py-1.5 text-sm font-medium text-white"
+              className="rounded-full bg-terracotta px-3 py-1.5 text-sm font-medium text-white hover:bg-terracotta-hover"
             >
               Manage subscription
             </Link>
@@ -348,12 +348,12 @@ export default function DashboardPage() {
       })()}
 
       {students.length === 0 ? (
-        <section className="space-y-4 rounded-lg border border-stone-200 bg-white p-6">
+        <section className="space-y-4 rounded-lg border border-warm-border bg-warm-card p-6 shadow-card">
           <div>
-            <h2 className="text-xl font-semibold text-stone-900">
+            <h2 className="text-xl font-semibold text-warm-ink">
               Let&apos;s set up a student profile
             </h2>
-            <p className="mt-1 text-sm text-stone-600">
+            <p className="mt-1 text-sm text-warm-muted">
               Add the student who will be practising so we can track their
               progress across all eleven units.
             </p>
@@ -367,12 +367,12 @@ export default function DashboardPage() {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Student name"
-              className="rounded-md border border-stone-300 px-3 py-2"
+              className="rounded-lg border border-warm-border bg-warm-card px-3 py-2"
             />
             <select
               value={newGrade}
               onChange={(e) => setNewGrade(e.target.value)}
-              className="rounded-md border border-stone-300 px-3 py-2"
+              className="rounded-lg border border-warm-border bg-warm-card px-3 py-2"
             >
               {['Year 4', 'Year 5', 'Year 6', 'Year 7'].map((g) => (
                 <option key={g} value={g}>
@@ -383,7 +383,7 @@ export default function DashboardPage() {
             <button
               type="submit"
               disabled={creating}
-              className="rounded-md bg-stone-900 px-4 py-2 text-white disabled:opacity-60"
+              className="rounded-full bg-terracotta px-4 py-2 font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
             >
               {creating ? 'Creating…' : 'Create profile'}
             </button>
@@ -391,12 +391,12 @@ export default function DashboardPage() {
         </section>
       ) : (
         <>
-          <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-stone-200 bg-white p-4">
+          <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warm-border bg-warm-card p-4 shadow-card">
             <div>
-              <p className="text-sm text-stone-500">Student</p>
-              <p className="text-lg font-medium text-stone-900">
+              <p className="text-sm text-warm-subtle">Student</p>
+              <p className="text-lg font-medium text-warm-ink">
                 {activeStudent?.name}{' '}
-                <span className="text-stone-500">· {activeStudent?.grade}</span>
+                <span className="text-warm-subtle">· {activeStudent?.grade}</span>
               </p>
             </div>
             {students.length > 1 ? (
@@ -406,10 +406,10 @@ export default function DashboardPage() {
                     key={student.id}
                     type="button"
                     onClick={() => onSelectStudent(student.id)}
-                    className={`rounded-md px-3 py-2 text-sm ${
+                    className={`rounded-full px-3 py-2 text-sm ${
                       selectedStudentId === student.id
-                        ? 'bg-stone-900 text-white'
-                        : 'border border-stone-300 text-stone-800'
+                        ? 'bg-brand text-white'
+                        : 'border border-warm-border bg-warm-card text-warm-ink hover:border-brand'
                     }`}
                   >
                     {student.name}
@@ -420,17 +420,17 @@ export default function DashboardPage() {
           </section>
 
           {recommendation ? (
-            <section className="rounded-xl border border-indigo-100 bg-indigo-50 p-5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
+            <section className="rounded-lg border border-[#D6E3D8] bg-[#EEF6F0] p-5 shadow-card">
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand">
                 Next task
               </p>
-              <h2 className="mt-1 text-lg font-semibold text-stone-900">
+              <h2 className="mt-1 text-lg font-semibold text-warm-ink">
                 {recommendation.title}
               </h2>
-              <p className="mt-2 text-sm text-stone-700">{recommendation.reason}</p>
+              <p className="mt-2 text-sm text-warm-muted">{recommendation.reason}</p>
               <Link
                 href={`/dashboard/writing/${recommendation.prompt_id}`}
-                className="mt-4 inline-flex rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                className="mt-4 inline-flex rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover"
               >
                 {recommendation.next_draft === 1
                   ? 'Start this task'
@@ -451,8 +451,8 @@ export default function DashboardPage() {
 
           <section className="space-y-8">
             <div>
-              <h2 className="text-lg font-medium text-stone-900">Writing units</h2>
-              <p className="mt-1 text-sm text-stone-600">
+              <h2 className="text-lg font-medium text-warm-ink">Writing units</h2>
+              <p className="mt-1 text-sm text-warm-muted">
                 Start any unit. Each one has mini practice and three full
                 writing tasks. Term reviews stay locked until you have tried
                 every full writing task in that unit at least once. One
@@ -468,10 +468,10 @@ export default function DashboardPage() {
               return (
               <div key={group} className="space-y-4">
                 <div className="flex items-baseline gap-3">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-stone-900">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-warm-ink">
                     {group}
                   </h3>
-                  <p className="text-sm text-stone-500">
+                  <p className="text-sm text-warm-subtle">
                     {GROUP_BLURBS[group]}
                   </p>
                 </div>
@@ -491,7 +491,7 @@ export default function DashboardPage() {
                       <>
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold uppercase tracking-wide text-stone-400">
+                            <span className="text-sm font-semibold uppercase tracking-wide text-warm-subtle">
                               Unit {unit.id}
                             </span>
                             <span
@@ -502,23 +502,23 @@ export default function DashboardPage() {
                               {status}
                             </span>
                           </div>
-                          <h4 className="text-lg font-semibold text-stone-900">
+                          <h4 className="text-lg font-semibold text-warm-ink">
                             {unit.title}
                           </h4>
-                          <p className="text-sm text-stone-600">{unit.blurb}</p>
+                          <p className="text-sm text-warm-muted">{unit.blurb}</p>
                         </div>
 
                         <div className="mt-5 space-y-1.5">
-                          <div className="flex items-center justify-between text-xs text-stone-500">
+                          <div className="flex items-center justify-between text-xs text-warm-subtle">
                             <span>
                               Mini {miniDone}/{miniTotal || '—'} · Writing{' '}
                               {done}/{total || '—'}
                             </span>
                             <span>{pct}%</span>
                           </div>
-                          <div className="h-2 w-full overflow-hidden rounded-full bg-stone-100">
+                          <div className="h-2 w-full overflow-hidden rounded-full bg-[#F0EBE3]">
                             <div
-                              className="h-full rounded-full bg-stone-900 transition-all"
+                              className="h-full rounded-full bg-terracotta transition-all"
                               style={{ width: `${pct}%` }}
                             />
                           </div>
@@ -530,7 +530,7 @@ export default function DashboardPage() {
                       <Link
                         key={unit.id}
                         href={`/dashboard/unit/${unit.id}`}
-                        className="group flex flex-col justify-between rounded-xl border border-stone-200 bg-white p-5 transition hover:border-stone-400 hover:shadow-sm"
+                        className="group flex flex-col justify-between rounded-lg border border-warm-border bg-warm-card p-5 shadow-card transition hover:border-brand"
                       >
                         {card}
                       </Link>
@@ -538,12 +538,12 @@ export default function DashboardPage() {
                   })}
                 </div>
                 {groupTests.length > 0 ? (
-                  <div className="space-y-3 rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
+                  <div className="space-y-3 rounded-lg border border-[#D6E3D8] bg-[#F4F8F3] p-4">
                     <div>
-                      <h4 className="text-sm font-semibold uppercase tracking-wide text-indigo-800">
+                      <h4 className="text-sm font-semibold uppercase tracking-wide text-brand-dark">
                         Term review
                       </h4>
-                      <p className="mt-1 text-sm text-stone-700">
+                      <p className="mt-1 text-sm text-warm-muted">
                         {groupTests.length} test
                         {groupTests.length === 1 ? '' : 's'} — one for each{' '}
                         {group.toLowerCase()} unit. Unlock a review by trying
@@ -564,14 +564,14 @@ export default function DashboardPage() {
                         const card = (
                           <>
                             <div className="space-y-1.5">
-                              <span className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
+                              <span className="text-xs font-semibold uppercase tracking-wide text-brand">
                                 {unit?.title ?? `Unit ${test.module_id}`}
                               </span>
-                              <p className="font-medium text-stone-900">
+                              <p className="font-medium text-warm-ink">
                                 {test.title}
                               </p>
                             </div>
-                            <p className="mt-3 text-sm text-stone-600">
+                            <p className="mt-3 text-sm text-warm-muted">
                               {test.sat
                                 ? typeof test.overall_score === 'number'
                                   ? `Sat · ${test.overall_score}/25`
@@ -588,7 +588,7 @@ export default function DashboardPage() {
                           return (
                             <div
                               key={test.id}
-                              className="flex flex-col justify-between rounded-lg border border-indigo-100 bg-white/70 p-4 opacity-80"
+                              className="flex flex-col justify-between rounded-lg border border-warm-border bg-warm-card/70 p-4 opacity-80"
                             >
                               {card}
                             </div>
@@ -598,7 +598,7 @@ export default function DashboardPage() {
                           <Link
                             key={test.id}
                             href={href}
-                            className="flex flex-col justify-between rounded-lg border border-indigo-100 bg-white p-4 transition hover:border-indigo-300 hover:shadow-sm"
+                            className="flex flex-col justify-between rounded-lg border border-warm-border bg-warm-card p-4 transition hover:border-brand hover:shadow-card"
                           >
                             {card}
                           </Link>
@@ -614,42 +614,42 @@ export default function DashboardPage() {
             {bonusPapers ? (
               <section
                 data-testid="bonus-exam-papers"
-                className="relative overflow-hidden rounded-2xl border border-amber-300/40 p-6 text-amber-50 shadow-lg"
+                className="relative overflow-hidden rounded-lg border border-brand-dark p-6 text-white shadow-float"
                 style={{
                   background:
-                    'linear-gradient(160deg, #1e293b 0%, #0f766e 42%, #134e4a 72%, #1c1917 100%)',
+                    'linear-gradient(145deg, #1E3F33 0%, #2D5A4A 58%, #4A7A64 100%)',
                 }}
               >
                 <div
                   className="pointer-events-none absolute inset-0 opacity-20"
                   style={{
                     backgroundImage:
-                      'repeating-linear-gradient(0deg, rgba(255,255,255,0.08) 0 1px, transparent 1px 28px), repeating-linear-gradient(90deg, rgba(255,244,214,0.06) 0 1px, transparent 1px 22px)',
+                      'repeating-linear-gradient(0deg, rgba(255,255,255,0.07) 0 1px, transparent 1px 28px), repeating-linear-gradient(90deg, rgba(196,155,122,0.16) 0 1px, transparent 1px 22px)',
                   }}
                   aria-hidden
                 />
                 <div className="relative space-y-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-200">
+                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#F0C9A8]">
                         Bonus exam papers
                       </p>
                       <h3 className="mt-1 text-2xl font-semibold text-white">
                         Exam-style writing, after the course
                       </h3>
-                      <p className="mt-2 max-w-2xl text-sm text-teal-50/90">
+                      <p className="mt-2 max-w-2xl text-sm text-white/80">
                         Original TrialSeed papers in the forms used on recent
                         Selective writing tests. One sitting, 30 minutes, no
                         re-attempt. Unlock them by trying every full writing
                         task and every term review at least once.
                       </p>
                     </div>
-                    <span className="rounded-full border border-amber-200/50 bg-amber-100/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-100">
+                    <span className="rounded-full border border-[#E5B993] bg-[#C49B7A] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
                       {bonusPapers.access.locked ? 'Locked' : 'Unlocked'}
                     </span>
                   </div>
                   {bonusPapers.access.locked ? (
-                    <p className="rounded-lg bg-black/20 px-3 py-2 text-sm text-amber-100">
+                    <p className="rounded-lg border border-white/15 bg-brand-dark/45 px-3 py-2 text-sm text-white/90">
                       {bonusPapers.lock_reason ||
                         `${bonusPapers.access.writingTried}/${bonusPapers.access.writingTotal} writing · ${bonusPapers.access.reviewsSat}/${bonusPapers.access.reviewsTotal} reviews`}
                     </p>
@@ -671,11 +671,11 @@ export default function DashboardPage() {
                         : `/dashboard/writing/${paper.id}`;
                       const card = (
                         <>
-                          <p className="text-xs font-semibold uppercase tracking-wide text-amber-200">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-[#EEC7A7]">
                             {typeLabel(paper.prompt_type)}
                           </p>
                           <p className="mt-1 font-medium text-white">{paper.title}</p>
-                          <p className="mt-3 text-sm text-teal-50/85">
+                          <p className="mt-3 text-sm text-white/75">
                             {paper.sat
                               ? typeof paper.overall_score === 'number'
                                 ? `Sat · ${paper.overall_score}/25`
@@ -690,7 +690,7 @@ export default function DashboardPage() {
                         return (
                           <div
                             key={paper.id}
-                            className="rounded-xl border border-white/15 bg-white/10 p-4 opacity-80"
+                            className="rounded-lg border border-white/20 bg-brand-dark/25 p-4 opacity-80"
                           >
                             {card}
                           </div>
@@ -700,7 +700,7 @@ export default function DashboardPage() {
                         <Link
                           key={paper.id}
                           href={href}
-                          className="rounded-xl border border-amber-200/30 bg-white/12 p-4 transition hover:border-amber-200/70 hover:bg-white/18"
+                          className="rounded-lg border border-[#E5B993]/60 bg-brand-dark/25 p-4 transition hover:border-[#F0C9A8] hover:bg-brand-dark/40"
                         >
                           {card}
                         </Link>

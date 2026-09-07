@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { getAppUrl, getStripeClient } from '@/lib/stripe';
-import { isSubject, priceIdForSubject } from '@/lib/subjects';
+import { isAvailableSubject, isSubject, priceIdForSubject } from '@/lib/subjects';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -35,6 +35,12 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'subject must be one of: writing, math, thinking, reading' },
         { status: 400 },
+      );
+    }
+    if (!isAvailableSubject(subject)) {
+      return NextResponse.json(
+        { error: 'This subject is coming soon. Selective Writing is available now.' },
+        { status: 409 },
       );
     }
 
