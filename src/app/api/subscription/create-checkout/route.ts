@@ -3,6 +3,7 @@ import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { getAppUrl, getStripeClient } from '@/lib/stripe';
 import { isAvailableSubject, isSubject, priceIdForSubject } from '@/lib/subjects';
+import { isRateLimited } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,6 +22,9 @@ export async function POST(request: Request) {
     const userId = await getAuthUserId(request);
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (isRateLimited(`checkout:${userId}`, 5, 10 * 60 * 1000)) {
+      return NextResponse.json({ error: 'Too many checkout attempts. Try again shortly.' }, { status: 429 });
     }
 
     let body: CheckoutBody;
