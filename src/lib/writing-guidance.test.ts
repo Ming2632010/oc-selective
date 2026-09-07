@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  bonusExamAccess,
+  bonusExamLockMessage,
   highestUnlockedUnit,
   isUnitUnlocked,
   maxDraftForPrompt,
@@ -66,6 +68,48 @@ describe('termReviewAccess', () => {
     assert.equal(missing.locked, true);
     assert.equal(missing.tried, 0);
     assert.equal(missing.total, 0);
+  });
+});
+
+describe('bonusExamAccess', () => {
+  const complete = Array.from({ length: 11 }, (_, index) => ({
+    module_id: index + 1,
+    prompt_count: 3,
+    completed_count: 3,
+    is_completed: true,
+  }));
+
+  it('stays locked until every writing task and term review is tried', () => {
+    const locked = bonusExamAccess({
+      progress: complete,
+      reviewsSat: 10,
+      reviewsTotal: 11,
+    });
+    assert.equal(locked.locked, true);
+    assert.match(bonusExamLockMessage(locked), /33\/33 writing · 10\/11 reviews/);
+  });
+
+  it('unlocks when all eleven units and all reviews have an attempt', () => {
+    const open = bonusExamAccess({
+      progress: complete,
+      reviewsSat: 11,
+      reviewsTotal: 11,
+    });
+    assert.equal(open.locked, false);
+    assert.equal(bonusExamLockMessage(open), '');
+  });
+
+  it('stays locked when writing tasks are still unfinished', () => {
+    const partial = complete.map((row, index) =>
+      index === 0 ? { ...row, completed_count: 2, is_completed: false } : row,
+    );
+    const locked = bonusExamAccess({
+      progress: partial,
+      reviewsSat: 11,
+      reviewsTotal: 11,
+    });
+    assert.equal(locked.locked, true);
+    assert.match(bonusExamLockMessage(locked), /32\/33 writing · 11\/11 reviews/);
   });
 });
 
@@ -148,6 +192,22 @@ describe('recommendNextTask', () => {
     assert.equal(rec.module_id, 2);
     assert.equal(rec.next_draft, 1);
     assert.equal(maxDraftForPrompt(attempts, 'p1'), 3);
+  });
+
+  it('does not recommend bonus exam papers as the next practice task', () => {
+    const withBonus: PromptSummary[] = [
+      {
+        id: 'b1',
+        title: 'Night market goes dark',
+        prompt_type: 'news_report',
+        module_id: 1,
+        kind: 'bonus',
+      },
+      ...prompts,
+    ];
+    const rec = recommendNextTask(withBonus, [], 11);
+    assert.ok(rec);
+    assert.equal(rec.prompt_id, 'p1');
   });
 
   it('does not recommend term-review tests as the next practice task', () => {

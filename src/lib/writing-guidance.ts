@@ -19,7 +19,7 @@ export type PromptSummary = {
   title: string;
   prompt_type: string;
   module_id: number;
-  kind?: 'practice' | 'test';
+  kind?: 'practice' | 'test' | 'bonus';
 };
 
 export type AttemptSummary = {
@@ -93,6 +93,48 @@ export function termReviewLockMessage(access: TermReviewAccess): string {
   return `Try every full writing task in this unit at least once (${access.tried}/${access.total} tried).`;
 }
 
+export type BonusExamAccess = {
+  locked: boolean;
+  writingTried: number;
+  writingTotal: number;
+  reviewsSat: number;
+  reviewsTotal: number;
+};
+
+/**
+ * Bonus exam papers stay locked until every full writing task in units 1–11
+ * and every term review has been attempted at least once.
+ */
+export function bonusExamAccess(input: {
+  progress: UnitProgressRow[];
+  reviewsSat: number;
+  reviewsTotal: number;
+}): BonusExamAccess {
+  const units = input.progress.filter(
+    (row) => row.module_id >= 1 && row.module_id <= ALL_UNITS_OPEN,
+  );
+  const writingTried = units.reduce((sum, row) => sum + row.completed_count, 0);
+  const writingTotal = units.reduce((sum, row) => sum + row.prompt_count, 0);
+  const allWritingDone =
+    units.length === ALL_UNITS_OPEN &&
+    writingTotal > 0 &&
+    writingTried >= writingTotal;
+  const allReviewsDone =
+    input.reviewsTotal > 0 && input.reviewsSat >= input.reviewsTotal;
+  return {
+    locked: !(allWritingDone && allReviewsDone),
+    writingTried,
+    writingTotal,
+    reviewsSat: input.reviewsSat,
+    reviewsTotal: input.reviewsTotal,
+  };
+}
+
+export function bonusExamLockMessage(access: BonusExamAccess): string {
+  if (!access.locked) return '';
+  return `Unlock these exam papers by trying every full writing task and every term review at least once (${access.writingTried}/${access.writingTotal} writing · ${access.reviewsSat}/${access.reviewsTotal} reviews).`;
+}
+
 export function weakestDimension(
   attempts: AttemptSummary[],
   lookback = 6,
@@ -144,7 +186,7 @@ export function recommendNextTask(
 ): NextTaskRecommendation | null {
   const available = prompts
     .filter((prompt) => prompt.module_id <= unlockedUnit)
-    .filter((prompt) => prompt.kind !== 'test')
+    .filter((prompt) => prompt.kind !== 'test' && prompt.kind !== 'bonus')
     .slice()
     .sort((a, b) => {
       if (a.module_id !== b.module_id) return a.module_id - b.module_id;

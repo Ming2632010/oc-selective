@@ -13,14 +13,14 @@ CREATE TABLE IF NOT EXISTS prompts (
       'email'
     )
   ),
-  module_id INTEGER NOT NULL CHECK (module_id BETWEEN 1 AND 11),
+  module_id INTEGER NOT NULL CHECK (module_id BETWEEN 1 AND 12),
   hint_points JSONB NOT NULL DEFAULT '[]'::jsonb,
   sample_answer_high TEXT NOT NULL,
   sample_answer_medium TEXT NOT NULL,
   is_locked BOOLEAN NOT NULL DEFAULT TRUE,
   time_limit_minutes INTEGER NOT NULL DEFAULT 30,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
-  kind TEXT NOT NULL DEFAULT 'practice' CHECK (kind IN ('practice', 'test')),
+  kind TEXT NOT NULL DEFAULT 'practice' CHECK (kind IN ('practice', 'test', 'bonus')),
   stimulus_image TEXT,
   stimulus_quote TEXT,
   purposes TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],

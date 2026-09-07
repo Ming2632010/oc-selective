@@ -6,10 +6,12 @@ import {
   scoreWarmupAnswers,
   warmupBankForPrompt,
 } from '@/lib/warmup-questions';
-import { termReviewLockMessage } from '@/lib/writing-guidance';
+import { bonusExamLockMessage, termReviewLockMessage } from '@/lib/writing-guidance';
+import { isExamStyleKind } from '@/lib/seed-prompts';
 import {
   assertOwnedStudent,
   ensureWritingEnhancements,
+  getBonusExamAccess,
   getTermReviewAccess,
   hasCompletedWarmup,
 } from '@/lib/writing-state';
@@ -19,6 +21,22 @@ export const dynamic = 'force-dynamic';
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+async function assertExamWarmupAccess(
+  studentId: string,
+  kind: string,
+  moduleId: number,
+): Promise<string | null> {
+  if (!isExamStyleKind(kind)) {
+    return 'Warm-up is only for exam papers';
+  }
+  if (kind === 'bonus') {
+    const access = await getBonusExamAccess(studentId);
+    return access.locked ? bonusExamLockMessage(access) : null;
+  }
+  const access = await getTermReviewAccess(studentId, moduleId);
+  return access.locked ? termReviewLockMessage(access) : null;
 }
 
 export async function GET(request: Request) {
@@ -50,14 +68,18 @@ export async function GET(request: Request) {
        FROM prompts WHERE id = $1 AND is_active = TRUE LIMIT 1`,
       [promptId],
     );
-    if (!prompt.rows[0] || prompt.rows[0].kind !== 'test') {
-      return NextResponse.json({ error: 'Warm-up is only for term reviews' }, { status: 400 });
+    if (!prompt.rows[0]) {
+      return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
     }
-    const access = await getTermReviewAccess(studentId, prompt.rows[0].module_id);
-    if (access.locked) {
+    const warmupLock = await assertExamWarmupAccess(
+      studentId,
+      prompt.rows[0].kind,
+      prompt.rows[0].module_id,
+    );
+    if (warmupLock) {
       return NextResponse.json(
-        { error: termReviewLockMessage(access) },
-        { status: 403 },
+        { error: warmupLock },
+        { status: warmupLock.startsWith('Warm-up') ? 400 : 403 },
       );
     }
 
@@ -116,14 +138,18 @@ export async function POST(request: Request) {
        FROM prompts WHERE id = $1 AND is_active = TRUE LIMIT 1`,
       [promptId],
     );
-    if (!prompt.rows[0] || prompt.rows[0].kind !== 'test') {
-      return NextResponse.json({ error: 'Warm-up is only for term reviews' }, { status: 400 });
+    if (!prompt.rows[0]) {
+      return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
     }
-    const access = await getTermReviewAccess(studentId, prompt.rows[0].module_id);
-    if (access.locked) {
+    const warmupLock = await assertExamWarmupAccess(
+      studentId,
+      prompt.rows[0].kind,
+      prompt.rows[0].module_id,
+    );
+    if (warmupLock) {
       return NextResponse.json(
-        { error: termReviewLockMessage(access) },
-        { status: 403 },
+        { error: warmupLock },
+        { status: warmupLock.startsWith('Warm-up') ? 400 : 403 },
       );
     }
 

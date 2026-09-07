@@ -13,6 +13,7 @@ ALTER TABLE prompts ADD CONSTRAINT prompts_prompt_type_check CHECK (
   )
 );
 
--- 2) Widen the allowed unit range (stored in module_id) from 1..6 to 1..11.
+-- 2) Widen the allowed unit range (stored in module_id) from 1..6 to 1..12
+-- so units 1–11 plus the bonus exam bank (module 12) can be stored.
 ALTER TABLE prompts DROP CONSTRAINT IF EXISTS prompts_module_id_check;
-ALTER TABLE prompts ADD CONSTRAINT prompts_module_id_check CHECK (module_id BETWEEN 1 AND 11);
+ALTER TABLE prompts ADD CONSTRAINT prompts_module_id_check CHECK (module_id BETWEEN 1 AND 12);

@@ -45,7 +45,7 @@ type Prompt = {
   hint_points: string[];
   sample_answer_high?: string;
   sample_answer_medium?: string;
-  kind?: 'practice' | 'test';
+  kind?: 'practice' | 'test' | 'bonus';
 };
 
 export default function WritingResultsPage() {
@@ -108,9 +108,11 @@ export default function WritingResultsPage() {
             ? promptData.prompt.hint_points
             : [],
           kind:
-            promptData.prompt.kind === 'test' || promptData.kind === 'test'
-              ? 'test'
-              : 'practice',
+            promptData.prompt.kind === 'bonus' || promptData.kind === 'bonus'
+              ? 'bonus'
+              : promptData.prompt.kind === 'test' || promptData.kind === 'test'
+                ? 'test'
+                : 'practice',
         });
         setSamplesUnlocked(Boolean(promptData.samples_unlocked));
         setAwards(
@@ -192,7 +194,7 @@ export default function WritingResultsPage() {
     grammar: 0,
   };
 
-  const isTest = prompt.kind === 'test';
+  const isTest = prompt.kind === 'test' || prompt.kind === 'bonus';
   const latestDraft = attempts[attempts.length - 1]?.draft_number ?? attempt.draft_number;
 
   return (
@@ -200,7 +202,9 @@ export default function WritingResultsPage() {
       <header className="border-b border-stone-300 pb-4">
         <p className="text-sm uppercase tracking-wide text-stone-500">
           {isTest
-            ? 'Results · Term review · one sitting'
+            ? prompt.kind === 'bonus'
+              ? 'Results · Bonus exam paper · one sitting'
+              : 'Results · Term review · one sitting'
             : `Results · Draft ${attempt.draft_number}/3`}
         </p>
         <h1 className="text-3xl font-semibold">{prompt.title}</h1>

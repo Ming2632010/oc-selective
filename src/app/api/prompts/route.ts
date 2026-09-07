@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
-import { termReviewLockMessage } from '@/lib/writing-guidance';
+import { bonusExamLockMessage, termReviewLockMessage } from '@/lib/writing-guidance';
+import { isExamStyleKind } from '@/lib/seed-prompts';
 import {
   assertOwnedStudent,
   ensureWritingEnhancements,
+  getBonusExamAccess,
   getTermReviewAccess,
   hasCompletedWarmup,
 } from '@/lib/writing-state';
@@ -44,8 +46,8 @@ function stripSamples(prompt: PromptRow) {
   return rest;
 }
 
-function isTestKind(kind: string | null | undefined): boolean {
-  return kind === 'test';
+function isExamKind(kind: string | null | undefined): boolean {
+  return isExamStyleKind(kind);
 }
 
 export async function GET(request: Request) {
@@ -77,7 +79,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
       }
 
-      const isTest = isTestKind(prompt.kind);
+      const isExam = isExamKind(prompt.kind);
       let includeSamples = false;
       let maxDraft = 0;
       let warmupCompleted = false;
@@ -98,14 +100,20 @@ export async function GET(request: Request) {
           [studentId, promptId],
         );
         maxDraft = attempts.rows[0]?.draft_number ?? 0;
-        includeSamples = !isTest && maxDraft >= 3;
-        warmupCompleted = isTest
+        includeSamples = !isExam && maxDraft >= 3;
+        warmupCompleted = isExam
           ? await hasCompletedWarmup(studentId, promptId)
           : true;
-        if (isTest && maxDraft < 1) {
-          const access = await getTermReviewAccess(studentId, prompt.module_id);
-          reviewLocked = access.locked;
-          lockReason = termReviewLockMessage(access);
+        if (isExam && maxDraft < 1) {
+          if (prompt.kind === 'bonus') {
+            const access = await getBonusExamAccess(studentId);
+            reviewLocked = access.locked;
+            lockReason = bonusExamLockMessage(access);
+          } else {
+            const access = await getTermReviewAccess(studentId, prompt.module_id);
+            reviewLocked = access.locked;
+            lockReason = termReviewLockMessage(access);
+          }
         }
       }
 
@@ -115,8 +123,8 @@ export async function GET(request: Request) {
           : { ...stripSamples(prompt), is_locked: reviewLocked },
         samples_unlocked: includeSamples,
         max_draft: maxDraft,
-        max_attempts: isTest ? 1 : 3,
-        kind: isTest ? 'test' : 'practice',
+        max_attempts: isExam ? 1 : 3,
+        kind: isExam ? prompt.kind : 'practice',
         unit_locked: false,
         warmup_completed: warmupCompleted,
         lock_reason: reviewLocked ? lockReason : '',

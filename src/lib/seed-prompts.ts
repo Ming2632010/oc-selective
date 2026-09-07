@@ -3,10 +3,11 @@
  * (see src/lib/units.ts) and `prompt_type` matches that Unit's text type.
  */
 import type { DecodeGuide } from './decode-guide';
+import { BONUS_EXAM_PROMPTS } from './seed-bonus-exams';
 import { EXTRA_WRITING_PROMPTS } from './seed-prompts-extra';
 import type { WritingType } from './units';
 
-export type PromptKind = 'practice' | 'test';
+export type PromptKind = 'practice' | 'test' | 'bonus';
 
 export type SeedPrompt = {
   title: string;
@@ -348,6 +349,7 @@ export const CORE_WRITING_PROMPTS: SeedPrompt[] = [
 export const SEED_PROMPTS: SeedPrompt[] = [
   ...CORE_WRITING_PROMPTS,
   ...EXTRA_WRITING_PROMPTS,
+  ...BONUS_EXAM_PROMPTS,
 ].map((prompt) => ({
   ...prompt,
   kind: prompt.kind ?? 'practice',
@@ -355,4 +357,8 @@ export const SEED_PROMPTS: SeedPrompt[] = [
 
 export function isTestPrompt(kind: string | null | undefined): boolean {
   return kind === 'test';
+}
+
+export function isExamStyleKind(kind: string | null | undefined): boolean {
+  return kind === 'test' || kind === 'bonus';
 }
