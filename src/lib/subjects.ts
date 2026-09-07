@@ -2,6 +2,9 @@ export const SUBJECTS = ['writing', 'math', 'thinking', 'reading'] as const;
 
 export type Subject = (typeof SUBJECTS)[number];
 
+/** Subjects that can be bought today. The remaining subjects stay visible as coming soon. */
+export const AVAILABLE_SUBJECTS = ['writing'] as const satisfies readonly Subject[];
+
 export const SUBJECT_LABELS: Record<Subject, string> = {
   writing: 'Writing',
   math: 'Math',
@@ -21,6 +24,10 @@ export const SUBJECT_PRICE_AUD = 99;
 
 export function isSubject(value: unknown): value is Subject {
   return typeof value === 'string' && (SUBJECTS as readonly string[]).includes(value);
+}
+
+export function isAvailableSubject(subject: Subject): boolean {
+  return (AVAILABLE_SUBJECTS as readonly Subject[]).includes(subject);
 }
 
 /**

@@ -9,6 +9,7 @@ import {
   SUBJECT_BLURBS,
   SUBJECT_LABELS,
   SUBJECT_PRICE_AUD,
+  isAvailableSubject,
   type Subject,
 } from '@/lib/subjects';
 
@@ -115,9 +116,9 @@ export default function SubscriptionPage() {
           <p className="text-sm uppercase tracking-wide text-warm-subtle">Subscription</p>
           <h1 className="text-3xl font-semibold text-warm-ink">Choose your subjects</h1>
           <p className="mt-1 text-sm text-warm-muted">
-            Each subject is ${SUBJECT_PRICE_AUD} AUD for one year. Access lasts
-            twelve months from the day you buy. You can enter a promotion code
-            at checkout.
+            Selective Writing is ${SUBJECT_PRICE_AUD} AUD for one year. Access
+            lasts twelve months from the day you buy. More subjects are on the
+            way.
           </p>
         </div>
         <Link
@@ -144,6 +145,7 @@ export default function SubscriptionPage() {
         <section className="grid gap-4 sm:grid-cols-2">
           {SUBJECTS.map((subject) => {
             const active = activeBySubject.get(subject);
+            const available = isAvailableSubject(subject);
             return (
               <div
                 key={subject}
@@ -162,13 +164,23 @@ export default function SubscriptionPage() {
                     <span className="whitespace-nowrap rounded-full bg-[#E3EFE6] px-2.5 py-0.5 text-xs font-medium text-brand-dark">
                       Active
                     </span>
+                  ) : !available ? (
+                    <span className="whitespace-nowrap rounded-full bg-[#F0EBE3] px-2.5 py-0.5 text-xs font-medium text-warm-muted">
+                      Coming soon
+                    </span>
                   ) : null}
                 </div>
 
-                <p className="mt-4 font-serif text-3xl font-semibold text-warm-ink">
-                  ${SUBJECT_PRICE_AUD} AUD{' '}
-                  <span className="text-base font-normal text-warm-subtle">/ year</span>
-                </p>
+                {available || active ? (
+                  <p className="mt-4 font-serif text-3xl font-semibold text-warm-ink">
+                    ${SUBJECT_PRICE_AUD} AUD{' '}
+                    <span className="text-base font-normal text-warm-subtle">/ year</span>
+                  </p>
+                ) : (
+                  <p className="mt-4 font-serif text-2xl font-semibold text-warm-ink">
+                    Coming soon
+                  </p>
+                )}
 
                 {active ? (
                   <div className="mt-4 flex-1 space-y-2 text-sm text-warm-muted">
@@ -188,7 +200,7 @@ export default function SubscriptionPage() {
                       {managing ? 'Opening…' : 'View receipts'}
                     </button>
                   </div>
-                ) : (
+                ) : available ? (
                   <button
                     type="button"
                     onClick={() => subscribe(subject)}
@@ -199,6 +211,11 @@ export default function SubscriptionPage() {
                       ? 'Redirecting…'
                       : `Buy 1 year · $${SUBJECT_PRICE_AUD}`}
                   </button>
+                ) : (
+                  <p className="mt-6 border-t border-warm-divider pt-4 text-sm leading-relaxed text-warm-muted">
+                    We&apos;re carefully preparing this subject. It will open at the
+                    same ${SUBJECT_PRICE_AUD} yearly price.
+                  </p>
                 )}
               </div>
             );
