@@ -66,15 +66,15 @@ export function SubjectChat({
   }
 
   return (
-    <section className="flex h-full min-h-[18rem] flex-col rounded-xl border border-stone-200 bg-white p-5">
-      <h2 className="text-lg font-semibold text-stone-900">Writing chat</h2>
-      <p className="mt-1 text-sm text-stone-600">
+    <section className="flex h-full min-h-[18rem] flex-col rounded-lg border border-warm-border bg-warm-card p-5 shadow-card">
+      <h2 className="text-lg font-semibold text-warm-ink">Writing chat</h2>
+      <p className="mt-1 text-sm text-warm-muted">
         Notes between parent and student about this subject.
       </p>
 
       <ul className="mt-4 max-h-56 flex-1 space-y-2 overflow-y-auto">
         {messages.length === 0 ? (
-          <li className="text-sm text-stone-500">
+          <li className="text-sm text-warm-subtle">
             No messages yet. Say what went well, or what to practise next.
           </li>
         ) : (
@@ -83,11 +83,11 @@ export function SubjectChat({
               key={message.id}
               className={`max-w-[90%] rounded-lg px-3 py-2 text-sm ${
                 message.sender === 'parent'
-                  ? 'ml-auto bg-indigo-50 text-stone-800'
-                  : 'bg-stone-100 text-stone-800'
+                  ? 'ml-auto bg-[#F5EEE6] text-warm-ink'
+                  : 'bg-[#F0EBE3] text-warm-ink'
               }`}
             >
-              <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
+              <p className="text-xs font-medium uppercase tracking-wide text-warm-subtle">
                 {message.sender === 'parent' ? 'Parent' : 'Student'}
               </p>
               <p className="mt-0.5 whitespace-pre-wrap">{message.body}</p>
@@ -108,6 +108,7 @@ export function SubjectChat({
               name="sender"
               checked={sender === 'parent'}
               onChange={() => setSender('parent')}
+              className="accent-brand"
             />
             Parent
           </label>
@@ -117,6 +118,7 @@ export function SubjectChat({
               name="sender"
               checked={sender === 'student'}
               onChange={() => setSender('student')}
+              className="accent-brand"
             />
             Student
           </label>
@@ -127,12 +129,12 @@ export function SubjectChat({
             onChange={(e) => setBody(e.target.value)}
             maxLength={2000}
             placeholder="Write a short note…"
-            className="min-w-0 flex-1 rounded-md border border-stone-300 px-3 py-2 text-sm"
+            className="min-w-0 flex-1 rounded-lg border border-warm-border bg-warm-card px-3 py-2 text-sm"
           />
           <button
             type="submit"
             disabled={sending || !body.trim()}
-            className="rounded-md bg-stone-900 px-3 py-2 text-sm text-white disabled:opacity-50"
+            className="rounded-full bg-terracotta px-3 py-2 text-sm font-medium text-white hover:bg-terracotta-hover disabled:opacity-50"
           >
             {sending ? 'Sending…' : 'Send'}
           </button>
