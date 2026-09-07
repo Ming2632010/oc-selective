@@ -12,17 +12,10 @@ ALTER TABLE user_subscriptions
 ALTER TABLE user_subscriptions
   ADD COLUMN IF NOT EXISTS currency TEXT;
 
--- Legacy account-level licences are assigned to the oldest active child. Parents
--- with additional children can buy a separate licence for each of them.
-UPDATE user_subscriptions subscription
-SET student_id = (
-  SELECT student.id
-  FROM students student
-  WHERE student.user_id = subscription.user_id AND student.is_active = TRUE
-  ORDER BY student.created_at ASC
-  LIMIT 1
-)
-WHERE subscription.student_id IS NULL;
+-- Legacy account-level licences deliberately stay unassigned: the database has
+-- no evidence of which child the parent intended to licence. Allocate them
+-- through the parent-facing migration/admin flow before enforcing per-child
+-- access for an existing family.
 
 CREATE INDEX IF NOT EXISTS idx_user_subscriptions_student_subject_status
   ON user_subscriptions (student_id, subject, status);
