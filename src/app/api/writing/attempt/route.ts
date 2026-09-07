@@ -171,6 +171,12 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+    if (content.length > 20_000 || (planContent?.length ?? 0) > 10_000) {
+      return NextResponse.json(
+        { error: 'Writing responses are limited to 20,000 characters.' },
+        { status: 413 },
+      );
+    }
 
     if (![1, 2, 3].includes(draftNumber)) {
       return NextResponse.json(
