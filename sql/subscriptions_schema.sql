@@ -21,6 +21,20 @@ CREATE TABLE IF NOT EXISTS user_subscriptions (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Existing production tables predate per-child licences. Add the columns
+-- before creating their indexes; CREATE TABLE IF NOT EXISTS does not alter an
+-- already-existing table.
+ALTER TABLE user_subscriptions
+  ADD COLUMN IF NOT EXISTS student_id UUID REFERENCES students (id) ON DELETE CASCADE;
+ALTER TABLE user_subscriptions
+  ADD COLUMN IF NOT EXISTS stripe_promotion_code_id TEXT;
+ALTER TABLE user_subscriptions
+  ADD COLUMN IF NOT EXISTS stripe_coupon_id TEXT;
+ALTER TABLE user_subscriptions
+  ADD COLUMN IF NOT EXISTS amount_paid INTEGER;
+ALTER TABLE user_subscriptions
+  ADD COLUMN IF NOT EXISTS currency TEXT;
+
 -- One row per Stripe subscription. NULL allowed (migrated rows have no Stripe id),
 -- and Postgres permits multiple NULLs under a UNIQUE constraint. This lets the
 -- webhook upsert by stripe_subscription_id while still allowing a parent to hold
