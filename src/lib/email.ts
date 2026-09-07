@@ -61,8 +61,8 @@ function resetFromAddress(): string {
 }
 
 /**
- * Best-effort password-reset email. Missing Resend config logs the reset URL
- * instead of throwing so the request API can still return a generic success.
+ * Best-effort password-reset email. Production never logs reset URLs, because
+ * anyone with log access could otherwise take over an account.
  */
 export async function sendPasswordResetEmail(options: {
   to: string;
@@ -71,9 +71,13 @@ export async function sendPasswordResetEmail(options: {
 }): Promise<boolean> {
   const client = getResend();
   if (!client) {
-    console.warn(
-      `[email] RESEND_API_KEY not set; password reset URL for ${options.to}: ${options.resetUrl}`,
-    );
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(
+        `[email] RESEND_API_KEY not set; password reset URL for ${options.to}: ${options.resetUrl}`,
+      );
+    } else {
+      console.error('[email] password reset email not sent: RESEND_API_KEY is not configured');
+    }
     return false;
   }
 

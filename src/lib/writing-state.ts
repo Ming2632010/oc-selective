@@ -35,7 +35,7 @@ import {
 let schemaReady = false;
 let seededLength = 0;
 let seededPrompts = 0;
-const WRITING_SCHEMA = 11;
+const WRITING_SCHEMA = 12;
 let appliedSchema = 0;
 
 const SEEDED_DRILL_COUNT =
@@ -232,6 +232,21 @@ export async function ensureWritingEnhancements(): Promise<void> {
       completed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (student_id, prompt_id)
     )
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS writing_exam_sessions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      student_id UUID NOT NULL REFERENCES students (id) ON DELETE CASCADE,
+      prompt_id UUID NOT NULL REFERENCES prompts (id) ON DELETE CASCADE,
+      started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      deadline_at TIMESTAMPTZ NOT NULL,
+      submitted_at TIMESTAMPTZ,
+      UNIQUE (student_id, prompt_id)
+    )
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_writing_exam_sessions_deadline
+      ON writing_exam_sessions (student_id, prompt_id, deadline_at)
   `);
 
   await query(`
@@ -1065,12 +1080,104 @@ export async function unlockExtraPack(studentId: string, moduleId: number) {
   };
 }
 
-export async function assertOwnedStudent(userId: string, studentId: string) {
+export type WritingAccessState = 'granted' | 'unlicensed' | 'not-found';
+
+export async function getWritingAccessState(
+  userId: string,
+  studentId: string,
+): Promise<WritingAccessState> {
   const result = await query<{ id: string }>(
-    `SELECT id FROM students WHERE id = $1 AND user_id = $2 LIMIT 1`,
+    `SELECT student.id
+     FROM students student
+     WHERE student.id = $1
+       AND student.user_id = $2
+     LIMIT 1`,
     [studentId, userId],
   );
+  if (!result.rows[0]) return 'not-found';
+
+  const entitlement = await query<{ id: string }>(
+    `SELECT id FROM user_subscriptions
+     WHERE student_id = $1
+       AND user_id = $2
+       AND subject = 'writing'
+       AND status = 'active'
+       AND (expires_at IS NULL OR expires_at > NOW())
+     LIMIT 1`,
+    [studentId, userId],
+  );
+  return entitlement.rows[0] ? 'granted' : 'unlicensed';
+}
+
+export async function assertOwnedStudent(userId: string, studentId: string) {
+  return (await getWritingAccessState(userId, studentId)) === 'granted'
+    ? { id: studentId }
+    : null;
+}
+
+export type WritingExamSession = {
+  started_at: Date;
+  deadline_at: Date;
+  submitted_at: Date | null;
+};
+
+export async function getWritingExamSession(
+  studentId: string,
+  promptId: string,
+): Promise<WritingExamSession | null> {
+  const result = await query<WritingExamSession>(
+    `SELECT started_at, deadline_at, submitted_at
+     FROM writing_exam_sessions
+     WHERE student_id = $1 AND prompt_id = $2
+     LIMIT 1`,
+    [studentId, promptId],
+  );
   return result.rows[0] ?? null;
+}
+
+/**
+ * Starts an exam only once. Reopening the paper returns the original deadline,
+ * so changing the browser clock or refreshing cannot extend a sitting.
+ */
+export async function startWritingExamSession(
+  studentId: string,
+  promptId: string,
+  timeLimitMinutes: number,
+): Promise<WritingExamSession> {
+  const durationSeconds = Math.max(60, Math.floor(timeLimitMinutes * 60));
+  await query(
+    `INSERT INTO writing_exam_sessions (student_id, prompt_id, deadline_at)
+     VALUES ($1, $2, NOW() + ($3 * INTERVAL '1 second'))
+     ON CONFLICT (student_id, prompt_id) DO NOTHING`,
+    [studentId, promptId, durationSeconds],
+  );
+
+  const session = await getWritingExamSession(studentId, promptId);
+  if (!session) {
+    throw new Error('Could not start exam session');
+  }
+  return session;
+}
+
+/**
+ * Claims a live exam session immediately before saving an attempt. A second
+ * simultaneous submission and any late submission both fail this update.
+ */
+export async function claimWritingExamSubmission(
+  studentId: string,
+  promptId: string,
+): Promise<boolean> {
+  const result = await query(
+    `UPDATE writing_exam_sessions
+     SET submitted_at = NOW()
+     WHERE student_id = $1
+       AND prompt_id = $2
+       AND submitted_at IS NULL
+       AND deadline_at >= NOW()
+     RETURNING id`,
+    [studentId, promptId],
+  );
+  return (result.rowCount ?? result.rows.length) > 0;
 }
 
 type PatchRow = {

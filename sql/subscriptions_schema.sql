@@ -6,11 +6,16 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TABLE IF NOT EXISTS user_subscriptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  student_id UUID REFERENCES students (id) ON DELETE CASCADE,
   subject TEXT NOT NULL CHECK (subject IN ('writing', 'math', 'thinking', 'reading')),
   status TEXT NOT NULL DEFAULT 'active'
     CHECK (status IN ('active', 'expired', 'cancelled')),
   stripe_subscription_id TEXT,
   stripe_price_id TEXT,
+  stripe_promotion_code_id TEXT,
+  stripe_coupon_id TEXT,
+  amount_paid INTEGER,
+  currency TEXT,
   expires_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -28,6 +33,8 @@ CREATE INDEX IF NOT EXISTS idx_user_subscriptions_user
   ON user_subscriptions (user_id);
 CREATE INDEX IF NOT EXISTS idx_user_subscriptions_user_subject_status
   ON user_subscriptions (user_id, subject, status);
+CREATE INDEX IF NOT EXISTS idx_user_subscriptions_student_subject_status
+  ON user_subscriptions (student_id, subject, status);
 
 DROP TRIGGER IF EXISTS user_subscriptions_set_updated_at ON user_subscriptions;
 CREATE TRIGGER user_subscriptions_set_updated_at

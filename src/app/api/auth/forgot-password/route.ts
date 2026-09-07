@@ -7,6 +7,7 @@ import {
   createPasswordResetToken,
   shouldExposeDevResetUrl,
 } from '@/lib/password-reset';
+import { isRateLimited } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -49,6 +50,9 @@ export async function POST(request: Request) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
     }
+    if (isRateLimited(`forgot-password:${email}`, 3, 30 * 60 * 1000)) {
+      return genericResponse();
+    }
 
     const result = await query<{ id: string; email: string; full_name: string }>(
       `SELECT id, email, full_name FROM users WHERE email = $1 LIMIT 1`,
@@ -69,9 +73,7 @@ export async function POST(request: Request) {
 
     return genericResponse(resetUrl);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Failed to send reset email';
-    console.error('[auth/forgot-password]', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('[auth/forgot-password]', error);
+    return genericResponse();
   }
 }

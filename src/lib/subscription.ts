@@ -37,6 +37,12 @@ export function isSubscriptionActive(
   return Number.isFinite(t) && t > Date.now();
 }
 
+export function activeWritingEntitlementSql(): string {
+  return `status = 'active'
+          AND subject = 'writing'
+          AND (expires_at IS NULL OR expires_at > NOW())`;
+}
+
 /** Infer the human-facing plan name from stored subscription state. */
 export function planFromStatus(
   status: string | null | undefined,

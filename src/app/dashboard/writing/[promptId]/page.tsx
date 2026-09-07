@@ -89,6 +89,7 @@ export default function WritingPracticePage() {
   const [timedOut, setTimedOut] = useState(false);
   const [alreadyFinished, setAlreadyFinished] = useState(false);
   const [reviewLocked, setReviewLocked] = useState(false);
+  const [needsAccess, setNeedsAccess] = useState(false);
   const [lockReason, setLockReason] = useState('');
   const [isTest, setIsTest] = useState(false);
   const [uiPhase, setUiPhase] = useState<UiPhase>('paper');
@@ -126,6 +127,33 @@ export default function WritingPracticePage() {
     setSecondsLeft(total);
     setStartedAt(Date.now());
     setUiPhase('paper');
+  }
+
+  async function startExamPaper() {
+    if (!prompt || !auth) return;
+    setError(null);
+    try {
+      const res = await fetch('/api/writing/exam-session', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${auth.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ student_id: auth.studentId, prompt_id: prompt.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not start the exam');
+
+      const deadline = new Date(data.deadline_at).getTime();
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      const total = (prompt.time_limit_minutes || 30) * 60;
+      setTotalSeconds(total);
+      setSecondsLeft(remaining);
+      setStartedAt(Date.now() - Math.max(0, total - remaining) * 1000);
+      setUiPhase('paper');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not start the exam');
+    }
   }
 
   useEffect(() => {
@@ -214,7 +242,9 @@ export default function WritingPracticePage() {
           beginPaper({ ...p, hint_points: hints });
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load writing task');
+        const message = err instanceof Error ? err.message : 'Failed to load writing task';
+        setNeedsAccess(message.includes('Selective Writing access is required'));
+        setError(message);
       } finally {
         setLoading(false);
       }
@@ -347,8 +377,22 @@ export default function WritingPracticePage() {
 
   if (!prompt) {
     return (
-      <main className="mx-auto max-w-4xl p-6">
-        <p className="text-red-700">{error || 'Prompt unavailable'}</p>
+      <main className="mx-auto max-w-4xl space-y-4 p-6">
+        {needsAccess ? (
+          <>
+            <h1 className="text-2xl font-semibold text-stone-900">
+              Selective Writing access is needed
+            </h1>
+            <p className="text-stone-700">
+              Choose this child’s yearly access before opening a Writing paper.
+            </p>
+            <Link href="/subscription" className="text-sm text-indigo-700 underline">
+              Manage Selective Writing access
+            </Link>
+          </>
+        ) : (
+          <p className="text-red-700">{error || 'Prompt unavailable'}</p>
+        )}
       </main>
     );
   }
@@ -397,7 +441,7 @@ export default function WritingPracticePage() {
           ) : null}
           <button
             type="button"
-            onClick={() => beginPaper(prompt)}
+            onClick={() => void startExamPaper()}
             className="rounded-md bg-stone-900 px-4 py-2 text-white"
           >
             Start the paper

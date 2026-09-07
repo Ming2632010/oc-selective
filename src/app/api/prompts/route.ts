@@ -4,9 +4,9 @@ import { query } from '@/lib/db';
 import { bonusExamLockMessage, termReviewLockMessage } from '@/lib/writing-guidance';
 import { isExamStyleKind } from '@/lib/seed-prompts';
 import {
-  assertOwnedStudent,
   ensureWritingEnhancements,
   getBonusExamAccess,
+  getWritingAccessState,
   getTermReviewAccess,
   hasCompletedWarmup,
 } from '@/lib/writing-state';
@@ -87,9 +87,15 @@ export async function GET(request: Request) {
       let lockReason = '';
 
       if (studentId) {
-        const owned = await assertOwnedStudent(userId, studentId);
-        if (!owned) {
+        const access = await getWritingAccessState(userId, studentId);
+        if (access === 'not-found') {
           return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+        }
+        if (access === 'unlicensed') {
+          return NextResponse.json(
+            { error: 'Selective Writing access is required for this child.' },
+            { status: 403 },
+          );
         }
 
         const attempts = await query<{ draft_number: number }>(
@@ -147,9 +153,15 @@ export async function GET(request: Request) {
     }
 
     if (studentId) {
-      const owned = await assertOwnedStudent(userId, studentId);
-      if (!owned) {
+      const access = await getWritingAccessState(userId, studentId);
+      if (access === 'not-found') {
         return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+      }
+      if (access === 'unlicensed') {
+        return NextResponse.json(
+          { error: 'Selective Writing access is required for this child.' },
+          { status: 403 },
+        );
       }
     }
 

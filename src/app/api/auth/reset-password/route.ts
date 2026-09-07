@@ -5,6 +5,7 @@ import {
   consumePasswordResetToken,
   invalidateUserResetTokens,
 } from '@/lib/password-reset';
+import { isRateLimited } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,6 +37,12 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+    if (isRateLimited(`reset-password:${token}`, 5, 15 * 60 * 1000)) {
+      return NextResponse.json(
+        { error: 'Too many reset attempts. Request a new reset link.' },
+        { status: 429 },
+      );
+    }
 
     if (password.length < 6) {
       return NextResponse.json(
@@ -63,9 +70,7 @@ export async function POST(request: Request) {
       message: 'Password updated. You can now log in with your new password.',
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Failed to reset password';
-    console.error('[auth/reset-password]', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('[auth/reset-password]', error);
+    return NextResponse.json({ error: 'Unable to reset password. Please try again.' }, { status: 500 });
   }
 }

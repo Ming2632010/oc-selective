@@ -3,7 +3,7 @@ import type Stripe from 'stripe';
 import { query } from '@/lib/db';
 import { sendPaymentFailedReminder } from '@/lib/email';
 import { getStripeClient, getWebhookSecret } from '@/lib/stripe';
-import { isSubject } from '@/lib/subjects';
+import { isAvailableSubject, isSubject, priceIdForSubject } from '@/lib/subjects';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -44,8 +44,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     session.client_reference_id ||
     null;
   const subject = session.metadata?.subject as string | undefined;
+  const studentId = session.metadata?.studentId as string | undefined;
 
-  if (!userId || !subject || !isSubject(subject)) {
+  if (!userId || !studentId || !subject || !isSubject(subject) || !isAvailableSubject(subject)) {
     console.warn(
       '[subscription/webhook] checkout.session.completed missing/invalid userId or subject',
     );
@@ -57,6 +58,21 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   // do not insert a second year of access.
   const paymentRef = session.id;
   const priceId = (session.metadata?.priceId as string | undefined) ?? null;
+  const discount = session.discounts?.[0];
+  const promotionCodeId = idOf(discount?.promotion_code);
+  const couponId = idOf(discount?.coupon);
+  if (!priceId || priceId !== priceIdForSubject(subject)) {
+    console.warn('[subscription/webhook] checkout session has an unexpected price');
+    return;
+  }
+  const student = await query<{ id: string }>(
+    `SELECT id FROM students WHERE id = $1 AND user_id = $2 LIMIT 1`,
+    [studentId, userId],
+  );
+  if (!student.rows[0]) {
+    console.warn('[subscription/webhook] checkout session has an invalid student');
+    return;
+  }
   const customerId = idOf(session.customer);
   const expiresAt = new Date(Date.now() + ONE_YEAR_MS).toISOString();
 
@@ -69,14 +85,30 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
   await query(
     `INSERT INTO user_subscriptions
-       (user_id, subject, status, stripe_subscription_id, stripe_price_id, expires_at)
-     VALUES ($1, $2, 'active', $3, $4, $5)
+       (user_id, student_id, subject, status, stripe_subscription_id, stripe_price_id,
+        stripe_promotion_code_id, stripe_coupon_id, amount_paid, currency, expires_at)
+     VALUES ($1, $2, $3, 'active', $4, $5, $6, $7, $8, $9, $10)
      ON CONFLICT (stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL
      DO UPDATE SET status = 'active',
                    stripe_price_id = EXCLUDED.stripe_price_id,
                    expires_at = EXCLUDED.expires_at,
+                   stripe_promotion_code_id = EXCLUDED.stripe_promotion_code_id,
+                   stripe_coupon_id = EXCLUDED.stripe_coupon_id,
+                   amount_paid = EXCLUDED.amount_paid,
+                   currency = EXCLUDED.currency,
                    updated_at = NOW()`,
-    [userId, subject, paymentRef, priceId, expiresAt],
+    [
+      userId,
+      studentId,
+      subject,
+      paymentRef,
+      priceId,
+      promotionCodeId,
+      couponId,
+      session.amount_total,
+      session.currency,
+      expiresAt,
+    ],
   );
 }
 
@@ -116,6 +148,45 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
   await sendPaymentFailedReminder(email);
 }
 
+async function claimWebhookEvent(event: Stripe.Event): Promise<boolean> {
+  const result = await query(
+    `INSERT INTO stripe_webhook_events (event_id, event_type)
+     VALUES ($1, $2)
+     ON CONFLICT (event_id) DO UPDATE
+       SET status = 'processing',
+           attempts = stripe_webhook_events.attempts + 1,
+           received_at = NOW(),
+           last_error = NULL
+       WHERE stripe_webhook_events.status = 'failed'
+          OR (
+            stripe_webhook_events.status = 'processing'
+            AND stripe_webhook_events.received_at < NOW() - INTERVAL '10 minutes'
+          )
+     RETURNING event_id`,
+    [event.id, event.type],
+  );
+  return (result.rowCount ?? result.rows.length) > 0;
+}
+
+async function completeWebhookEvent(eventId: string) {
+  await query(
+    `UPDATE stripe_webhook_events
+     SET status = 'completed', processed_at = NOW(), last_error = NULL
+     WHERE event_id = $1`,
+    [eventId],
+  );
+}
+
+async function failWebhookEvent(eventId: string, error: unknown) {
+  const message = error instanceof Error ? error.message.slice(0, 1_000) : 'Unknown webhook failure';
+  await query(
+    `UPDATE stripe_webhook_events
+     SET status = 'failed', last_error = $2
+     WHERE event_id = $1`,
+    [eventId, message],
+  );
+}
+
 export async function POST(request: Request) {
   let event: Stripe.Event;
 
@@ -134,6 +205,10 @@ export async function POST(request: Request) {
   }
 
   try {
+    if (!(await claimWebhookEvent(event))) {
+      return NextResponse.json({ received: true, duplicate: true });
+    }
+
     switch (event.type) {
       case 'checkout.session.completed':
         await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
@@ -151,10 +226,15 @@ export async function POST(request: Request) {
         break;
     }
 
+    await completeWebhookEvent(event.id);
     return NextResponse.json({ received: true });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Webhook handler failed';
-    console.error(`[subscription/webhook] handler error for ${event.type}:`, message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error(`[subscription/webhook] handler error for ${event.type}:`, error);
+    try {
+      await failWebhookEvent(event.id, error);
+    } catch (ledgerError) {
+      console.error('[subscription/webhook] failed to update event ledger:', ledgerError);
+    }
+    return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 });
   }
 }

@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "db:migrate": "tsx scripts/migrate.ts",
     "db:seed-writing": "tsx scripts/seed-writing.ts",
     "test": "tsx --test src/lib/*.test.ts"
   },
