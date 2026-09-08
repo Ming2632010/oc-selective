@@ -171,4 +171,24 @@ describe('annotationSegments', () => {
     assert.equal(marked?.kind, 'spelling');
     assert.equal(typeof marked?.noteIndex, 'number');
   });
+
+  it('expands a partial-word annotation so rendered markup cannot split a word', () => {
+    const content = 'After the Storm';
+    const segments = annotationSegments(content, [
+      {
+        kind: 'punctuation',
+        start: 3,
+        end: 5,
+        quote: 'er',
+        issue: 'Test annotation',
+        suggestion: 'Test suggestion',
+        set: 'B',
+      },
+    ]);
+    assert.deepEqual(
+      segments.map((segment) => segment.text),
+      ['After', ' the Storm'],
+    );
+    assert.equal(segments[0]?.kind, 'punctuation');
+  });
 });
