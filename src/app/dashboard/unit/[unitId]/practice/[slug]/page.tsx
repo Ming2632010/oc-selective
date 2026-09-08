@@ -31,6 +31,7 @@ type Drill = {
     maxWords?: number;
     shuffled?: string[];
     task?: string;
+    phrase?: string;
   };
 };
 
@@ -268,6 +269,8 @@ export default function MiniPracticePage() {
           ? 'Tap the sentences in the order a marker should read them.'
           : kind === 'short_write'
             ? 'Write one or two sentences. A short checklist will mark your work.'
+            : kind === 'phrase_sentence'
+              ? 'Use the phrase in one sentence that matches this unit. AI will give you feedback.'
             : 'Choose an answer. You will see why it is right or wrong straight away.';
 
   return (
@@ -476,6 +479,44 @@ export default function MiniPracticePage() {
               className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
             >
               Check writing
+            </button>
+          ) : null}
+        </section>
+      ) : null}
+
+      {kind === 'phrase_sentence' ? (
+        <section className="space-y-3">
+          <div className="rounded-lg border border-rose-100 bg-rose-50 px-4 py-3">
+            <p className="text-sm text-rose-950">{drill.prompt?.task}</p>
+            <p className="mt-2 text-sm font-medium text-rose-950">
+              Required phrase: <span className="font-serif">“{drill.prompt?.phrase}”</span>
+            </p>
+          </div>
+          <label className="block text-sm font-medium text-stone-700">
+            Your sentence
+            <textarea
+              value={answerText}
+              disabled={locked}
+              rows={3}
+              spellCheck={false}
+              autoCorrect="off"
+              onChange={(event) => setAnswerText(event.target.value)}
+              className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2 text-base"
+              placeholder="Write one complete sentence…"
+            />
+          </label>
+          <p className="text-xs text-stone-500">
+            Aim for at least {drill.prompt?.minWords ?? 7} words
+            {drill.prompt?.maxWords ? ` and no more than ${drill.prompt.maxWords}` : ''}.
+          </p>
+          {!result ? (
+            <button
+              type="button"
+              disabled={locked || !answerText.trim()}
+              onClick={() => void submit({ answer_text: answerText })}
+              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+            >
+              Get AI feedback
             </button>
           ) : null}
         </section>

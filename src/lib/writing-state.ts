@@ -16,6 +16,7 @@ import {
 import { MINI_SKILLS, SEED_MINI_DRILLS, type MiniSkill } from '@/lib/seed-mini-drills';
 import { SEED_EXTRA_MINI_DRILLS } from '@/lib/seed-extra-mini-drills';
 import { SEED_MIXED_MINI_DRILLS } from '@/lib/seed-mixed-mini-drills';
+import { SEED_PHRASE_SENTENCE_DRILLS } from '@/lib/seed-phrase-sentence-drills';
 import { buildDecodeGuide, defaultPurposes } from '@/lib/decode-guide';
 import { SEED_PROMPTS } from '@/lib/seed-prompts';
 import { getUnitInfo, typeLabel } from '@/lib/units';
@@ -35,13 +36,14 @@ import {
 let schemaReady = false;
 let seededLength = 0;
 let seededPrompts = 0;
-const WRITING_SCHEMA = 12;
+const WRITING_SCHEMA = 13;
 let appliedSchema = 0;
 
 const SEEDED_DRILL_COUNT =
   SEED_MINI_DRILLS.length +
   SEED_EXTRA_MINI_DRILLS.length +
-  SEED_MIXED_MINI_DRILLS.length;
+  SEED_MIXED_MINI_DRILLS.length +
+  SEED_PHRASE_SENTENCE_DRILLS.length;
 
 function markSchemaReady() {
   schemaReady = true;
@@ -413,6 +415,43 @@ export async function ensureWritingEnhancements(): Promise<void> {
   }
 
   for (const drill of SEED_MIXED_MINI_DRILLS) {
+    await query(
+      `INSERT INTO mini_drills (
+         slug, module_id, prompt_type, skill, title, stem, options,
+         correct_index, explanation, sort_order, is_active, source, student_id,
+         item_kind, prompt
+       ) VALUES ($1,$2,$3,$4,$5,$6,'[]'::jsonb, 0, $7, $8, TRUE, 'seed', NULL, $9, $10::jsonb)
+       ON CONFLICT (slug) DO UPDATE SET
+         module_id = EXCLUDED.module_id,
+         prompt_type = EXCLUDED.prompt_type,
+         skill = EXCLUDED.skill,
+         title = EXCLUDED.title,
+         stem = EXCLUDED.stem,
+         options = '[]'::jsonb,
+         correct_index = 0,
+         explanation = EXCLUDED.explanation,
+         sort_order = EXCLUDED.sort_order,
+         is_active = TRUE,
+         source = 'seed',
+         student_id = NULL,
+         item_kind = EXCLUDED.item_kind,
+         prompt = EXCLUDED.prompt`,
+      [
+        drill.slug,
+        drill.module_id,
+        drill.prompt_type,
+        drill.skill,
+        drill.title,
+        drill.stem,
+        drill.explanation,
+        drill.sort_order,
+        drill.item_kind,
+        JSON.stringify(drill.prompt),
+      ],
+    );
+  }
+
+  for (const drill of SEED_PHRASE_SENTENCE_DRILLS) {
     await query(
       `INSERT INTO mini_drills (
          slug, module_id, prompt_type, skill, title, stem, options,

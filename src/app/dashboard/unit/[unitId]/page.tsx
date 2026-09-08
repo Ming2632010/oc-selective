@@ -41,6 +41,7 @@ const KIND_BADGE: Record<MiniItemKind, string> = {
   rewrite: 'bg-sky-50 text-sky-800',
   order: 'bg-violet-50 text-violet-800',
   short_write: 'bg-teal-50 text-teal-800',
+  phrase_sentence: 'bg-rose-50 text-rose-800',
 };
 
 type ExtraMeta = {
