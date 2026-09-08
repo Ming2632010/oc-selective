@@ -33,6 +33,7 @@ type ProgressRow = {
 
 type SubscriptionItem = {
   subject: string;
+  student_id: string | null;
   status: string;
   expires_at: string | null;
   active: boolean;
@@ -98,22 +99,28 @@ const GROUP_BLURBS: Record<UnitGroup, string> = {
   Persuasive: 'Convince and influence',
 };
 
-function subscriptionBanner(sub: SubscriptionState | null): {
+function subscriptionBanner(
+  sub: SubscriptionState | null,
+  studentId: string | null,
+): {
   tone: 'warn' | 'info';
   message: string;
 } | null {
   if (!sub) return null;
 
-  if (!sub.has_active) {
+  const writingAccess = sub.subscriptions.find(
+    (item) => item.subject === 'writing' && item.student_id === studentId && item.active,
+  );
+  if (!writingAccess) {
     return {
       tone: 'warn',
       message:
-        'You don\u2019t have an active subject. Buy a year of access to keep practising.',
+        'This child does not have Selective Writing access yet.',
     };
   }
 
-  const times = sub.subscriptions
-    .filter((s) => s.active && s.expires_at)
+  const times = [writingAccess]
+    .filter((s) => s.expires_at)
     .map((s) => new Date(s.expires_at as string).getTime())
     .filter((t) => Number.isFinite(t));
 
@@ -226,15 +233,15 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function loadProgress() {
+      setProgress([]);
+      setMiniProgress([]);
+      setTermTests([]);
+      setBonusPapers(null);
+      setRewards(null);
+      setWeekNote(null);
+      setHistory([]);
+      setRecommendation(null);
       if (!selectedStudentId) {
-        setProgress([]);
-        setMiniProgress([]);
-        setTermTests([]);
-        setBonusPapers(null);
-        setRewards(null);
-        setWeekNote(null);
-        setHistory([]);
-        setRecommendation(null);
         return;
       }
       const res = await apiFetch(
@@ -296,6 +303,12 @@ export default function DashboardPage() {
 
   const activeStudent =
     students.find((s) => s.id === selectedStudentId) ?? null;
+  const selectedWritingAccess = subscription?.subscriptions.find(
+    (item) =>
+      item.subject === 'writing' &&
+      item.student_id === selectedStudentId &&
+      item.active,
+  );
 
   return (
     <main className="mx-auto max-w-5xl space-y-8 p-6">
@@ -326,7 +339,7 @@ export default function DashboardPage() {
       ) : null}
 
       {(() => {
-        const banner = subscriptionBanner(subscription);
+        const banner = subscriptionBanner(subscription, selectedStudentId);
         if (!banner) return null;
         const classes =
           banner.tone === 'warn'
@@ -419,6 +432,47 @@ export default function DashboardPage() {
             ) : null}
           </section>
 
+          <section className="space-y-3 rounded-lg border border-warm-border bg-warm-card p-4 shadow-card">
+            <div>
+              <h2 className="text-lg font-semibold text-warm-ink">Add another child</h2>
+              <p className="text-sm text-warm-muted">
+                Each child has their own progress and needs their own Selective Writing access.
+              </p>
+            </div>
+            <form
+              onSubmit={onCreateStudent}
+              className="grid gap-3 sm:grid-cols-[1fr_10rem_auto]"
+            >
+              <input
+                required
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Child name"
+                className="rounded-lg border border-warm-border bg-warm-card px-3 py-2"
+              />
+              <select
+                value={newGrade}
+                onChange={(e) => setNewGrade(e.target.value)}
+                className="rounded-lg border border-warm-border bg-warm-card px-3 py-2"
+              >
+                {['Year 4', 'Year 5', 'Year 6', 'Year 7'].map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="submit"
+                disabled={creating}
+                className="rounded-full bg-terracotta px-4 py-2 font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
+              >
+                {creating ? 'Adding…' : 'Add child'}
+              </button>
+            </form>
+          </section>
+
+          {selectedWritingAccess ? (
+            <>
           {recommendation ? (
             <section className="rounded-lg border border-[#D6E3D8] bg-[#EEF6F0] p-5 shadow-card">
               <p className="text-xs font-semibold uppercase tracking-wide text-brand">
@@ -711,6 +765,23 @@ export default function DashboardPage() {
               </section>
             ) : null}
           </section>
+            </>
+          ) : (
+            <section className="rounded-lg border border-amber-300 bg-amber-50 p-5 text-amber-900">
+              <h2 className="font-serif text-xl font-semibold">Writing access needed</h2>
+              <p className="mt-1 text-sm">
+                {activeStudent?.name ?? 'This child'} has a separate profile, so their
+                work stays private and is never mixed with another child’s work. Choose
+                a yearly Selective Writing access for this child to start.
+              </p>
+              <Link
+                href="/subscription"
+                className="mt-4 inline-flex rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover"
+              >
+                Manage this child&apos;s access
+              </Link>
+            </section>
+          )}
         </>
       )}
     </main>
