@@ -1092,12 +1092,42 @@ const MARKER_PRIORITY: Record<MarkerKind, number> = {
   content: 1,
 };
 
+function isWordCharacter(value: string | undefined): boolean {
+  return Boolean(value && /[A-Za-z0-9]/.test(value));
+}
+
+/**
+ * Mark-up controls must never start or end inside a word: each control is an
+ * inline element with padding, which otherwise creates a false visual gap.
+ */
+function wholeWordBounds(content: string, start: number, end: number) {
+  let wordStart = Math.max(0, start);
+  let wordEnd = Math.min(content.length, end);
+
+  while (
+    wordStart > 0 &&
+    isWordCharacter(content[wordStart - 1]) &&
+    isWordCharacter(content[wordStart])
+  ) {
+    wordStart -= 1;
+  }
+  while (
+    wordEnd < content.length &&
+    isWordCharacter(content[wordEnd - 1]) &&
+    isWordCharacter(content[wordEnd])
+  ) {
+    wordEnd += 1;
+  }
+  return { start: wordStart, end: wordEnd };
+}
+
 export function annotationSegments(content: string, annotations: MarkerAnnotation[]) {
   const owner = Array.from({ length: content.length }, () => -1);
   const kindAt: Array<MarkerKind | null> = Array.from({ length: content.length }, () => null);
   annotations.forEach((note, index) => {
     if (note.end <= note.start) return;
-    for (let i = note.start; i < note.end && i < content.length; i += 1) {
+    const bounds = wholeWordBounds(content, note.start, note.end);
+    for (let i = bounds.start; i < bounds.end; i += 1) {
       const current = kindAt[i];
       if (!current || MARKER_PRIORITY[note.kind] > MARKER_PRIORITY[current]) {
         owner[i] = index;
