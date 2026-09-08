@@ -1093,7 +1093,7 @@ const MARKER_PRIORITY: Record<MarkerKind, number> = {
 };
 
 function isWordCharacter(value: string | undefined): boolean {
-  return Boolean(value && /[\p{L}\p{N}]/u.test(value));
+  return Boolean(value && /[A-Za-z0-9]/.test(value));
 }
 
 /**
