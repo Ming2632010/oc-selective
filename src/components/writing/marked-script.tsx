@@ -9,6 +9,16 @@ import {
   type MarkerNotes,
 } from '@/lib/marker-notes';
 
+function rewriteFocus(set: 'A' | 'B') {
+  return set === 'A' ? 'Writing craft' : 'Sentences & accuracy';
+}
+
+function readableRewriteWhy(why: string) {
+  return why
+    .replace(/^Set [AB](?:\s+vocabulary)?\s*:\s*/i, '')
+    .replace(/^Set [AB]\s+rewards\s+/i, '');
+}
+
 export function MarkedScript({
   content,
   notes,
@@ -70,16 +80,20 @@ export function MarkedScript({
           {notes.annotations.map((note, index) => {
             const meta = MARKER_KIND_META[note.kind];
             const active = open === index;
+            const setClasses =
+              meta.set === 'A'
+                ? active
+                  ? 'border-[#8CB59D] bg-[#E6F1E8]'
+                  : 'border-[#D6E3D8] bg-[#F7FBF7]'
+                : active
+                  ? 'border-[#D5A778] bg-[#FFF1E3]'
+                  : 'border-[#E9D9C6] bg-[#FFF9F2]';
             return (
               <li key={`${note.kind}-${note.start}-${index}`}>
                 <button
                   type="button"
                   onClick={() => setOpen(index)}
-                  className={`w-full rounded-lg border px-4 py-3 text-left ${
-                    active
-                      ? 'border-stone-900 bg-stone-50'
-                      : 'border-stone-200 bg-white'
-                  }`}
+                  className={`w-full rounded-lg border px-4 py-3 text-left ${setClasses}`}
                 >
                   <p className="flex flex-wrap items-center gap-2 text-xs font-medium">
                     <span className={`rounded-full px-2 py-0.5 ${meta.swatch}`}>
@@ -100,27 +114,33 @@ export function MarkedScript({
       ) : null}
 
       {notes.rewrites.length > 0 ? (
-        <section className="rounded-lg border border-indigo-100 bg-indigo-50 p-4">
-          <h3 className="text-lg font-medium text-indigo-950">Write it better</h3>
-          <p className="mt-1 text-sm text-indigo-900">
+        <section className="rounded-lg border border-warm-border bg-warm-card p-4">
+          <h3 className="text-lg font-medium text-warm-ink">Write it better</h3>
+          <p className="mt-1 text-sm text-warm-muted">
             These start from your sentences, not a new story. Keep your idea;
-            make it easier for a Selective marker to reward.
+            make it clearer and more effective.
           </p>
           <ul className="mt-3 space-y-3">
-            {notes.rewrites.map((row) => (
-              <li
-                key={row.original}
-                className="rounded-md border border-indigo-100 bg-white px-3 py-3 text-sm"
-              >
+            {notes.rewrites.map((row) => {
+              const setClasses =
+                row.set === 'A'
+                  ? 'border-[#D6E3D8] bg-[#F4F8F3]'
+                  : 'border-[#E9D9C6] bg-[#FFF8F1]';
+              return (
+              <li key={row.original} className={`rounded-md border px-3 py-3 text-sm ${setClasses}`}>
                 <p className="text-stone-500">Your line</p>
                 <p className="text-stone-800">{row.original}</p>
-                <p className="mt-2 text-indigo-800">Stronger version</p>
-                <p className="font-medium text-indigo-950">{row.improved}</p>
-                <p className="mt-1 text-xs text-indigo-800">
-                  Set {row.set}: {row.why}
+                <p className="mt-2 text-brand">Stronger version</p>
+                <p className="font-medium text-warm-ink">{row.improved}</p>
+                <p className="mt-1 text-xs text-warm-muted">
+                  <span className="font-medium text-warm-ink">
+                    Set {row.set} · {rewriteFocus(row.set)}:
+                  </span>{' '}
+                  {readableRewriteWhy(row.why)}
                 </p>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </section>
       ) : null}

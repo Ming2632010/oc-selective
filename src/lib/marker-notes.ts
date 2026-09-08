@@ -592,18 +592,18 @@ function rewriteWhy(
 ): string {
   const form = typeLabel(promptType).toLowerCase();
   if (reason === 'accuracy') {
-    return 'Set B: this rewrite keeps your idea and corrects the spelling or punctuation a marker would circle.';
+    return 'Keeps your idea while fixing spelling or punctuation.';
   }
   if (reason === 'vocabulary') {
-    return 'Set A vocabulary: keep the same moment, but choose words a marker can picture.';
+    return 'Keeps the same moment, but uses words the reader can picture.';
   }
   if (reason === 'open') {
-    return `Set A rewards an opening that fits a ${form} and makes the reader want the next line.`;
+    return `Gives your ${form} an opening that makes the reader want the next line.`;
   }
   if (reason === 'close') {
-    return `Set A rewards an ending that resolves the ${form} instead of stopping mid-thought.`;
+    return `Gives your ${form} an ending instead of stopping mid-thought.`;
   }
-  return 'Set A rewards developed detail. Keep your idea, but let the marker see it happen.';
+  return 'Keeps your idea, but adds detail so the reader can see it happen.';
 }
 
 function uniqueStrings(values: string[]) {
