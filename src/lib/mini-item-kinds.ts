@@ -4,6 +4,7 @@ export const MINI_ITEM_KINDS = [
   'rewrite',
   'order',
   'short_write',
+  'phrase_sentence',
 ] as const;
 
 export type MiniItemKind = (typeof MINI_ITEM_KINDS)[number];
@@ -18,6 +19,7 @@ export const MINI_ITEM_KIND_LABELS: Record<MiniItemKind, string> = {
   rewrite: 'Rewrite',
   order: 'Order',
   short_write: 'Write',
+  phrase_sentence: 'Use a phrase',
 };
 
 export type SpellingPrompt = {
@@ -54,11 +56,22 @@ export type ShortWritePrompt = {
   sample: string;
 };
 
+export type PhraseSentencePrompt = {
+  phrase: string;
+  task: string;
+  minWords: number;
+  maxWords?: number;
+  requireCapital?: boolean;
+  requireEndPunct?: boolean;
+  sample: string;
+};
+
 export type MiniPrompt =
   | SpellingPrompt
   | RewritePrompt
   | OrderPrompt
   | ShortWritePrompt
+  | PhraseSentencePrompt
   | Record<string, never>;
 
 export type ChecklistItem = {
@@ -112,6 +125,17 @@ export function publicMiniPrompt(
           : undefined,
     };
   }
+  if (kind === 'phrase_sentence') {
+    return {
+      phrase: asString(raw.phrase),
+      task: asString(raw.task),
+      minWords: asPositiveInt(raw.minWords, 6),
+      maxWords:
+        typeof raw.maxWords === 'number' && raw.maxWords > 0
+          ? raw.maxWords
+          : undefined,
+    };
+  }
   return {};
 }
 
@@ -156,6 +180,20 @@ export function parseMiniPrompt(
       mustInclude: asStringArray(raw.mustInclude),
       mustNotInclude: asStringArray(raw.mustNotInclude),
       minWords: asPositiveInt(raw.minWords, 8),
+      maxWords:
+        typeof raw.maxWords === 'number' && raw.maxWords > 0
+          ? raw.maxWords
+          : undefined,
+      requireCapital: raw.requireCapital !== false,
+      requireEndPunct: raw.requireEndPunct !== false,
+      sample: asString(raw.sample),
+    };
+  }
+  if (kind === 'phrase_sentence') {
+    return {
+      phrase: asString(raw.phrase),
+      task: asString(raw.task),
+      minWords: asPositiveInt(raw.minWords, 6),
       maxWords:
         typeof raw.maxWords === 'number' && raw.maxWords > 0
           ? raw.maxWords

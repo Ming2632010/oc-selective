@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { markMiniItem } from '@/lib/mark-mini-item';
+import { markPhraseSentence } from '@/lib/mark-phrase-sentence';
 import {
   isMiniItemKind,
   publicMiniPrompt,
   type MiniItemKind,
+  type MiniMarkResult,
 } from '@/lib/mini-item-kinds';
 import {
   assertOwnedStudent,
@@ -14,6 +16,7 @@ import {
   extraIsUnlocked,
   getMiniExtraMeta,
 } from '@/lib/writing-state';
+import { typeLabel } from '@/lib/units';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -124,9 +127,37 @@ type AttemptRow = {
   answer_index: number | null;
   answer_text: string | null;
   answer_payload: unknown;
+  feedback?: unknown;
   is_correct: boolean;
   created_at: Date | string;
 };
+
+function savedMark(row: AttemptRow): MiniMarkResult | null {
+  if (!row.feedback || typeof row.feedback !== 'object' || Array.isArray(row.feedback)) {
+    return null;
+  }
+  const feedback = row.feedback as Record<string, unknown>;
+  const explanation = typeof feedback.explanation === 'string' ? feedback.explanation : '';
+  const checks = Array.isArray(feedback.checks) ? feedback.checks : [];
+  if (!explanation || !checks.every((item) => item && typeof item === 'object')) {
+    return null;
+  }
+  return {
+    isCorrect: row.is_correct,
+    explanation,
+    sample: typeof feedback.sample === 'string' ? feedback.sample : undefined,
+    checks: checks
+      .filter(
+        (item): item is { id: string; label: string; passed: boolean } =>
+          Boolean(item) &&
+          typeof item === 'object' &&
+          typeof (item as Record<string, unknown>).id === 'string' &&
+          typeof (item as Record<string, unknown>).label === 'string' &&
+          typeof (item as Record<string, unknown>).passed === 'boolean',
+      )
+      .map((item) => ({ id: item.id, label: item.label, passed: item.passed })),
+  };
+}
 
 function publicAttempt(row: AttemptRow) {
   return {
@@ -186,7 +217,7 @@ export async function GET(request: Request) {
       let history: AttemptRow[] = [];
       if (studentId) {
         const attempts = await query<AttemptRow>(
-          `SELECT answer_index, answer_text, answer_payload, is_correct, created_at
+          `SELECT answer_index, answer_text, answer_payload, is_correct, feedback, created_at
            FROM mini_drill_attempts
            WHERE student_id = $1 AND drill_id = $2
            ORDER BY created_at ASC`,
@@ -198,7 +229,8 @@ export async function GET(request: Request) {
       const last = history[history.length - 1] ?? null;
       const lastOrder = last ? payloadOrder(last.answer_payload) : null;
       const marked = last
-        ? markMiniItem({
+        ? savedMark(last) ??
+          markMiniItem({
             kind: drillKind(drill),
             correctIndex: drill.correct_index,
             answerIndex: last.answer_index,
@@ -341,6 +373,12 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+    if (answerText.length > 1_000) {
+      return NextResponse.json(
+        { error: 'answer_text must be 1,000 characters or fewer' },
+        { status: 400 },
+      );
+    }
 
     const owned = await assertOwnedStudent(userId, studentId);
     if (!owned) {
@@ -379,15 +417,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'answer_text is required' }, { status: 400 });
     }
 
-    const marked = markMiniItem({
-      kind,
-      correctIndex: drill.correct_index,
-      answerIndex: Number.isInteger(answerIndex) ? answerIndex : null,
-      answerText,
-      answerOrder,
-      prompt: drill.prompt,
-      explanation: drill.explanation,
-    });
+    const marked =
+      kind === 'phrase_sentence'
+        ? await markPhraseSentence({
+            prompt: drill.prompt,
+            answerText,
+            unitLabel: typeLabel(drill.prompt_type),
+          })
+        : markMiniItem({
+            kind,
+            correctIndex: drill.correct_index,
+            answerIndex: Number.isInteger(answerIndex) ? answerIndex : null,
+            answerText,
+            answerOrder,
+            prompt: drill.prompt,
+            explanation: drill.explanation,
+          });
 
     const prior = await query<{ id: string }>(
       `SELECT id FROM mini_drill_attempts
@@ -407,7 +452,11 @@ export async function POST(request: Request) {
         answerText.trim() || null,
         JSON.stringify(kind === 'order' ? { order: answerOrder } : {}),
         marked.isCorrect,
-        JSON.stringify({ checks: marked.checks, sample: marked.sample ?? null }),
+        JSON.stringify({
+          explanation: marked.explanation,
+          checks: marked.checks,
+          sample: marked.sample ?? null,
+        }),
       ],
     );
 
