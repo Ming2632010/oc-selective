@@ -376,6 +376,8 @@ export default function MiniPracticePage() {
               value={answerText}
               disabled={locked}
               rows={4}
+              spellCheck={false}
+              autoCorrect="off"
               onChange={(event) => setAnswerText(event.target.value)}
               className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2 text-base"
             />
@@ -456,6 +458,8 @@ export default function MiniPracticePage() {
               value={answerText}
               disabled={locked}
               rows={5}
+              spellCheck={false}
+              autoCorrect="off"
               onChange={(event) => setAnswerText(event.target.value)}
               className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2 text-base"
             />

@@ -540,8 +540,8 @@ export default function WritingPracticePage() {
             onChange={(e) => setPlan(e.target.value)}
             rows={5}
             disabled={paperClosed || submitting}
-            spellCheck={!isTest}
-            autoCorrect={isTest ? 'off' : 'on'}
+            spellCheck={false}
+            autoCorrect="off"
             autoCapitalize={isTest ? 'off' : 'sentences'}
             className="w-full rounded-md border border-stone-300 p-3 disabled:bg-stone-50"
             placeholder="Use this space to plan structure, audience, and key ideas…"
@@ -556,8 +556,8 @@ export default function WritingPracticePage() {
             rows={16}
             required
             disabled={paperClosed || submitting}
-            spellCheck={!isTest}
-            autoCorrect={isTest ? 'off' : 'on'}
+            spellCheck={false}
+            autoCorrect="off"
             autoCapitalize={isTest ? 'off' : 'sentences'}
             className="w-full rounded-md border border-stone-300 p-3 disabled:bg-stone-50"
             placeholder="Write your full response here…"
