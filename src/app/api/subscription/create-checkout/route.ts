@@ -4,6 +4,7 @@ import { query } from '@/lib/db';
 import { getAppUrl, getStripeClient } from '@/lib/stripe';
 import { isAvailableSubject, isSubject, priceIdForSubject } from '@/lib/subjects';
 import { isRateLimited } from '@/lib/rate-limit';
+import type Stripe from 'stripe';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,6 +16,15 @@ type CheckoutBody = {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isMissingStripeCustomer(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 'resource_missing' &&
+    error.message.toLowerCase().includes('customer')
+  );
 }
 
 export async function POST(request: Request) {
@@ -98,27 +108,45 @@ export async function POST(request: Request) {
 
     // One-off payment: Stripe charges once. We grant 1 year of access in the
     // webhook. Promotion codes (coupons) can be entered on the Checkout page.
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      line_items: [{ price: priceId, quantity: 1 }],
-      client_reference_id: user.id,
-      allow_promotion_codes: true,
-      metadata: { userId: user.id, studentId, subject, priceId },
-      payment_intent_data: {
+    const createSession = (customerId: string | null) =>
+      stripe.checkout.sessions.create({
+        mode: 'payment',
+        line_items: [{ price: priceId, quantity: 1 }],
+        client_reference_id: user.id,
+        allow_promotion_codes: true,
         metadata: { userId: user.id, studentId, subject, priceId },
-      },
-      ...(user.stripe_customer_id
-        ? { customer: user.stripe_customer_id }
-        : { customer_email: user.email, customer_creation: 'always' }),
-      success_url: `${appUrl}/subscription/confirm?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/subscription`,
-    });
+        payment_intent_data: {
+          metadata: { userId: user.id, studentId, subject, priceId },
+        },
+        ...(customerId
+          ? { customer: customerId }
+          : { customer_email: user.email, customer_creation: 'always' }),
+        success_url: `${appUrl}/subscription/confirm?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${appUrl}/subscription`,
+      });
+
+    let session: Stripe.Checkout.Session;
+    try {
+      session = await createSession(user.stripe_customer_id);
+    } catch (error) {
+      if (!user.stripe_customer_id || !isMissingStripeCustomer(error)) throw error;
+
+      // A customer created in another Stripe account/mode can no longer be
+      // reused. Clear only the stale reference and let Checkout create one.
+      await query(
+        `UPDATE users SET stripe_customer_id = NULL
+         WHERE id = $1 AND stripe_customer_id = $2`,
+        [user.id, user.stripe_customer_id],
+      );
+      session = await createSession(null);
+    }
 
     return NextResponse.json({ checkout_url: session.url });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Failed to create checkout session';
-    console.error('[subscription/create-checkout]', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('[subscription/create-checkout]', error);
+    return NextResponse.json(
+      { error: 'Unable to start checkout. Please try again.' },
+      { status: 500 },
+    );
   }
 }
