@@ -4,6 +4,7 @@ import { query } from '@/lib/db';
 import { getAppUrl, getStripeClient } from '@/lib/stripe';
 import { isAvailableSubject, isSubject, priceIdForSubject } from '@/lib/subjects';
 import { isRateLimited } from '@/lib/rate-limit';
+import { isMissingStripeCustomer } from '@/lib/stripe-customer';
 import type Stripe from 'stripe';
 
 export const runtime = 'nodejs';
@@ -16,15 +17,6 @@ type CheckoutBody = {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
-}
-
-function isMissingStripeCustomer(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    'code' in error &&
-    (error as { code?: unknown }).code === 'resource_missing' &&
-    error.message.toLowerCase().includes('customer')
-  );
 }
 
 export async function POST(request: Request) {
