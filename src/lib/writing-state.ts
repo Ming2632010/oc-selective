@@ -300,7 +300,7 @@ export async function ensureWritingEnhancements(): Promise<void> {
       prompt.module_id,
       JSON.stringify(prompt.hint_points),
       prompt.sample_answer_high,
-      null,
+      prompt.sample_answer_medium,
       prompt.is_locked,
       prompt.time_limit_minutes,
       prompt.is_active,
