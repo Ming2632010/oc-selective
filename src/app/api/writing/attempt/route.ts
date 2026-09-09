@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { appendFileSync } from 'node:fs';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { scoreWritingAttempt } from '@/lib/scoring';
@@ -40,6 +41,18 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function debugAttemptLoad(
+  hypothesisId: string,
+  location: string,
+  message: string,
+  data: Record<string, unknown>,
+) {
+  appendFileSync(
+    '/opt/cursor/logs/debug.log',
+    `${JSON.stringify({ hypothesisId, location, message, data, timestamp: Date.now() })}\n`,
+  );
+}
+
 export async function GET(request: Request) {
   try {
     const userId = await getAuthUserId(request);
@@ -52,6 +65,13 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get('student_id');
     const promptId = searchParams.get('prompt_id');
+
+    // #region agent log
+    debugAttemptLoad('A', 'attempt/route.ts:GET', 'Attempt load requested', {
+      hasStudentId: Boolean(studentId),
+      hasPromptId: Boolean(promptId),
+    });
+    // #endregion
 
     if (!studentId) {
       return NextResponse.json({ error: 'student_id is required' }, { status: 400 });
@@ -113,6 +133,14 @@ export async function GET(request: Request) {
       ? (promptMeta.rows[0]?.hint_points as string[])
       : [];
 
+    // #region agent log
+    debugAttemptLoad('B', 'attempt/route.ts:GET', 'Attempts loaded for writing page', {
+      count: attempts.rows.length,
+      draftNumbers: attempts.rows.map((row) => row.draft_number),
+      examStyle,
+    });
+    // #endregion
+
     const hydrated = [];
     for (const row of attempts.rows) {
       const existing = markerNotesFromUnknown(row.marker_notes, row.content);
@@ -133,6 +161,13 @@ export async function GET(request: Request) {
       );
       hydrated.push({ ...row, marker_notes: notes });
     }
+
+    // #region agent log
+    debugAttemptLoad('C', 'attempt/route.ts:GET', 'Attempt payload returned', {
+      count: hydrated.length,
+      draftNumbers: hydrated.map((row) => row.draft_number),
+    });
+    // #endregion
 
     return NextResponse.json({
       awards,
