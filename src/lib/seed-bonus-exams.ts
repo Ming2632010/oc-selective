@@ -67,7 +67,7 @@ export const BONUS_EXAM_PROMPTS: SeedPrompt[] = [
       'Say what is new about it',
       'Keep a polite, confident email voice',
     ],
-    'Subject: Game idea — Bridge Builders\n\nHello Design Team,\n\nPlease consider Bridge Builders, a two-to-four player game set on a flooded town map.\n\nEach turn, a player plays a timber, stone, or rope card to join two islands. Storm cards can snap a weak bridge. The winner is the first team to link the school, clinic, and jetty.\n\nIt is different because players must cooperate on some turns and compete on others, so nobody sits out. Year 6 students already argue about the fairest path home after rain — this game turns that into a table.\n\nThank you for reading.\n\nKind regards,\nSam Rivera',
+    'Subject: Game idea — Bridge Builders\n\nHello Design Team,\n\nPlease consider Bridge Builders, a two- to four-player game set on a flooded town map.\n\nEach turn, a player plays a timber, stone, or rope card to join two islands. Storm cards can snap a weak bridge. The winning player is the first to link the school, clinic, and jetty.\n\nIt is different because players must cooperate on some turns and compete on others, so nobody sits out. Year 6 students already argue about the fairest path home after rain — this game turns that into a table.\n\nThank you for reading.\n\nKind regards,\nSam Rivera',
     'Hello,\n\nMy game is called Fast Cards. You put cards down and the highest number wins. Kids would like it because it is easy. Please make it.\n\nThanks.',
   ),
   paper(
@@ -79,7 +79,7 @@ export const BONUS_EXAM_PROMPTS: SeedPrompt[] = [
       'Show both sides of the argument',
       'Use comments that sound like real people',
     ],
-    'MYSTERY MURAL SPLITS DEPOT STREET\n\nA full-wall painting of migrating birds appeared on the old bus depot overnight, stretching from the loading dock to the corner clock.\n\nArt teacher Nina Cole called it “the best welcome our street has had in years”. Depot neighbour Craig Holt said the wall is council property: “Talent is not a permit.”\n\nNo artist has come forward. Council ranger Devi Sharma said the work will stay for fourteen days while they seek the painter and check the brickwork. “If it is safe, the community can vote,” she said.\n\nCrowds photographed the wall at dawn. Chalk messages at the base already read keep it and paint over.',
+    'MYSTERY MURAL SPLITS DEPOT STREET\n\nA full-wall painting of migrating birds appeared on the old bus depot overnight, stretching from the loading dock to the corner clock.\n\nArt teacher Nina Cole called it “the best welcome our street has had in years”. Depot neighbour Craig Holt said the wall is council property: “Talent is not a permit.”\n\nNo artist has come forward. Council ranger Devi Sharma said the work will stay for fourteen days while they seek the painter and check the brickwork. “If it is safe, the community can vote,” she said.\n\nCrowds photographed the wall at dawn. Chalk messages at the base already read “Keep it” and “Paint over it.”',
     'A Mural Appeared\n\nThis morning people saw a big painting on the bus depot. Some like it and some do not. A teacher said it is beautiful. A neighbour said it should not be there. Council will decide later.',
   ),
   paper(
@@ -103,7 +103,7 @@ export const BONUS_EXAM_PROMPTS: SeedPrompt[] = [
       'Give reasons that fit students and families',
       'End with one clear ask',
     ],
-    'Good morning, staff and students.\n\nI am asking you to keep Thursday late-library night.\n\nSome of us share a computer at home. Some of us have younger siblings who need the table after dinner. From 5 until 7, the library is quiet enough to finish a draft and still catch the late bus.\n\nPeople worry about safety. Two staff already stay for choir. The same pair can lock the doors at 7, and a sign-out sheet can sit on the desk.\n\nPlease vote to keep one late night. Thirty extra minutes of shelves is not a luxury. It is a chance to finish the work we started.',
+    'Good morning, staff and students.\n\nI am asking you to keep Thursday late-library night.\n\nSome of us share a computer at home. Some of us have younger siblings who need the table after dinner. From 5 until 7, the library is quiet enough to finish a draft and still catch the late bus.\n\nPeople worry about safety. Two staff already stay for choir. The same pair can lock the doors at 7, and a sign-out sheet can sit on the desk.\n\nPlease vote to keep one late night. Two extra hours in the library are not a luxury. They are a chance to finish the work we started.',
     'Hello everyone.\n\nI think the library should stay open later. Students can do homework. It is quiet. Please say yes. Thank you.',
   ),
 ];

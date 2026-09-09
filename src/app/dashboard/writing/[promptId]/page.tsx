@@ -228,11 +228,8 @@ export default function WritingPracticePage() {
         const nextDraft = Math.min(maxDraft + 1, 3);
         setDraftNumber(nextDraft);
 
-        const previous = attempts.find((a) => a.draft_number === maxDraft);
-        if (previous && nextDraft > 1) {
-          setContent(previous.content ?? '');
-          setPlan(previous.plan_content ?? '');
-        }
+        setContent('');
+        setPlan('');
 
         if (testTask) {
           setUiPhase(promptData.warmup_completed ? 'gate' : 'warmup');
@@ -480,7 +477,7 @@ export default function WritingPracticePage() {
           <h1 className="text-3xl font-semibold text-stone-900">{prompt.title}</h1>
           {draftNumber > 1 ? (
             <p className="mt-2 text-sm text-stone-600">
-              Your previous draft is copied in so you can revise it.{' '}
+              Start with a fresh response, or review your earlier drafts for ideas.{' '}
               <Link
                 href={`/dashboard/writing/${promptId}/results`}
                 className="text-indigo-700 underline"

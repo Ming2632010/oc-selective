@@ -36,7 +36,7 @@ import {
 let schemaReady = false;
 let seededLength = 0;
 let seededPrompts = 0;
-const WRITING_SCHEMA = 13;
+const WRITING_SCHEMA = 14;
 let appliedSchema = 0;
 
 const SEEDED_DRILL_COUNT =
