@@ -75,3 +75,5 @@ CREATE INDEX IF NOT EXISTS idx_prompts_module_active ON prompts (module_id, is_a
 CREATE INDEX IF NOT EXISTS idx_prompts_kind_module ON prompts (kind, module_id, is_active);
 CREATE INDEX IF NOT EXISTS idx_writing_attempts_student_prompt
   ON writing_attempts (student_id, prompt_id);
+CREATE INDEX IF NOT EXISTS idx_writing_attempts_student_created
+  ON writing_attempts (student_id, created_at);

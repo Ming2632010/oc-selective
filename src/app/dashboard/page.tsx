@@ -182,57 +182,13 @@ export default function DashboardPage() {
   const [newGrade, setNewGrade] = useState('Year 5');
   const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
-    async function boot() {
-      if (!getToken()) {
-        router.replace('/login');
-        return;
-      }
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        const me = await apiFetch('/api/auth/me');
-        if (!me.response.ok) {
-          clearSession();
-          router.replace('/login');
-          return;
-        }
-        setUserName(me.data.user?.full_name || me.data.user?.email || 'there');
-
-        const statusRes = await apiFetch('/api/subscription/status');
-        if (statusRes.response.ok) {
-          setSubscription(statusRes.data as SubscriptionState);
-        }
-
-        const studentsRes = await apiFetch('/api/students');
-        if (!studentsRes.response.ok) {
-          throw new Error(studentsRes.data.error || 'Failed to load students');
-        }
-
-        const list = (studentsRes.data.students as Student[]) || [];
-        setStudents(list);
-
-        const saved = getStudentId();
-        const initial =
-          (saved && list.find((s) => s.id === saved)?.id) || list[0]?.id || null;
-        if (initial) {
-          setStudentId(initial);
-          setSelectedStudentId(initial);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load dashboard');
-      } finally {
-        setLoading(false);
-      }
+  async function loadDashboard(requestedStudentId?: string | null) {
+    if (!getToken()) {
+      router.replace('/login');
+      return;
     }
-
-    void boot();
-  }, [router]);
-
-  useEffect(() => {
-    async function loadProgress() {
+    if (requestedStudentId) {
+      setSelectedStudentId(requestedStudentId);
       setProgress([]);
       setMiniProgress([]);
       setTermTests([]);
@@ -241,27 +197,54 @@ export default function DashboardPage() {
       setWeekNote(null);
       setHistory([]);
       setRecommendation(null);
-      if (!selectedStudentId) {
-        return;
-      }
-      const res = await apiFetch(
-        `/api/writing/attempt?student_id=${selectedStudentId}`,
-      );
-      if (res.response.ok) {
-        setProgress((res.data.progress as ProgressRow[]) || []);
-        setMiniProgress((res.data.mini_progress as MiniProgressRow[]) || []);
-        setTermTests((res.data.term_tests as TermTest[]) || []);
-        setBonusPapers((res.data.bonus_papers as BonusPapersState | null) ?? null);
-        setRewards((res.data.rewards as SeedPatchData | null) ?? null);
-        setWeekNote((res.data.week_note as WeekNoteData | null) ?? null);
-        setHistory((res.data.history as HistoryPoint[]) || []);
-        setRecommendation(
-          (res.data.recommendation as Recommendation | null) ?? null,
-        );
-      }
     }
-    void loadProgress();
-  }, [selectedStudentId]);
+    setLoading(true);
+    setError(null);
+    const query = requestedStudentId ? `?student_id=${requestedStudentId}` : '';
+    try {
+      const res = await apiFetch(`/api/dashboard/bootstrap${query}`);
+      if (!res.response.ok) {
+        if (res.response.status === 401) {
+          clearSession();
+          router.replace('/login');
+          return;
+        }
+        throw new Error(res.data.error || 'Failed to load dashboard');
+      }
+      setUserName(res.data.user?.full_name || res.data.user?.email || 'there');
+      setStudents((res.data.students as Student[]) || []);
+      setSubscription({
+        subscriptions: (res.data.subscriptions as SubscriptionItem[]) || [],
+        has_active: Boolean(res.data.has_active),
+      });
+      const selected = (res.data.selected_student_id as string | null) ?? null;
+      setSelectedStudentId(selected);
+      if (selected) setStudentId(selected);
+      const guidance = res.data.guidance as {
+        progress?: ProgressRow[]; mini_progress?: MiniProgressRow[]; term_tests?: TermTest[];
+        bonus_papers?: BonusPapersState | null; rewards?: SeedPatchData | null;
+        week_note?: WeekNoteData | null; history?: HistoryPoint[]; recommendation?: Recommendation | null;
+      } | null;
+      setProgress(guidance?.progress ?? []);
+      setMiniProgress(guidance?.mini_progress ?? []);
+      setTermTests(guidance?.term_tests ?? []);
+      setBonusPapers(guidance?.bonus_papers ?? null);
+      setRewards(guidance?.rewards ?? null);
+      setWeekNote(guidance?.week_note ?? null);
+      setHistory(guidance?.history ?? []);
+      setRecommendation(guidance?.recommendation ?? null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load dashboard');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadDashboard(getStudentId());
+    // The dashboard bootstrap endpoint owns all authenticated initial data.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router]);
 
   async function onCreateStudent(event: FormEvent) {
     event.preventDefault();
@@ -278,8 +261,8 @@ export default function DashboardPage() {
       const student = res.data.student as Student;
       setStudents((prev) => [...prev, student]);
       setStudentId(student.id);
-      setSelectedStudentId(student.id);
       setNewName('');
+      await loadDashboard(student.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create student');
     } finally {
@@ -289,7 +272,7 @@ export default function DashboardPage() {
 
   function onSelectStudent(id: string) {
     setStudentId(id);
-    setSelectedStudentId(id);
+    void loadDashboard(id);
   }
 
   function logout() {

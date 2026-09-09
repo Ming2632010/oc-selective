@@ -647,9 +647,12 @@ async function getTermReviewCounts(studentId: string): Promise<{
   };
 }
 
-export async function getBonusExamAccess(studentId: string) {
+export async function getBonusExamAccess(
+  studentId: string,
+  knownProgress?: UnitProgressRow[],
+) {
   const [progress, reviews] = await Promise.all([
-    getUnitProgress(studentId),
+    knownProgress ? Promise.resolve(knownProgress) : getUnitProgress(studentId),
     getTermReviewCounts(studentId),
   ]);
   return bonusExamAccess({
@@ -668,12 +671,15 @@ export type BonusPaperRow = {
   locked: boolean;
 };
 
-export async function getBonusPapers(studentId: string): Promise<{
+export async function getBonusPapers(
+  studentId: string,
+  knownProgress?: UnitProgressRow[],
+): Promise<{
   access: ReturnType<typeof bonusExamAccess>;
   lock_reason: string;
   papers: BonusPaperRow[];
 }> {
-  const access = await getBonusExamAccess(studentId);
+  const access = await getBonusExamAccess(studentId, knownProgress);
   const result = await query<{
     id: string;
     title: string;
@@ -714,7 +720,10 @@ export async function getBonusPapers(studentId: string): Promise<{
   };
 }
 
-export async function getTermTests(studentId: string): Promise<TermTestRow[]> {
+export async function getTermTests(
+  studentId: string,
+  knownProgress?: UnitProgressRow[],
+): Promise<TermTestRow[]> {
   const result = await query<{
     id: string;
     title: string;
@@ -739,7 +748,7 @@ export async function getTermTests(studentId: string): Promise<TermTestRow[]> {
     [studentId],
   );
 
-  const progress = await getUnitProgress(studentId);
+  const progress = knownProgress ?? (await getUnitProgress(studentId));
   return result.rows.map((row) => {
     const sat = Boolean(row.attempt_id);
     const access = termReviewAccess(progress, row.module_id);
@@ -796,8 +805,8 @@ export async function getGuidanceForStudent(studentId: string): Promise<{
   week_note: WeekNoteData;
 }> {
   const unlocked_unit = 11;
+  const progress = await getUnitProgress(studentId);
   const [
-    progress,
     mini_progress,
     term_tests,
     bonus_papers,
@@ -807,10 +816,9 @@ export async function getGuidanceForStudent(studentId: string): Promise<{
     rewards,
     lastTest,
   ] = await Promise.all([
-    getUnitProgress(studentId),
     getMiniProgress(studentId),
-    getTermTests(studentId),
-    getBonusPapers(studentId),
+    getTermTests(studentId, progress),
+    getBonusPapers(studentId, progress),
     query<PromptSummary>(
       `SELECT id, title, prompt_type, module_id,
               COALESCE(kind, 'practice') AS kind
