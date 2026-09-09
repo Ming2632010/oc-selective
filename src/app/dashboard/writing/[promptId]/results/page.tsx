@@ -44,7 +44,6 @@ type Prompt = {
   title: string;
   hint_points: string[];
   sample_answer_high?: string;
-  sample_answer_medium?: string;
   kind?: 'practice' | 'test' | 'bonus';
 };
 
@@ -390,15 +389,9 @@ export default function WritingResultsPage() {
       {showSamples && samplesUnlocked && !isTest ? (
         <section className="space-y-4 rounded-lg border border-stone-200 p-4">
           <div>
-            <h3 className="font-medium">High-scoring sample</h3>
+            <h3 className="font-medium">Sample answer</h3>
             <p className="mt-2 whitespace-pre-wrap text-stone-800">
               {prompt.sample_answer_high || 'Sample unavailable.'}
-            </p>
-          </div>
-          <div>
-            <h3 className="font-medium">Medium-scoring sample</h3>
-            <p className="mt-2 whitespace-pre-wrap text-stone-800">
-              {prompt.sample_answer_medium || 'Sample unavailable.'}
             </p>
           </div>
         </section>

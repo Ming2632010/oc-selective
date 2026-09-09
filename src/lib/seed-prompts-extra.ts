@@ -393,7 +393,7 @@ export const TERM_REVIEW_PROMPTS: SeedPrompt[] = [
       'Calm report voice, not a personal recount',
       'Include at least one short quote',
     ],
-    'HAIL STOPS SATURDAY SPORT\n\nMarble-sized hail swept across Riverview at 2:10pm on Saturday, forcing umpires to abandon junior soccer.\n\nCouncil ranger Priya Nair said drains coped: “We were lucky it lasted twelve minutes.” Shopkeepers on High Street reported dented awnings but no injuries.\n\nPlay will restart next week if fields dry.',
+    'HAIL STOPS SATURDAY SPORT\n\nMarble-sized hail swept across Riverview at 2:10pm on Saturday, forcing umpires to abandon junior soccer.\n\nCouncil ranger Priya Nair said drains coped: “We were lucky it lasted twelve minutes.” Shopkeepers on High Street reported dented awnings but no injuries.\n\nResidents are asked to avoid flooded fields until they dry. Play will restart next week if conditions are safe.',
     'There was strange weather. Sport stopped. Someone said it was short. Then it was over.',
     { purposes: ['inform', 'advise'] },
   ),
@@ -500,7 +500,7 @@ export const TERM_REVIEW_PROMPTS: SeedPrompt[] = [
       'Purpose in the first sentence',
       'One main request, then a simple sign-off',
     ],
-    'Subject: Invitation to Riverview Public concert, 18 September\n\nDear Mayor Chen,\n\nI am writing to invite you to our school concert on Thursday 18 September at 6pm in the hall.\n\nYear 5–6 will perform and would be honoured if you could say a short hello. Please let the office know if you can attend.\n\nKind regards,\nAva Chen\nYear 6 Music committee',
+    'Subject: Invitation to Riverview Public concert, 18 September\n\nDear Mayor Chen,\n\nI am writing to invite you to our school concert on Thursday 18 September at 6pm in the hall.\n\nYear 5–6 will perform and would be honoured if you could say a short hello. Please let the office know if you can attend.\n\nKind regards,\nAva Chen\nYear 6 Music Committee',
     'Subject: concert\n\nDear Mayor,\nPlease come to our concert. It is soon. Thank you.\nFrom Ava',
   ),
 ];

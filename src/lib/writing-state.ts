@@ -36,7 +36,7 @@ import {
 let schemaReady = false;
 let seededLength = 0;
 let seededPrompts = 0;
-const WRITING_SCHEMA = 13;
+const WRITING_SCHEMA = 14;
 let appliedSchema = 0;
 
 const SEEDED_DRILL_COUNT =
@@ -300,7 +300,7 @@ export async function ensureWritingEnhancements(): Promise<void> {
       prompt.module_id,
       JSON.stringify(prompt.hint_points),
       prompt.sample_answer_high,
-      prompt.sample_answer_medium,
+      null,
       prompt.is_locked,
       prompt.time_limit_minutes,
       prompt.is_active,

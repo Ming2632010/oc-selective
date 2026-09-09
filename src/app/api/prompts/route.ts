@@ -22,7 +22,6 @@ type PromptRow = {
   module_id: number;
   hint_points: unknown;
   sample_answer_high: string;
-  sample_answer_medium: string;
   is_locked: boolean;
   time_limit_minutes: number;
   is_active: boolean;
@@ -36,13 +35,13 @@ type PromptRow = {
 };
 
 const PROMPT_COLUMNS = `id, title, description, prompt_type, module_id, hint_points,
-                sample_answer_high, sample_answer_medium, is_locked,
+                sample_answer_high, is_locked,
                 time_limit_minutes, is_active,
                 COALESCE(kind, 'practice') AS kind,
                 stimulus_image, stimulus_quote, purposes, purpose_note, decode_guide`;
 
 function stripSamples(prompt: PromptRow) {
-  const { sample_answer_high: _h, sample_answer_medium: _m, ...rest } = prompt;
+  const { sample_answer_high: _h, ...rest } = prompt;
   return rest;
 }
 
