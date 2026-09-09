@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -13,9 +14,13 @@ import {
 import { typeLabel, UNIT_GROUPS, unitsByGroup, type UnitGroup } from '@/lib/units';
 import { WritingProgressLine, type HistoryPoint } from '@/components/writing/progress-line';
 import { SeedPatch, type SeedPatchData } from '@/components/writing/seed-patch';
-import { SubjectChat } from '@/components/writing/subject-chat';
 import { WeekNote } from '@/components/writing/week-note';
 import type { WeekNoteData } from '@/lib/week-note';
+
+const SubjectChat = dynamic(
+  () => import('@/components/writing/subject-chat').then((module) => module.SubjectChat),
+  { ssr: false },
+);
 
 type Student = {
   id: string;
