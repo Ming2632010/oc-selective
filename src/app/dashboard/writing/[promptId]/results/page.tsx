@@ -81,20 +81,13 @@ export default function WritingResultsPage() {
       }
 
       try {
-        const [attemptsRes, promptRes] = await Promise.all([
-          fetch(`/api/writing/attempt?student_id=${studentId}&prompt_id=${promptId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`/api/prompts?id=${promptId}&student_id=${studentId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-        ]);
-
+        const attemptsRes = await fetch(
+          `/api/writing/attempt?student_id=${studentId}&prompt_id=${promptId}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
         const attemptsData = await attemptsRes.json();
-        const promptData = await promptRes.json();
 
         if (!attemptsRes.ok) throw new Error(attemptsData.error || 'Failed to load attempts');
-        if (!promptRes.ok) throw new Error(promptData.error || 'Failed to load prompt');
 
         const loaded = ((attemptsData.attempts as Attempt[]) || [])
           .slice()
@@ -102,18 +95,18 @@ export default function WritingResultsPage() {
         setAttempts(loaded);
         setSelectedDraft(loaded[loaded.length - 1]?.draft_number ?? 1);
         setPrompt({
-          ...promptData.prompt,
-          hint_points: Array.isArray(promptData.prompt.hint_points)
-            ? promptData.prompt.hint_points
+          ...attemptsData.prompt,
+          hint_points: Array.isArray(attemptsData.prompt.hint_points)
+            ? attemptsData.prompt.hint_points
             : [],
           kind:
-            promptData.prompt.kind === 'bonus' || promptData.kind === 'bonus'
+            attemptsData.prompt.kind === 'bonus' || attemptsData.kind === 'bonus'
               ? 'bonus'
-              : promptData.prompt.kind === 'test' || promptData.kind === 'test'
+              : attemptsData.prompt.kind === 'test' || attemptsData.kind === 'test'
                 ? 'test'
                 : 'practice',
         });
-        setSamplesUnlocked(Boolean(promptData.samples_unlocked));
+        setSamplesUnlocked(Boolean(attemptsData.samples_unlocked));
         setAwards(
           ((attemptsData.awards as { seeds: number; label: string }[]) || []).slice(),
         );
