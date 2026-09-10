@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { Menu } from 'lucide-react';
 
@@ -14,8 +15,19 @@ export function MarketingHeader({ current }: MarketingHeaderProps) {
   return (
     <header className="sticky top-0 z-30 border-b border-brand-dark bg-brand text-white shadow-sm">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-        <Link href="/" className="font-serif text-xl font-semibold tracking-tight text-white">
-          TrialSeed
+        <Link
+          href="/"
+          className="flex items-center gap-2 font-serif text-xl font-semibold tracking-tight text-white"
+        >
+          <Image
+            src="/brand/trialseed-logo.jpg"
+            alt=""
+            width={36}
+            height={36}
+            priority
+            className="rounded-md"
+          />
+          <span>TrialSeed</span>
         </Link>
 
         <details className="relative lg:hidden">
