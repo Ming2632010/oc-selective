@@ -33,261 +33,17 @@ import {
   type UnitProgressRow,
 } from '@/lib/writing-guidance';
 
-let schemaReady = false;
-let seededLength = 0;
-let seededPrompts = 0;
-const WRITING_SCHEMA = 14;
-let appliedSchema = 0;
-
 const SEEDED_DRILL_COUNT =
   SEED_MINI_DRILLS.length +
   SEED_EXTRA_MINI_DRILLS.length +
   SEED_MIXED_MINI_DRILLS.length +
   SEED_PHRASE_SENTENCE_DRILLS.length;
 
-function markSchemaReady() {
-  schemaReady = true;
-  seededLength = SEEDED_DRILL_COUNT;
-  seededPrompts = SEED_PROMPTS.length;
-  appliedSchema = WRITING_SCHEMA;
-}
-
-export async function ensureWritingEnhancements(): Promise<void> {
-  if (
-    schemaReady &&
-    seededLength === SEEDED_DRILL_COUNT &&
-    seededPrompts === SEED_PROMPTS.length &&
-    appliedSchema === WRITING_SCHEMA
-  ) {
-    return;
-  }
-
-  await query(`
-    CREATE TABLE IF NOT EXISTS writing_schema_meta (
-      id SMALLINT PRIMARY KEY CHECK (id = 1),
-      version INTEGER NOT NULL,
-      seeded_prompts INTEGER NOT NULL DEFAULT 0,
-      seeded_drills INTEGER NOT NULL DEFAULT 0,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  const meta = await query<{
-    version: number;
-    seeded_prompts: number;
-    seeded_drills: number;
-  }>(
-    `SELECT version, seeded_prompts, seeded_drills
-     FROM writing_schema_meta WHERE id = 1`,
-  );
-  const row = meta.rows[0];
-  if (
-    row &&
-    row.version === WRITING_SCHEMA &&
-    row.seeded_prompts === SEED_PROMPTS.length &&
-    row.seeded_drills === SEEDED_DRILL_COUNT
-  ) {
-    markSchemaReady();
-    return;
-  }
-
-  await query(`
-    CREATE TABLE IF NOT EXISTS subject_messages (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-      student_id UUID NOT NULL REFERENCES students (id) ON DELETE CASCADE,
-      subject TEXT NOT NULL CHECK (
-        subject IN ('writing', 'math', 'thinking', 'reading')
-      ),
-      sender TEXT NOT NULL CHECK (sender IN ('parent', 'student')),
-      body TEXT NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await query(`
-    CREATE INDEX IF NOT EXISTS idx_subject_messages_thread
-      ON subject_messages (user_id, student_id, subject, created_at)
-  `);
-  await query(
-    `UPDATE prompts SET is_locked = FALSE WHERE is_active = TRUE AND is_locked = TRUE`,
-  );
-
-  await query(`
-    CREATE TABLE IF NOT EXISTS mini_drills (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      slug TEXT NOT NULL UNIQUE,
-      module_id INTEGER NOT NULL CHECK (module_id BETWEEN 1 AND 11),
-      prompt_type TEXT NOT NULL,
-      skill TEXT NOT NULL,
-      title TEXT NOT NULL,
-      stem TEXT NOT NULL,
-      options JSONB NOT NULL,
-      correct_index INTEGER NOT NULL,
-      explanation TEXT NOT NULL,
-      sort_order INTEGER NOT NULL DEFAULT 1,
-      is_active BOOLEAN NOT NULL DEFAULT TRUE
-    )
-  `);
-  await query(`
-    CREATE INDEX IF NOT EXISTS idx_mini_drills_module
-      ON mini_drills (module_id, sort_order)
-  `);
-  await query(`
-    CREATE TABLE IF NOT EXISTS mini_drill_attempts (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      student_id UUID NOT NULL REFERENCES students (id) ON DELETE CASCADE,
-      drill_id UUID NOT NULL REFERENCES mini_drills (id) ON DELETE CASCADE,
-      answer_index INTEGER NOT NULL,
-      is_correct BOOLEAN NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await query(`
-    CREATE INDEX IF NOT EXISTS idx_mini_drill_attempts_student
-      ON mini_drill_attempts (student_id, drill_id, created_at DESC)
-  `);
-  await query(`
-    ALTER TABLE mini_drills
-      ADD COLUMN IF NOT EXISTS student_id UUID REFERENCES students (id) ON DELETE CASCADE
-  `);
-  await query(`
-    ALTER TABLE mini_drills
-      ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'seed'
-  `);
-  await query(`
-    ALTER TABLE mini_drills
-      ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  `);
-  await query(`
-    ALTER TABLE mini_drills
-      ADD COLUMN IF NOT EXISTS focus_note TEXT
-  `);
-  await query(`
-    CREATE INDEX IF NOT EXISTS idx_mini_drills_student
-      ON mini_drills (student_id, module_id, sort_order)
-  `);
-  await query(`
-    CREATE TABLE IF NOT EXISTS mini_drill_unlocks (
-      student_id UUID NOT NULL REFERENCES students (id) ON DELETE CASCADE,
-      drill_id UUID NOT NULL REFERENCES mini_drills (id) ON DELETE CASCADE,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      PRIMARY KEY (student_id, drill_id)
-    )
-  `);
-  await query(`
-    CREATE INDEX IF NOT EXISTS idx_mini_drill_unlocks_student
-      ON mini_drill_unlocks (student_id, created_at DESC)
-  `);
-  await query(`
-    ALTER TABLE mini_drills
-      ADD COLUMN IF NOT EXISTS item_kind TEXT NOT NULL DEFAULT 'choice'
-  `);
-  await query(`
-    ALTER TABLE mini_drills
-      ADD COLUMN IF NOT EXISTS prompt JSONB NOT NULL DEFAULT '{}'::jsonb
-  `);
-  await query(`
-    ALTER TABLE mini_drill_attempts
-      ALTER COLUMN answer_index DROP NOT NULL
-  `);
-  await query(`
-    ALTER TABLE mini_drill_attempts
-      ADD COLUMN IF NOT EXISTS answer_text TEXT
-  `);
-  await query(`
-    ALTER TABLE mini_drill_attempts
-      ADD COLUMN IF NOT EXISTS answer_payload JSONB
-  `);
-  await query(`
-    ALTER TABLE mini_drill_attempts
-      ADD COLUMN IF NOT EXISTS feedback JSONB
-  `);
-
-  await query(`
-    ALTER TABLE prompts
-      ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'practice'
-  `);
-  await query(`
-    UPDATE prompts SET kind = 'practice' WHERE kind IS NULL OR kind = ''
-  `);
-  await query(`
-    CREATE INDEX IF NOT EXISTS idx_prompts_kind_module
-      ON prompts (kind, module_id, is_active)
-  `);
-  await query(`ALTER TABLE prompts ADD COLUMN IF NOT EXISTS stimulus_image TEXT`);
-  await query(`ALTER TABLE prompts ADD COLUMN IF NOT EXISTS stimulus_quote TEXT`);
-  await query(
-    `ALTER TABLE prompts ADD COLUMN IF NOT EXISTS purposes TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]`,
-  );
-  await query(`ALTER TABLE prompts ADD COLUMN IF NOT EXISTS purpose_note TEXT`);
-  await query(`ALTER TABLE prompts ADD COLUMN IF NOT EXISTS decode_guide JSONB`);
-  await query(`
-    ALTER TABLE writing_attempts
-      ADD COLUMN IF NOT EXISTS marker_notes JSONB
-  `);
-  await query(`
-    CREATE TABLE IF NOT EXISTS writing_warmups (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      student_id UUID NOT NULL REFERENCES students (id) ON DELETE CASCADE,
-      prompt_id UUID NOT NULL REFERENCES prompts (id) ON DELETE CASCADE,
-      answers JSONB NOT NULL DEFAULT '[]'::jsonb,
-      correct_count INTEGER NOT NULL DEFAULT 0,
-      completed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      UNIQUE (student_id, prompt_id)
-    )
-  `);
-  await query(`
-    CREATE TABLE IF NOT EXISTS writing_exam_sessions (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      student_id UUID NOT NULL REFERENCES students (id) ON DELETE CASCADE,
-      prompt_id UUID NOT NULL REFERENCES prompts (id) ON DELETE CASCADE,
-      started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      deadline_at TIMESTAMPTZ NOT NULL,
-      submitted_at TIMESTAMPTZ,
-      UNIQUE (student_id, prompt_id)
-    )
-  `);
-  await query(`
-    CREATE INDEX IF NOT EXISTS idx_writing_exam_sessions_deadline
-      ON writing_exam_sessions (student_id, prompt_id, deadline_at)
-  `);
-
-  await query(`
-    CREATE TABLE IF NOT EXISTS student_seed_patch (
-      student_id UUID PRIMARY KEY REFERENCES students (id) ON DELETE CASCADE,
-      lifetime_seeds INTEGER NOT NULL DEFAULT 0,
-      week_seeds INTEGER NOT NULL DEFAULT 0,
-      week_start DATE NOT NULL,
-      harvest_claimed BOOLEAN NOT NULL DEFAULT FALSE,
-      plot_days INTEGER NOT NULL DEFAULT 0,
-      last_plot_date DATE,
-      rain_cheques INTEGER NOT NULL DEFAULT 0,
-      focused_seconds_week INTEGER NOT NULL DEFAULT 0,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await query(`
-    CREATE TABLE IF NOT EXISTS seed_events (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      student_id UUID NOT NULL REFERENCES students (id) ON DELETE CASCADE,
-      source TEXT NOT NULL,
-      seeds INTEGER NOT NULL,
-      label TEXT NOT NULL,
-      meta JSONB NOT NULL DEFAULT '{}'::jsonb,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await query(`
-    CREATE INDEX IF NOT EXISTS idx_seed_events_student
-      ON seed_events (student_id, created_at DESC)
-  `);
-  await query(`
-    ALTER TABLE prompts DROP CONSTRAINT IF EXISTS prompts_module_id_check
-  `);
-  await query(`
-    ALTER TABLE prompts
-      ADD CONSTRAINT prompts_module_id_check CHECK (module_id BETWEEN 1 AND 12)
-  `);
-
+/**
+ * Upserts bundled learning content without changing prompt or drill identifiers.
+ * Run explicitly after `db:migrate`; this must never run on a student request.
+ */
+export async function seedWritingContent(): Promise<void> {
   for (const prompt of SEED_PROMPTS) {
     const purposes =
       prompt.purposes && prompt.purposes.length > 0
@@ -488,18 +244,6 @@ export async function ensureWritingEnhancements(): Promise<void> {
     );
   }
 
-  await query(
-    `INSERT INTO writing_schema_meta (id, version, seeded_prompts, seeded_drills)
-     VALUES (1, $1, $2, $3)
-     ON CONFLICT (id) DO UPDATE SET
-       version = EXCLUDED.version,
-       seeded_prompts = EXCLUDED.seeded_prompts,
-       seeded_drills = EXCLUDED.seeded_drills,
-       updated_at = NOW()`,
-    [WRITING_SCHEMA, SEED_PROMPTS.length, SEEDED_DRILL_COUNT],
-  );
-
-  markSchemaReady();
 }
 
 export async function getUnitProgress(
@@ -647,9 +391,12 @@ async function getTermReviewCounts(studentId: string): Promise<{
   };
 }
 
-export async function getBonusExamAccess(studentId: string) {
+export async function getBonusExamAccess(
+  studentId: string,
+  knownProgress?: UnitProgressRow[],
+) {
   const [progress, reviews] = await Promise.all([
-    getUnitProgress(studentId),
+    knownProgress ? Promise.resolve(knownProgress) : getUnitProgress(studentId),
     getTermReviewCounts(studentId),
   ]);
   return bonusExamAccess({
@@ -668,12 +415,15 @@ export type BonusPaperRow = {
   locked: boolean;
 };
 
-export async function getBonusPapers(studentId: string): Promise<{
+export async function getBonusPapers(
+  studentId: string,
+  knownProgress?: UnitProgressRow[],
+): Promise<{
   access: ReturnType<typeof bonusExamAccess>;
   lock_reason: string;
   papers: BonusPaperRow[];
 }> {
-  const access = await getBonusExamAccess(studentId);
+  const access = await getBonusExamAccess(studentId, knownProgress);
   const result = await query<{
     id: string;
     title: string;
@@ -714,7 +464,10 @@ export async function getBonusPapers(studentId: string): Promise<{
   };
 }
 
-export async function getTermTests(studentId: string): Promise<TermTestRow[]> {
+export async function getTermTests(
+  studentId: string,
+  knownProgress?: UnitProgressRow[],
+): Promise<TermTestRow[]> {
   const result = await query<{
     id: string;
     title: string;
@@ -739,7 +492,7 @@ export async function getTermTests(studentId: string): Promise<TermTestRow[]> {
     [studentId],
   );
 
-  const progress = await getUnitProgress(studentId);
+  const progress = knownProgress ?? (await getUnitProgress(studentId));
   return result.rows.map((row) => {
     const sat = Boolean(row.attempt_id);
     const access = termReviewAccess(progress, row.module_id);
@@ -796,8 +549,8 @@ export async function getGuidanceForStudent(studentId: string): Promise<{
   week_note: WeekNoteData;
 }> {
   const unlocked_unit = 11;
+  const progress = await getUnitProgress(studentId);
   const [
-    progress,
     mini_progress,
     term_tests,
     bonus_papers,
@@ -807,10 +560,9 @@ export async function getGuidanceForStudent(studentId: string): Promise<{
     rewards,
     lastTest,
   ] = await Promise.all([
-    getUnitProgress(studentId),
     getMiniProgress(studentId),
-    getTermTests(studentId),
-    getBonusPapers(studentId),
+    getTermTests(studentId, progress),
+    getBonusPapers(studentId, progress),
     query<PromptSummary>(
       `SELECT id, title, prompt_type, module_id,
               COALESCE(kind, 'practice') AS kind

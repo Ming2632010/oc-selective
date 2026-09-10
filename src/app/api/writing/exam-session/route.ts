@@ -4,7 +4,6 @@ import { query } from '@/lib/db';
 import { isExamStyleKind } from '@/lib/seed-prompts';
 import {
   assertOwnedStudent,
-  ensureWritingEnhancements,
   getBonusExamAccess,
   getTermReviewAccess,
   hasCompletedWarmup,
@@ -35,7 +34,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'student_id and prompt_id are required' }, { status: 400 });
     }
 
-    await ensureWritingEnhancements();
     if (!(await assertOwnedStudent(userId, studentId))) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }

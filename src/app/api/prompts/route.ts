@@ -4,7 +4,6 @@ import { query } from '@/lib/db';
 import { bonusExamLockMessage, termReviewLockMessage } from '@/lib/writing-guidance';
 import { isExamStyleKind } from '@/lib/seed-prompts';
 import {
-  ensureWritingEnhancements,
   getBonusExamAccess,
   getWritingAccessState,
   getTermReviewAccess,
@@ -55,8 +54,6 @@ export async function GET(request: Request) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    await ensureWritingEnhancements();
 
     const { searchParams } = new URL(request.url);
     const moduleIdRaw = searchParams.get('module_id');

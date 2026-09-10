@@ -22,8 +22,10 @@ export function SubjectChat({
   const [body, setBody] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
+    if (!open) return;
     async function load() {
       const res = await apiFetch(
         `/api/subjects/chat?student_id=${studentId}&subject=${subject}`,
@@ -36,7 +38,7 @@ export function SubjectChat({
       }
     }
     void load();
-  }, [studentId, subject]);
+  }, [open, studentId, subject]);
 
   async function onSend(event: FormEvent) {
     event.preventDefault();
@@ -67,10 +69,28 @@ export function SubjectChat({
 
   return (
     <section className="flex h-full min-h-[18rem] flex-col rounded-lg border border-warm-border bg-warm-card p-5 shadow-card">
-      <h2 className="text-lg font-semibold text-warm-ink">Writing chat</h2>
-      <p className="mt-1 text-sm text-warm-muted">
-        Notes between parent and student about this subject.
-      </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-warm-ink">Writing chat</h2>
+          <p className="mt-1 text-sm text-warm-muted">
+            Notes between parent and student about this subject.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          className="rounded-full border border-brand px-3 py-1.5 text-sm font-medium text-brand hover:bg-[#EDF3ED]"
+        >
+          {open ? 'Close' : 'Open chat'}
+        </button>
+      </div>
+
+      {!open ? (
+        <p className="mt-6 text-sm text-warm-subtle">
+          Open chat when you want to read or add a note.
+        </p>
+      ) : (
+        <>
 
       <ul className="mt-4 max-h-56 flex-1 space-y-2 overflow-y-auto">
         {messages.length === 0 ? (
@@ -140,6 +160,8 @@ export function SubjectChat({
           </button>
         </div>
       </form>
+        </>
+      )}
     </section>
   );
 }

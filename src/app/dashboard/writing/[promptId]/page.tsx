@@ -173,39 +173,29 @@ export default function WritingPracticePage() {
       setAuth({ token, studentId });
 
       try {
-        const [promptRes, attemptsRes] = await Promise.all([
-          fetch(`/api/prompts?id=${promptId}&student_id=${studentId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`/api/writing/attempt?student_id=${studentId}&prompt_id=${promptId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-        ]);
-
-        const promptData = await promptRes.json();
+        const attemptsRes = await fetch(
+          `/api/writing/attempt?student_id=${studentId}&prompt_id=${promptId}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
         const attemptsData = await attemptsRes.json();
-
-        if (!promptRes.ok) {
-          throw new Error(promptData.error || 'Failed to load prompt');
-        }
         if (!attemptsRes.ok) {
           throw new Error(attemptsData.error || 'Failed to load attempts');
         }
 
-        const p = promptData.prompt as Prompt;
+        const p = attemptsData.prompt as Prompt;
         const hints = Array.isArray(p.hint_points) ? p.hint_points : [];
         const testTask =
           p.kind === 'test' ||
           p.kind === 'bonus' ||
-          promptData.kind === 'test' ||
-          promptData.kind === 'bonus';
+          attemptsData.kind === 'test' ||
+          attemptsData.kind === 'bonus';
         setIsTest(testTask);
         setPrompt({ ...p, hint_points: hints });
-        if (testTask && (p.is_locked || promptData.prompt?.is_locked)) {
+        if (testTask && p.is_locked) {
           setReviewLocked(true);
           setLockReason(
-            typeof promptData.lock_reason === 'string' && promptData.lock_reason
-              ? promptData.lock_reason
+            typeof attemptsData.lock_reason === 'string' && attemptsData.lock_reason
+              ? attemptsData.lock_reason
               : p.kind === 'bonus'
                 ? 'Unlock these exam papers by trying every full writing task and every term review at least once.'
                 : 'Try every full writing task in this unit at least once before the term review.',
@@ -232,7 +222,7 @@ export default function WritingPracticePage() {
         setPlan('');
 
         if (testTask) {
-          setUiPhase(promptData.warmup_completed ? 'gate' : 'warmup');
+          setUiPhase(attemptsData.warmup_completed ? 'gate' : 'warmup');
         } else if (nextDraft === 1 && parseDecodeGuide(p.decode_guide)) {
           setUiPhase('decode');
         } else {

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
-import { scoreWritingAttempt } from '@/lib/scoring';
 import {
   buildMarkerNotesHeuristic,
   markerNotesFromUnknown,
@@ -11,12 +10,11 @@ import { bonusExamLockMessage, termReviewLockMessage } from '@/lib/writing-guida
 import { isExamStyleKind } from '@/lib/seed-prompts';
 import { isRateLimited } from '@/lib/rate-limit';
 import {
-  awardWritingSeeds,
   claimWritingExamSubmission,
-  ensureWritingEnhancements,
   getAwardsForPrompt,
   getBonusExamAccess,
   getGuidanceForStudent,
+  hasCompletedWarmup,
   getWritingExamSession,
   getWritingAccessState,
   getNextRecommendation,
@@ -46,8 +44,6 @@ export async function GET(request: Request) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    await ensureWritingEnhancements();
 
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get('student_id');
@@ -87,13 +83,15 @@ export async function GET(request: Request) {
     const [attempts, awards, recommendation, promptMeta] = await Promise.all([
       query<{
         id: string;
+        draft_number: number;
         content: string;
         marker_notes: unknown;
+        marking_status: 'pending' | 'marking' | 'complete';
       }>(
         `SELECT id, student_id, prompt_id, draft_number, content, plan_content,
                 score_set_a, score_set_b, overall_score, scores_breakdown,
                 ai_feedback, marker_notes, checked_hint_1, checked_hint_2, checked_hint_3,
-                word_count, time_spent_seconds, has_seen_sample, created_at
+                word_count, time_spent_seconds, has_seen_sample, marking_status, created_at
          FROM writing_attempts
          WHERE student_id = $1 AND prompt_id = $2
          ORDER BY draft_number ASC`,
@@ -101,43 +99,106 @@ export async function GET(request: Request) {
       ),
       getAwardsForPrompt(studentId, promptId),
       getNextRecommendation(studentId),
-      query<{ prompt_type: string; hint_points: unknown; kind: string; title: string }>(
-        `SELECT prompt_type, hint_points, kind, title FROM prompts WHERE id = $1 LIMIT 1`,
+      query<{
+        id: string;
+        title: string;
+        description: string;
+        prompt_type: string;
+        module_id: number;
+        hint_points: unknown;
+        time_limit_minutes: number;
+        kind: string;
+        stimulus_image: string | null;
+        stimulus_quote: string | null;
+        purposes: string[] | null;
+        purpose_note: string | null;
+        decode_guide: unknown;
+        sample_answer_high: string;
+      }>(
+        `SELECT id, title, description, prompt_type, module_id, hint_points,
+                time_limit_minutes, COALESCE(kind, 'practice') AS kind,
+                stimulus_image, stimulus_quote, purposes, purpose_note, decode_guide,
+                sample_answer_high
+         FROM prompts WHERE id = $1 AND is_active = TRUE LIMIT 1`,
         [promptId],
       ),
     ]);
 
-    const promptType = promptMeta.rows[0]?.prompt_type || 'narrative';
-    const examStyle = isExamStyleKind(promptMeta.rows[0]?.kind);
-    const hintPoints = Array.isArray(promptMeta.rows[0]?.hint_points)
-      ? (promptMeta.rows[0]?.hint_points as string[])
+    const prompt = promptMeta.rows[0];
+    if (!prompt) {
+      return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
+    }
+    const promptType = prompt.prompt_type;
+    const examStyle = isExamStyleKind(prompt.kind);
+    const hintPoints = Array.isArray(prompt.hint_points)
+      ? (prompt.hint_points as string[])
       : [];
 
-    const hydrated = [];
-    for (const row of attempts.rows) {
+    const hydrated = attempts.rows.map((row) => {
       const existing = markerNotesFromUnknown(row.marker_notes, row.content);
-      if (existing && !notesNeedRebuild(existing)) {
-        hydrated.push({ ...row, marker_notes: existing });
-        continue;
+      const notes =
+        existing && !notesNeedRebuild(existing)
+          ? existing
+          : buildMarkerNotesHeuristic({
+              content: row.content,
+              promptType,
+              promptTitle: prompt.title,
+              hintPoints: examStyle ? [] : hintPoints,
+              examStyle,
+            });
+      return { ...row, marker_notes: notes };
+    });
+
+    const maxDraft = hydrated.reduce(
+      (max, row) => Math.max(max, row.draft_number),
+      0,
+    );
+    const samplesUnlocked = !examStyle && maxDraft >= 3;
+    let reviewLocked = false;
+    let lockReason = '';
+    if (examStyle && maxDraft < 1) {
+      if (prompt.kind === 'bonus') {
+        const access = await getBonusExamAccess(studentId);
+        reviewLocked = access.locked;
+        lockReason = bonusExamLockMessage(access);
+      } else {
+        const access = await getTermReviewAccess(studentId, prompt.module_id);
+        reviewLocked = access.locked;
+        lockReason = termReviewLockMessage(access);
       }
-      const notes = buildMarkerNotesHeuristic({
-        content: row.content,
-        promptType,
-        promptTitle: typeof promptMeta.rows[0]?.title === 'string' ? promptMeta.rows[0].title : undefined,
-        hintPoints: examStyle ? [] : hintPoints,
-        examStyle,
-      });
-      await query(
-        `UPDATE writing_attempts SET marker_notes = $1::jsonb WHERE id = $2`,
-        [JSON.stringify(notes), row.id],
-      );
-      hydrated.push({ ...row, marker_notes: notes });
     }
+
+    const publicPrompt = {
+      id: prompt.id,
+      title: prompt.title,
+      description: prompt.description,
+      prompt_type: prompt.prompt_type,
+      module_id: prompt.module_id,
+      hint_points: hintPoints,
+      time_limit_minutes: prompt.time_limit_minutes,
+      kind: prompt.kind,
+      stimulus_image: prompt.stimulus_image,
+      stimulus_quote: prompt.stimulus_quote,
+      purposes: prompt.purposes,
+      purpose_note: prompt.purpose_note,
+      decode_guide: prompt.decode_guide,
+      is_locked: reviewLocked,
+      ...(samplesUnlocked ? { sample_answer_high: prompt.sample_answer_high } : {}),
+    };
 
     return NextResponse.json({
       awards,
       attempts: hydrated,
       recommendation,
+      prompt: publicPrompt,
+      samples_unlocked: samplesUnlocked,
+      max_draft: maxDraft,
+      max_attempts: examStyle ? 1 : 3,
+      kind: examStyle ? prompt.kind : 'practice',
+      warmup_completed: examStyle
+        ? await hasCompletedWarmup(studentId, promptId)
+        : true,
+      lock_reason: reviewLocked ? lockReason : '',
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load attempts';
@@ -152,8 +213,6 @@ export async function POST(request: Request) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    await ensureWritingEnhancements();
 
     let body: AttemptBody;
     try {
@@ -302,19 +361,6 @@ export async function POST(request: Request) {
       }
     }
 
-    const hintPoints = Array.isArray(prompt.hint_points)
-      ? (prompt.hint_points as string[])
-      : [];
-
-    const scored = await scoreWritingAttempt({
-      content,
-      hintPoints: isExam ? [] : hintPoints,
-      promptType: prompt.prompt_type,
-      promptTitle: prompt.title,
-      promptDescription: prompt.description,
-      examStyle: isExam,
-    });
-
     if (isExam && !(await claimWritingExamSubmission(studentId, promptId))) {
       return NextResponse.json(
         { error: 'This exam session is closed.' },
@@ -325,14 +371,10 @@ export async function POST(request: Request) {
     const inserted = await query(
       `INSERT INTO writing_attempts (
          student_id, prompt_id, draft_number, content, plan_content,
-         score_set_a, score_set_b, overall_score, scores_breakdown,
-         ai_feedback, marker_notes, checked_hint_1, checked_hint_2, checked_hint_3,
-         word_count, time_spent_seconds, has_seen_sample
+         word_count, time_spent_seconds, has_seen_sample, marking_status
        ) VALUES (
          $1,$2,$3,$4,$5,
-         $6,$7,$8,$9,
-         $10,$11::jsonb,$12,$13,$14,
-         $15,$16,$17
+         $6,$7,$8,'pending'
        )
        RETURNING *`,
       [
@@ -341,40 +383,16 @@ export async function POST(request: Request) {
         draftNumber,
         content,
         planContent,
-        scored.score_set_a,
-        scored.score_set_b,
-        scored.overall_score,
-        JSON.stringify(scored.scores_breakdown),
-        scored.ai_feedback,
-        JSON.stringify(scored.marker_notes),
-        scored.checked_hint_1,
-        scored.checked_hint_2,
-        scored.checked_hint_3,
-        scored.word_count,
+        content.trim().split(/\s+/).filter(Boolean).length,
         timeSpent,
         hasSeenSample,
       ],
     );
 
-    const award = await awardWritingSeeds({
-      studentId,
-      promptId,
-      kind: prompt.kind === 'bonus' ? 'bonus' : isExam ? 'test' : 'practice',
-      draftNumber,
-      overallScore: scored.overall_score,
-      wordCount: scored.word_count,
-      timeSpentSeconds: timeSpent,
-    });
-    const guidance = await getGuidanceForStudent(studentId);
-
     return NextResponse.json(
       {
         attempt: inserted.rows[0],
-        award,
-        progress: guidance.progress,
-        unlocked_unit: guidance.unlocked_unit,
-        recommendation: guidance.recommendation,
-        rewards: guidance.rewards,
+        marking_status: 'pending',
       },
       { status: 201 },
     );

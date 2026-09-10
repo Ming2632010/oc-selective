@@ -3,7 +3,6 @@ import { getAuthUserId } from '@/lib/auth';
 import {
   assertOwnedStudent,
   deactivateCopiedExtraDrills,
-  ensureWritingEnhancements,
   unlockExtraPack,
 } from '@/lib/writing-state';
 import { isRateLimited } from '@/lib/rate-limit';
@@ -17,8 +16,6 @@ export async function POST(request: Request) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    await ensureWritingEnhancements();
 
     let body: { student_id?: unknown; module_id?: unknown };
     try {

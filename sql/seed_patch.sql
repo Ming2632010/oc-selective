@@ -1,4 +1,4 @@
--- Seed Patch reward tables (also created by ensureWritingEnhancements)
+-- Seed Patch reward tables (also created by sql/writing_schema.sql)
 
 CREATE TABLE IF NOT EXISTS student_seed_patch (
   student_id UUID PRIMARY KEY REFERENCES students (id) ON DELETE CASCADE,

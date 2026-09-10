@@ -182,7 +182,6 @@ describe('annotationSegments', () => {
         quote: 'er',
         issue: 'Test annotation',
         suggestion: 'Test suggestion',
-        set: 'B',
       },
     ]);
     assert.deepEqual(

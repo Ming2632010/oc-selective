@@ -10,7 +10,6 @@ import { bonusExamLockMessage, termReviewLockMessage } from '@/lib/writing-guida
 import { isExamStyleKind } from '@/lib/seed-prompts';
 import {
   assertOwnedStudent,
-  ensureWritingEnhancements,
   getBonusExamAccess,
   getTermReviewAccess,
   hasCompletedWarmup,
@@ -45,8 +44,6 @@ export async function GET(request: Request) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    await ensureWritingEnhancements();
 
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get('student_id');
@@ -105,8 +102,6 @@ export async function POST(request: Request) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    await ensureWritingEnhancements();
 
     let body: { student_id?: unknown; prompt_id?: unknown; answers?: unknown };
     try {

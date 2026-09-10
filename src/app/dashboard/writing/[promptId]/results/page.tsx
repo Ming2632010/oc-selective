@@ -3,14 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import {
-  PolarAngleAxis,
-  PolarGrid,
-  PolarRadiusAxis,
-  Radar,
-  RadarChart,
-  ResponsiveContainer,
-} from 'recharts';
 import { SeedAwardBanner } from '@/components/writing/seed-patch';
 import { MarkedScript, MarkerSummary } from '@/components/writing/marked-script';
 import { markerNotesFromUnknown } from '@/lib/marker-notes';
@@ -20,6 +12,7 @@ type Attempt = {
   id: string;
   draft_number: number;
   content: string;
+  marking_status?: 'pending' | 'marking' | 'complete';
   plan_content?: string | null;
   score_set_a: number;
   score_set_b: number;
@@ -81,20 +74,13 @@ export default function WritingResultsPage() {
       }
 
       try {
-        const [attemptsRes, promptRes] = await Promise.all([
-          fetch(`/api/writing/attempt?student_id=${studentId}&prompt_id=${promptId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`/api/prompts?id=${promptId}&student_id=${studentId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-        ]);
-
+        const attemptsRes = await fetch(
+          `/api/writing/attempt?student_id=${studentId}&prompt_id=${promptId}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
         const attemptsData = await attemptsRes.json();
-        const promptData = await promptRes.json();
 
         if (!attemptsRes.ok) throw new Error(attemptsData.error || 'Failed to load attempts');
-        if (!promptRes.ok) throw new Error(promptData.error || 'Failed to load prompt');
 
         const loaded = ((attemptsData.attempts as Attempt[]) || [])
           .slice()
@@ -102,18 +88,18 @@ export default function WritingResultsPage() {
         setAttempts(loaded);
         setSelectedDraft(loaded[loaded.length - 1]?.draft_number ?? 1);
         setPrompt({
-          ...promptData.prompt,
-          hint_points: Array.isArray(promptData.prompt.hint_points)
-            ? promptData.prompt.hint_points
+          ...attemptsData.prompt,
+          hint_points: Array.isArray(attemptsData.prompt.hint_points)
+            ? attemptsData.prompt.hint_points
             : [],
           kind:
-            promptData.prompt.kind === 'bonus' || promptData.kind === 'bonus'
+            attemptsData.prompt.kind === 'bonus' || attemptsData.kind === 'bonus'
               ? 'bonus'
-              : promptData.prompt.kind === 'test' || promptData.kind === 'test'
+              : attemptsData.prompt.kind === 'test' || attemptsData.kind === 'test'
                 ? 'test'
                 : 'practice',
         });
-        setSamplesUnlocked(Boolean(promptData.samples_unlocked));
+        setSamplesUnlocked(Boolean(attemptsData.samples_unlocked));
         setAwards(
           ((attemptsData.awards as { seeds: number; label: string }[]) || []).slice(),
         );
@@ -137,6 +123,29 @@ export default function WritingResultsPage() {
     void load();
   }, [promptId, router]);
 
+  useEffect(() => {
+    const pending = attempts.find((row) => row.marking_status !== 'complete');
+    if (!pending) return;
+    const attemptId = pending.id;
+    const token = getToken();
+    const studentId = getStudentId();
+    if (!token || !studentId) return;
+
+    let cancelled = false;
+    async function markAndRefresh() {
+      await fetch('/api/writing/attempt/mark', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ student_id: studentId, attempt_id: attemptId }),
+      });
+      if (!cancelled) window.setTimeout(() => window.location.reload(), 800);
+    }
+    void markAndRefresh();
+    return () => {
+      cancelled = true;
+    };
+  }, [attempts]);
+
   const attempt =
     attempts.find((row) => row.draft_number === selectedDraft) ??
     attempts[attempts.length - 1] ??
@@ -156,21 +165,6 @@ export default function WritingResultsPage() {
     [attempt],
   );
 
-  const chartData = useMemo(() => {
-    const b = attempt?.scores_breakdown || {
-      structure: 0,
-      vocabulary: 0,
-      audience: 0,
-      grammar: 0,
-    };
-    return [
-      { dimension: 'Organisation', value: b.structure },
-      { dimension: 'Vocabulary & style', value: b.vocabulary },
-      { dimension: 'Purpose & form', value: b.audience },
-      { dimension: 'Sentences & accuracy', value: b.grammar },
-    ];
-  }, [attempt]);
-
   if (loading) {
     return <main className="mx-auto max-w-4xl p-6">Loading results…</main>;
   }
@@ -182,6 +176,21 @@ export default function WritingResultsPage() {
         <Link href={`/dashboard/writing/${promptId}`} className="mt-4 inline-block underline">
           Back to writing
         </Link>
+      </main>
+    );
+  }
+
+  if (attempt.marking_status !== 'complete') {
+    return (
+      <main className="mx-auto max-w-4xl space-y-4 p-6">
+        <h1 className="text-3xl font-semibold">{prompt.title}</h1>
+        <section className="rounded-lg border border-indigo-200 bg-indigo-50 p-5 text-indigo-950">
+          <h2 className="text-lg font-semibold">Your writing is saved</h2>
+          <p className="mt-2">
+            TrialSeed is marking this response now. This page updates automatically;
+            you can leave and return without losing your work.
+          </p>
+        </section>
       </main>
     );
   }
@@ -284,22 +293,7 @@ export default function WritingResultsPage() {
               value={breakdown.grammar}
             />
           </ul>
-          <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={chartData} outerRadius="70%">
-                <PolarGrid />
-                <PolarAngleAxis dataKey="dimension" tick={{ fontSize: 12 }} />
-                <PolarRadiusAxis angle={90} domain={[0, 5]} tickCount={6} />
-                <Radar
-                  name="Score"
-                  dataKey="value"
-                  stroke="#1c1917"
-                  fill="#1c1917"
-                  fillOpacity={0.25}
-                />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
+          <ScoreRadar breakdown={breakdown} />
         </div>
         <p className="mt-3 text-sm text-stone-600">{attempt.word_count} words</p>
       </section>
@@ -446,5 +440,55 @@ function BreakdownItem({ label, value }: { label: string; value: number }) {
         />
       </div>
     </li>
+  );
+}
+
+function ScoreRadar({
+  breakdown,
+}: {
+  breakdown: {
+    structure: number;
+    vocabulary: number;
+    audience: number;
+    grammar: number;
+  };
+}) {
+  const values = [
+    breakdown.structure,
+    breakdown.vocabulary,
+    breakdown.audience,
+    breakdown.grammar,
+  ].map((value) => Math.max(0, Math.min(5, value)));
+  const point = (value: number, index: number) => {
+    const angle = -Math.PI / 2 + index * (Math.PI / 2);
+    const radius = 42 * (value / 5);
+    return `${50 + Math.cos(angle) * radius},${50 + Math.sin(angle) * radius}`;
+  };
+  const polygon = values.map(point).join(' ');
+  const grid = (value: number) => [0, 1, 2, 3].map((index) => point(value, index)).join(' ');
+
+  return (
+    <div className="mx-auto w-full max-w-56" aria-label="Four-dimension score chart">
+      <svg viewBox="0 0 100 100" role="img" className="h-auto w-full">
+        {[1, 2, 3, 4, 5].map((value) => (
+          <polygon
+            key={value}
+            points={grid(value)}
+            fill="none"
+            stroke="#d6d3d1"
+            strokeWidth="0.5"
+          />
+        ))}
+        <line x1="50" y1="8" x2="50" y2="92" stroke="#d6d3d1" strokeWidth="0.5" />
+        <line x1="8" y1="50" x2="92" y2="50" stroke="#d6d3d1" strokeWidth="0.5" />
+        <polygon points={polygon} fill="#1c1917" fillOpacity="0.25" stroke="#1c1917" />
+      </svg>
+      <div className="grid grid-cols-2 gap-x-2 text-center text-xs text-stone-600">
+        <span>Organisation</span>
+        <span>Vocabulary</span>
+        <span>Purpose</span>
+        <span>Accuracy</span>
+      </div>
+    </div>
   );
 }
