@@ -48,6 +48,10 @@ CREATE TABLE IF NOT EXISTS writing_attempts (
   time_spent_seconds INTEGER NOT NULL DEFAULT 0,
   has_seen_sample BOOLEAN NOT NULL DEFAULT FALSE,
   marker_notes JSONB,
+  marking_status TEXT NOT NULL DEFAULT 'complete'
+    CHECK (marking_status IN ('pending', 'marking', 'complete')),
+  marking_started_at TIMESTAMPTZ,
+  marked_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (student_id, prompt_id, draft_number)
 );
@@ -60,6 +64,14 @@ ALTER TABLE prompts ADD COLUMN IF NOT EXISTS purposes TEXT[] NOT NULL DEFAULT AR
 ALTER TABLE prompts ADD COLUMN IF NOT EXISTS purpose_note TEXT;
 ALTER TABLE prompts ADD COLUMN IF NOT EXISTS decode_guide JSONB;
 ALTER TABLE writing_attempts ADD COLUMN IF NOT EXISTS marker_notes JSONB;
+ALTER TABLE writing_attempts
+  ADD COLUMN IF NOT EXISTS marking_status TEXT NOT NULL DEFAULT 'complete';
+ALTER TABLE writing_attempts
+  ADD COLUMN IF NOT EXISTS marking_started_at TIMESTAMPTZ;
+ALTER TABLE writing_attempts ADD COLUMN IF NOT EXISTS marked_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_writing_attempts_pending_marking
+  ON writing_attempts (marking_status, created_at)
+  WHERE marking_status <> 'complete';
 
 CREATE TABLE IF NOT EXISTS writing_warmups (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
