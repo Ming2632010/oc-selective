@@ -12,7 +12,6 @@ type Attempt = {
   id: string;
   draft_number: number;
   content: string;
-  marking_status?: 'pending' | 'marking' | 'complete';
   plan_content?: string | null;
   score_set_a: number;
   score_set_b: number;
@@ -123,29 +122,6 @@ export default function WritingResultsPage() {
     void load();
   }, [promptId, router]);
 
-  useEffect(() => {
-    const pending = attempts.find((row) => row.marking_status !== 'complete');
-    if (!pending) return;
-    const attemptId = pending.id;
-    const token = getToken();
-    const studentId = getStudentId();
-    if (!token || !studentId) return;
-
-    let cancelled = false;
-    async function markAndRefresh() {
-      await fetch('/api/writing/attempt/mark', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ student_id: studentId, attempt_id: attemptId }),
-      });
-      if (!cancelled) window.setTimeout(() => window.location.reload(), 800);
-    }
-    void markAndRefresh();
-    return () => {
-      cancelled = true;
-    };
-  }, [attempts]);
-
   const attempt =
     attempts.find((row) => row.draft_number === selectedDraft) ??
     attempts[attempts.length - 1] ??
@@ -176,21 +152,6 @@ export default function WritingResultsPage() {
         <Link href={`/dashboard/writing/${promptId}`} className="mt-4 inline-block underline">
           Back to writing
         </Link>
-      </main>
-    );
-  }
-
-  if (attempt.marking_status !== 'complete') {
-    return (
-      <main className="mx-auto max-w-4xl space-y-4 p-6">
-        <h1 className="text-3xl font-semibold">{prompt.title}</h1>
-        <section className="rounded-lg border border-indigo-200 bg-indigo-50 p-5 text-indigo-950">
-          <h2 className="text-lg font-semibold">Your writing is saved</h2>
-          <p className="mt-2">
-            TrialSeed is marking this response now. This page updates automatically;
-            you can leave and return without losing your work.
-          </p>
-        </section>
       </main>
     );
   }
