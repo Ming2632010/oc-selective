@@ -13,7 +13,6 @@ import { isRateLimited } from '@/lib/rate-limit';
 import {
   awardWritingSeeds,
   claimWritingExamSubmission,
-  ensureWritingEnhancements,
   getAwardsForPrompt,
   getBonusExamAccess,
   getGuidanceForStudent,
@@ -46,8 +45,6 @@ export async function GET(request: Request) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    await ensureWritingEnhancements();
 
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get('student_id');
@@ -152,8 +149,6 @@ export async function POST(request: Request) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    await ensureWritingEnhancements();
 
     let body: AttemptBody;
     try {

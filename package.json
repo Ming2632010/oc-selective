@@ -8,6 +8,7 @@
     "start": "next start",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed-writing": "tsx scripts/seed-writing.ts",
+    "db:seed-learning": "tsx scripts/seed-learning-content.ts",
     "test": "tsx --test src/lib/*.test.ts"
   },
   "dependencies": {

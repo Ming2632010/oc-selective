@@ -5,7 +5,6 @@ import { isSubject } from '@/lib/subjects';
 import { isRateLimited } from '@/lib/rate-limit';
 import {
   assertOwnedStudent,
-  ensureWritingEnhancements,
 } from '@/lib/writing-state';
 
 export const runtime = 'nodejs';
@@ -19,8 +18,6 @@ export async function GET(request: Request) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    await ensureWritingEnhancements();
 
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get('student_id');
@@ -66,8 +63,6 @@ export async function POST(request: Request) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    await ensureWritingEnhancements();
 
     let body: {
       student_id?: unknown;

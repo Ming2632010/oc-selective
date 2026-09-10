@@ -12,7 +12,6 @@ import {
 import {
   assertOwnedStudent,
   awardMiniSeeds,
-  ensureWritingEnhancements,
   extraIsUnlocked,
   getMiniExtraMeta,
 } from '@/lib/writing-state';
@@ -179,8 +178,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await ensureWritingEnhancements();
-
     const { searchParams } = new URL(request.url);
     const moduleIdRaw = searchParams.get('module_id');
     const studentId = searchParams.get('student_id');
@@ -340,8 +337,6 @@ export async function POST(request: Request) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    await ensureWritingEnhancements();
 
     let body: {
       student_id?: unknown;
