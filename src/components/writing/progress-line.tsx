@@ -1,15 +1,5 @@
 'use client';
 
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-
 export type HistoryPoint = {
   created_at: string | Date;
   overall_score: number | null;
@@ -41,29 +31,23 @@ export function WritingProgressLine({ history }: { history: HistoryPoint[] }) {
           The line appears after the first submitted draft.
         </p>
       ) : (
-        <div className="mt-4 h-56 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F0EBE3" />
-              <XAxis dataKey="index" tick={{ fontSize: 12, fill: '#9A8E82' }} />
-              <YAxis domain={[0, 25]} tick={{ fontSize: 12, fill: '#9A8E82' }} width={32} />
-              <Tooltip
-                formatter={(value) => [`${value}/25`, 'Overall']}
-                labelFormatter={(_, payload) =>
-                  payload?.[0]?.payload?.label
-                    ? `${payload[0].payload.label} · ${payload[0].payload.date}`
-                    : ''
-                }
-              />
-              <Line
-                type="monotone"
-                dataKey="score"
-                stroke="#C49B7A"
-                strokeWidth={2}
-                dot={{ r: 4, fill: '#2D5A4A', stroke: '#F7F5F0', strokeWidth: 2 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+        <div className="mt-4 overflow-x-auto">
+          <ol className="flex min-w-max items-end gap-4 px-1 pt-4">
+            {data.map((point) => (
+              <li key={`${point.index}-${point.label}`} className="w-16 text-center">
+                <p className="mb-1 text-xs font-medium text-warm-ink">{point.score}/25</p>
+                <div className="flex h-40 items-end rounded-t bg-warm-sand px-2">
+                  <div
+                    className="w-full rounded-t bg-brand transition-[height]"
+                    style={{ height: `${Math.max(4, (point.score / 25) * 100)}%` }}
+                    title={`${point.label} · ${point.date}: ${point.score}/25`}
+                  />
+                </div>
+                <p className="mt-2 text-xs text-warm-muted">Draft {point.index}</p>
+                <p className="text-xs text-warm-subtle">{point.date}</p>
+              </li>
+            ))}
+          </ol>
         </div>
       )}
     </section>
