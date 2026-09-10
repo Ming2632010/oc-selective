@@ -31,23 +31,49 @@ export function WritingProgressLine({ history }: { history: HistoryPoint[] }) {
           The line appears after the first submitted draft.
         </p>
       ) : (
-        <div className="mt-4 overflow-x-auto">
-          <ol className="flex min-w-max items-end gap-4 px-1 pt-4">
-            {data.map((point) => (
-              <li key={`${point.index}-${point.label}`} className="w-16 text-center">
-                <p className="mb-1 text-xs font-medium text-warm-ink">{point.score}/25</p>
-                <div className="flex h-40 items-end rounded-t bg-warm-sand px-2">
-                  <div
-                    className="w-full rounded-t bg-brand transition-[height]"
-                    style={{ height: `${Math.max(4, (point.score / 25) * 100)}%` }}
-                    title={`${point.label} · ${point.date}: ${point.score}/25`}
-                  />
-                </div>
-                <p className="mt-2 text-xs text-warm-muted">Draft {point.index}</p>
-                <p className="text-xs text-warm-subtle">{point.date}</p>
-              </li>
-            ))}
-          </ol>
+        <div className="mt-4">
+          <svg
+            viewBox="0 0 100 60"
+            role="img"
+            aria-label="Line chart of overall writing scores out of 25"
+            className="h-52 w-full"
+            preserveAspectRatio="none"
+          >
+            {[0, 5, 10, 15, 20, 25].map((score) => {
+              const y = 54 - (score / 25) * 48;
+              return (
+                <g key={score}>
+                  <line x1="5" x2="98" y1={y} y2={y} stroke="#F0EBE3" strokeWidth="0.4" />
+                  <text x="0" y={y + 1.5} fill="#9A8E82" fontSize="4">{score}</text>
+                </g>
+              );
+            })}
+            <polyline
+              points={data
+                .map((point, index) => {
+                  const x = data.length === 1 ? 51 : 5 + (index / (data.length - 1)) * 93;
+                  const y = 54 - (point.score / 25) * 48;
+                  return `${x},${y}`;
+                })
+                .join(' ')}
+              fill="none"
+              stroke="#C49B7A"
+              strokeWidth="1.5"
+            />
+            {data.map((point, index) => {
+              const x = data.length === 1 ? 51 : 5 + (index / (data.length - 1)) * 93;
+              const y = 54 - (point.score / 25) * 48;
+              return (
+                <g key={`${point.index}-${point.label}`}>
+                  <title>{`${point.label} · ${point.date}: ${point.score}/25`}</title>
+                  <circle cx={x} cy={y} r="2" fill="#2D5A4A" stroke="#FFFFFF" strokeWidth="0.8" />
+                  <text x={x} y="59" textAnchor="middle" fill="#6B5F55" fontSize="3.5">
+                    D{point.index}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
         </div>
       )}
     </section>
