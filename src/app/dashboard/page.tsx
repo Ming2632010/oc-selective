@@ -564,15 +564,19 @@ export default function DashboardPage() {
                   type="button"
                   onClick={() => toggleGroup(group)}
                   aria-expanded={expanded}
-                  className="flex w-full items-baseline justify-between gap-3 rounded-lg border border-warm-border bg-warm-card p-4 text-left shadow-card hover:border-brand"
+                  className="flex w-full items-baseline justify-between gap-3 rounded-lg border border-brand-dark p-4 text-left text-white shadow-card"
+                  style={{
+                    background:
+                      'linear-gradient(145deg, #1E3F33 0%, #2D5A4A 58%, #4A7A64 100%)',
+                  }}
                 >
                   <span className="flex items-baseline gap-3">
-                    <span className="text-sm font-semibold uppercase tracking-wide text-warm-ink">
+                    <span className="text-sm font-bold uppercase tracking-wide">
                       {group}
                     </span>
-                    <span className="text-sm text-warm-subtle">{GROUP_BLURBS[group]}</span>
+                    <span className="text-sm text-white/80">{GROUP_BLURBS[group]}</span>
                   </span>
-                  <span className="shrink-0 text-sm text-brand">
+                  <span className="shrink-0 text-sm font-semibold text-[#F0C9A8]">
                     {expanded ? 'Close' : 'View units'}
                   </span>
                 </button>
