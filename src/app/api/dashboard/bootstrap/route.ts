@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { isSubscriptionActive } from '@/lib/subscription';
-import { getGuidanceForStudent, getWritingAccessState } from '@/lib/writing-state';
+import { getDashboardOverview, getWritingAccessState } from '@/lib/writing-state';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -50,7 +50,7 @@ export async function GET(request: Request) {
       : 'not-found';
     const guidance =
       selectedStudentId && writingAccess === 'granted'
-        ? await getGuidanceForStudent(selectedStudentId)
+        ? await getDashboardOverview(selectedStudentId)
         : null;
 
     return NextResponse.json(

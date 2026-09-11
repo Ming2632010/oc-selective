@@ -611,6 +611,49 @@ export async function getGuidanceForStudent(studentId: string): Promise<{
   };
 }
 
+/** Data for the dashboard overview. Unit-specific rows load separately on demand. */
+export async function getDashboardOverview(studentId: string) {
+  const unlocked_unit = 11;
+  const [promptRows, attemptRows, history, rewards, lastTest, bonus_papers] = await Promise.all([
+    query<PromptSummary>(
+      `SELECT id, title, prompt_type, module_id,
+              COALESCE(kind, 'practice') AS kind
+       FROM prompts
+       WHERE is_active = TRUE
+         AND COALESCE(kind, 'practice') = 'practice'
+       ORDER BY module_id ASC, title ASC`,
+    ),
+    query<AttemptSummary & { scores_breakdown: AttemptSummary['scores_breakdown'] }>(
+      `SELECT prompt_id, draft_number, overall_score, scores_breakdown
+       FROM writing_attempts WHERE student_id = $1 ORDER BY created_at ASC`,
+      [studentId],
+    ),
+    getScoreHistory(studentId),
+    getSeedPatchView(studentId),
+    getLastSatTest(studentId),
+    getBonusPapers(studentId),
+  ]);
+  const recommendation = recommendNextTask(
+    promptRows.rows,
+    attemptRows.rows,
+    unlocked_unit,
+  );
+  return {
+    unlocked_unit,
+    recommendation,
+    history,
+    rewards,
+    bonus_papers,
+    week_note: buildWeekNote({
+      plot_days: rewards.plot_days,
+      focused_minutes: rewards.focused_minutes_week,
+      lastTest,
+      nextFormLabel: recommendation ? typeLabel(recommendation.prompt_type) : null,
+      nextTitle: recommendation?.title ?? null,
+    }),
+  };
+}
+
 export async function getNextRecommendation(studentId: string) {
   const [promptRows, attemptRows] = await Promise.all([
     query<PromptSummary>(
