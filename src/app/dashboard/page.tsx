@@ -180,6 +180,9 @@ export default function DashboardPage() {
     null,
   );
   const [subscription, setSubscription] = useState<SubscriptionState | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<UnitGroup[]>([]);
+  const [loadedGroups, setLoadedGroups] = useState<Partial<Record<UnitGroup, boolean>>>({});
+  const [groupLoading, setGroupLoading] = useState<UnitGroup | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -202,6 +205,8 @@ export default function DashboardPage() {
       setWeekNote(null);
       setHistory([]);
       setRecommendation(null);
+      setExpandedGroups([]);
+      setLoadedGroups({});
     }
     setLoading(true);
     setError(null);
@@ -238,6 +243,14 @@ export default function DashboardPage() {
       setWeekNote(guidance?.week_note ?? null);
       setHistory(guidance?.history ?? []);
       setRecommendation(guidance?.recommendation ?? null);
+      const suggestedGroup =
+        UNIT_GROUPS.find((group) =>
+          unitsByGroup(group).some((unit) => unit.id === guidance?.recommendation?.module_id),
+        ) ?? 'Creative';
+      if (selected && guidance) {
+        setExpandedGroups([suggestedGroup]);
+        void loadGroup(selected, suggestedGroup);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard');
     } finally {
@@ -250,6 +263,42 @@ export default function DashboardPage() {
     // The dashboard bootstrap endpoint owns all authenticated initial data.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
+
+  async function loadGroup(studentId: string, group: UnitGroup) {
+    if (loadedGroups[group] || groupLoading === group) return;
+    setGroupLoading(group);
+    try {
+      const res = await apiFetch(
+        `/api/dashboard/group?student_id=${studentId}&group=${encodeURIComponent(group)}`,
+      );
+      if (!res.response.ok) throw new Error(res.data.error || 'Failed to load unit group');
+      setProgress((current) => [
+        ...current.filter((row) => !unitsByGroup(group).some((unit) => unit.id === row.module_id)),
+        ...((res.data.progress as ProgressRow[]) ?? []),
+      ]);
+      setMiniProgress((current) => [
+        ...current.filter((row) => !unitsByGroup(group).some((unit) => unit.id === row.module_id)),
+        ...((res.data.mini_progress as MiniProgressRow[]) ?? []),
+      ]);
+      setTermTests((current) => [
+        ...current.filter((row) => !unitsByGroup(group).some((unit) => unit.id === row.module_id)),
+        ...((res.data.term_tests as TermTest[]) ?? []),
+      ]);
+      setLoadedGroups((current) => ({ ...current, [group]: true }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load unit group');
+    } finally {
+      setGroupLoading(null);
+    }
+  }
+
+  function toggleGroup(group: UnitGroup) {
+    const opening = !expandedGroups.includes(group);
+    setExpandedGroups((current) =>
+      opening ? [...current, group] : current.filter((item) => item !== group),
+    );
+    if (opening && selectedStudentId) void loadGroup(selectedStudentId, group);
+  }
 
   async function onCreateStudent(event: FormEvent) {
     event.preventDefault();
@@ -506,17 +555,32 @@ export default function DashboardPage() {
               const groupTests = termTests.filter((test) =>
                 groupUnits.some((unit) => unit.id === test.module_id),
               );
+              const expanded = expandedGroups.includes(group);
+              const loadingGroup = groupLoading === group;
 
               return (
               <div key={group} className="space-y-4">
-                <div className="flex items-baseline gap-3">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-warm-ink">
-                    {group}
-                  </h3>
-                  <p className="text-sm text-warm-subtle">
-                    {GROUP_BLURBS[group]}
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group)}
+                  aria-expanded={expanded}
+                  className="flex w-full items-baseline justify-between gap-3 rounded-lg border border-warm-border bg-warm-card p-4 text-left shadow-card hover:border-brand"
+                >
+                  <span className="flex items-baseline gap-3">
+                    <span className="text-sm font-semibold uppercase tracking-wide text-warm-ink">
+                      {group}
+                    </span>
+                    <span className="text-sm text-warm-subtle">{GROUP_BLURBS[group]}</span>
+                  </span>
+                  <span className="shrink-0 text-sm text-brand">
+                    {expanded ? 'Close' : 'View units'}
+                  </span>
+                </button>
+                {expanded && loadingGroup ? (
+                  <p className="px-1 text-sm text-warm-muted">Loading {group.toLowerCase()} units…</p>
+                ) : null}
+                {expanded && loadedGroups[group] ? (
+                  <>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {groupUnits.map((unit) => {
                     const row = progress.find((p) => p.module_id === unit.id);
@@ -648,6 +712,8 @@ export default function DashboardPage() {
                       })}
                     </div>
                   </div>
+                ) : null}
+                  </>
                 ) : null}
               </div>
               );
