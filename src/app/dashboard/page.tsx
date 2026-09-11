@@ -358,7 +358,7 @@ export default function DashboardPage() {
       >
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-[#F0C9A8]">Dashboard</p>
-          <h1 className="text-3xl font-semibold">Hi, {userName}</h1>
+          <h1 className="text-3xl font-semibold text-white">Hi, {userName}</h1>
         </div>
         <div className="flex items-center gap-3">
           <Link
