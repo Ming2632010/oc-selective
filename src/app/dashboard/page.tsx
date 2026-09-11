@@ -484,7 +484,7 @@ export default function DashboardPage() {
           <SeedPatch patch={rewards} />
           <WeekNote note={weekNote} />
 
-          <div className="grid max-w-3xl gap-4 lg:grid-cols-2">
+          <div className="grid w-full gap-4 lg:grid-cols-2">
             <WritingProgressLine history={history} />
             {selectedStudentId ? (
               <SubjectChat studentId={selectedStudentId} subject="writing" />
