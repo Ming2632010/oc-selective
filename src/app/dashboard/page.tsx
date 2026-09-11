@@ -349,22 +349,28 @@ export default function DashboardPage() {
 
   return (
     <main className="mx-auto max-w-5xl space-y-8 p-6">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-warm-border pb-4">
+      <header
+        className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand-dark p-5 text-white shadow-float"
+        style={{
+          background:
+            'linear-gradient(145deg, #1E3F33 0%, #2D5A4A 58%, #4A7A64 100%)',
+        }}
+      >
         <div>
-          <p className="text-sm uppercase tracking-wide text-warm-subtle">Dashboard</p>
-          <h1 className="text-3xl font-semibold text-warm-ink">Hi, {userName}</h1>
+          <p className="text-sm font-semibold uppercase tracking-wide text-[#F0C9A8]">Dashboard</p>
+          <h1 className="text-3xl font-semibold">Hi, {userName}</h1>
         </div>
         <div className="flex items-center gap-3">
           <Link
             href="/subscription"
-            className="rounded-full border border-brand px-4 py-2 text-sm font-medium text-brand hover:bg-[#EDF3ED]"
+            className="rounded-full border border-white/70 px-4 py-2 text-sm font-medium text-white hover:bg-white/15"
           >
             Subscription
           </Link>
           <button
             type="button"
             onClick={logout}
-            className="rounded-full border border-brand px-4 py-2 text-sm font-medium text-brand hover:bg-[#EDF3ED]"
+            className="rounded-full border border-white/70 px-4 py-2 text-sm font-medium text-white hover:bg-white/15"
           >
             Log out
           </button>
