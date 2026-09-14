@@ -352,8 +352,11 @@ export default function DashboardPage() {
         }),
       });
       if (!res.response.ok) throw new Error(res.data.error || 'Could not create custom task');
-      setCustomQuestion('');
-      await loadCustomTasks(true);
+      const task = res.data.task as { id?: unknown } | undefined;
+      if (!task || typeof task.id !== 'string' || !task.id) {
+        throw new Error('Custom task was created, but its workspace could not be opened.');
+      }
+      router.push(`/dashboard/writing/${task.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create custom task');
     } finally {

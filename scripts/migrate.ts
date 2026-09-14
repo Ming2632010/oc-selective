@@ -4,6 +4,7 @@ import { Pool } from 'pg';
 const files = [
   'sql/schema.sql',
   'sql/writing_schema.sql',
+  'sql/units_migration.sql',
   'sql/subscriptions_schema.sql',
   'sql/release_migration.sql',
 ];
