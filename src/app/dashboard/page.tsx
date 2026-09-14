@@ -11,7 +11,7 @@ import {
   getToken,
   setStudentId,
 } from '@/lib/client-auth';
-import { typeLabel, UNIT_GROUPS, unitsByGroup, type UnitGroup } from '@/lib/units';
+import { typeLabel, UNIT_GROUPS, unitsByGroup, WRITING_TYPES, type UnitGroup } from '@/lib/units';
 import { WritingProgressLine, type HistoryPoint } from '@/components/writing/progress-line';
 import { SeedPatch, type SeedPatchData } from '@/components/writing/seed-patch';
 import { WeekNote } from '@/components/writing/week-note';
@@ -94,6 +94,14 @@ type Recommendation = {
   module_id: number;
   next_draft: number;
   reason: string;
+};
+
+type CustomTask = {
+  id: string;
+  title: string;
+  description: string;
+  prompt_type: string;
+  max_draft: number;
 };
 
 const EXPIRY_WARNING_DAYS = 7;
@@ -183,6 +191,12 @@ export default function DashboardPage() {
   const [expandedGroups, setExpandedGroups] = useState<UnitGroup[]>([]);
   const [loadedGroups, setLoadedGroups] = useState<Partial<Record<UnitGroup, boolean>>>({});
   const [groupLoading, setGroupLoading] = useState<UnitGroup | null>(null);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customTasks, setCustomTasks] = useState<CustomTask[]>([]);
+  const [customLoaded, setCustomLoaded] = useState(false);
+  const [customQuestion, setCustomQuestion] = useState('');
+  const [customType, setCustomType] = useState('narrative');
+  const [customCreating, setCustomCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -207,6 +221,9 @@ export default function DashboardPage() {
       setRecommendation(null);
       setExpandedGroups([]);
       setLoadedGroups({});
+      setCustomOpen(false);
+      setCustomTasks([]);
+      setCustomLoaded(false);
     }
     setLoading(true);
     setError(null);
@@ -298,6 +315,51 @@ export default function DashboardPage() {
       opening ? [...current, group] : current.filter((item) => item !== group),
     );
     if (opening && selectedStudentId) void loadGroup(selectedStudentId, group);
+  }
+
+  async function loadCustomTasks() {
+    if (!selectedStudentId || customLoaded) return;
+    const res = await apiFetch(`/api/writing/custom-tasks?student_id=${selectedStudentId}`);
+    if (!res.response.ok) throw new Error(res.data.error || 'Failed to load custom tasks');
+    setCustomTasks((res.data.tasks as CustomTask[]) ?? []);
+    setCustomLoaded(true);
+  }
+
+  async function toggleCustomTasks() {
+    const opening = !customOpen;
+    setCustomOpen(opening);
+    if (opening) {
+      try {
+        await loadCustomTasks();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load custom tasks');
+      }
+    }
+  }
+
+  async function onCreateCustomTask(event: FormEvent) {
+    event.preventDefault();
+    if (!selectedStudentId) return;
+    setCustomCreating(true);
+    setError(null);
+    try {
+      const res = await apiFetch('/api/writing/custom-tasks', {
+        method: 'POST',
+        body: JSON.stringify({
+          student_id: selectedStudentId,
+          question: customQuestion,
+          prompt_type: customType,
+        }),
+      });
+      if (!res.response.ok) throw new Error(res.data.error || 'Could not create custom task');
+      setCustomQuestion('');
+      setCustomLoaded(false);
+      await loadCustomTasks();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not create custom task');
+    } finally {
+      setCustomCreating(false);
+    }
   }
 
   async function onCreateStudent(event: FormEvent) {
@@ -728,6 +790,87 @@ export default function DashboardPage() {
               </div>
               );
             })}
+
+            <div className="space-y-4">
+              <button
+                type="button"
+                onClick={() => void toggleCustomTasks()}
+                aria-expanded={customOpen}
+                className="flex w-full items-baseline justify-between gap-3 rounded-lg border border-brand-dark p-4 text-left text-white shadow-card"
+                style={{
+                  background:
+                    'linear-gradient(145deg, #1E3F33 0%, #2D5A4A 58%, #4A7A64 100%)',
+                }}
+              >
+                <span className="flex items-baseline gap-3">
+                  <span className="text-sm font-bold uppercase tracking-wide">Custom tasks</span>
+                  <span className="text-sm text-white/80">Your own writing questions</span>
+                </span>
+                <span className="shrink-0 text-sm font-semibold text-[#F0C9A8]">
+                  {customOpen ? 'Close' : 'Add My Own Task'}
+                </span>
+              </button>
+              {customOpen ? (
+                <section className="space-y-4 rounded-lg border border-warm-border bg-warm-card p-5 shadow-card">
+                  <p className="text-sm text-warm-muted">
+                    Add up to 20 personal tasks for this student. Each task has one timed attempt and one TrialSeed mark.
+                  </p>
+                  <form onSubmit={onCreateCustomTask} className="space-y-3">
+                    <textarea
+                      required
+                      maxLength={2000}
+                      value={customQuestion}
+                      onChange={(event) => setCustomQuestion(event.target.value)}
+                      rows={4}
+                      placeholder="Paste or write your own writing question…"
+                      className="w-full rounded-lg border border-warm-border p-3"
+                    />
+                    <div className="flex flex-wrap gap-3">
+                      <select
+                        value={customType}
+                        onChange={(event) => setCustomType(event.target.value)}
+                        className="rounded-lg border border-warm-border bg-white px-3 py-2"
+                      >
+                        {WRITING_TYPES.map((type) => (
+                          <option key={type} value={type}>{typeLabel(type)}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="submit"
+                        disabled={customCreating || customTasks.length >= 20}
+                        className="rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                      >
+                        {customCreating ? 'Adding…' : 'Add My Own Task'}
+                      </button>
+                    </div>
+                  </form>
+                  {customTasks.length > 0 ? (
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {customTasks.map((task) => (
+                        <Link
+                          key={task.id}
+                          href={task.max_draft > 0
+                            ? `/dashboard/writing/${task.id}/results`
+                            : `/dashboard/writing/${task.id}`}
+                          className="rounded-lg border border-warm-border p-4 hover:border-brand"
+                        >
+                          <p className="text-xs font-semibold uppercase tracking-wide text-warm-subtle">
+                            {typeLabel(task.prompt_type)}
+                          </p>
+                          <p className="mt-1 font-semibold text-warm-ink">{task.title}</p>
+                          <p className="mt-2 line-clamp-3 text-sm text-warm-muted">{task.description}</p>
+                          <p className="mt-3 text-sm text-brand">
+                            {task.max_draft > 0 ? 'View saved result' : 'Start task'}
+                          </p>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-warm-subtle">No custom tasks yet.</p>
+                  )}
+                </section>
+              ) : null}
+            </div>
 
             {bonusPapers ? (
               <section

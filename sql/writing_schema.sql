@@ -20,7 +20,8 @@ CREATE TABLE IF NOT EXISTS prompts (
   is_locked BOOLEAN NOT NULL DEFAULT TRUE,
   time_limit_minutes INTEGER NOT NULL DEFAULT 30,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
-  kind TEXT NOT NULL DEFAULT 'practice' CHECK (kind IN ('practice', 'test', 'bonus')),
+  kind TEXT NOT NULL DEFAULT 'practice' CHECK (kind IN ('practice', 'test', 'bonus', 'custom')),
+  student_id UUID REFERENCES students (id) ON DELETE CASCADE,
   stimulus_image TEXT,
   stimulus_quote TEXT,
   purposes TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
@@ -54,6 +55,11 @@ CREATE TABLE IF NOT EXISTS writing_attempts (
 
 ALTER TABLE prompts
   ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'practice';
+ALTER TABLE prompts
+  ADD COLUMN IF NOT EXISTS student_id UUID REFERENCES students (id) ON DELETE CASCADE;
+ALTER TABLE prompts DROP CONSTRAINT IF EXISTS prompts_kind_check;
+ALTER TABLE prompts
+  ADD CONSTRAINT prompts_kind_check CHECK (kind IN ('practice', 'test', 'bonus', 'custom'));
 ALTER TABLE prompts ADD COLUMN IF NOT EXISTS stimulus_image TEXT;
 ALTER TABLE prompts ADD COLUMN IF NOT EXISTS stimulus_quote TEXT;
 ALTER TABLE prompts ADD COLUMN IF NOT EXISTS purposes TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
@@ -73,6 +79,9 @@ CREATE TABLE IF NOT EXISTS writing_warmups (
 
 CREATE INDEX IF NOT EXISTS idx_prompts_module_active ON prompts (module_id, is_active);
 CREATE INDEX IF NOT EXISTS idx_prompts_kind_module ON prompts (kind, module_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_prompts_student_custom
+  ON prompts (student_id, created_at DESC)
+  WHERE kind = 'custom';
 CREATE INDEX IF NOT EXISTS idx_writing_attempts_student_prompt
   ON writing_attempts (student_id, prompt_id);
 CREATE INDEX IF NOT EXISTS idx_writing_attempts_student_created

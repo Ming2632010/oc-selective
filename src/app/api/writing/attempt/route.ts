@@ -109,6 +109,7 @@ export async function GET(request: Request) {
         hint_points: unknown;
         time_limit_minutes: number;
         kind: string;
+        student_id: string | null;
         stimulus_image: string | null;
         stimulus_quote: string | null;
         purposes: string[] | null;
@@ -117,7 +118,7 @@ export async function GET(request: Request) {
         sample_answer_high: string;
       }>(
         `SELECT id, title, description, prompt_type, module_id, hint_points,
-                time_limit_minutes, COALESCE(kind, 'practice') AS kind,
+                time_limit_minutes, COALESCE(kind, 'practice') AS kind, student_id,
                 stimulus_image, stimulus_quote, purposes, purpose_note, decode_guide,
                 sample_answer_high
          FROM prompts WHERE id = $1 AND is_active = TRUE LIMIT 1`,
@@ -127,6 +128,9 @@ export async function GET(request: Request) {
 
     const prompt = promptMeta.rows[0];
     if (!prompt) {
+      return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
+    }
+    if (prompt.kind === 'custom' && prompt.student_id !== studentId) {
       return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
     }
     const promptType = prompt.prompt_type;
@@ -281,14 +285,18 @@ export async function POST(request: Request) {
       is_locked: boolean;
       is_active: boolean;
       kind: string;
+      student_id: string | null;
     }>(
       `SELECT id, title, description, prompt_type, module_id, hint_points,
-              is_locked, is_active, COALESCE(kind, 'practice') AS kind
+              is_locked, is_active, COALESCE(kind, 'practice') AS kind, student_id
        FROM prompts WHERE id = $1 LIMIT 1`,
       [promptId],
     );
     const prompt = promptResult.rows[0];
     if (!prompt || !prompt.is_active) {
+      return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
+    }
+    if (prompt.kind === 'custom' && prompt.student_id !== studentId) {
       return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
     }
 
@@ -342,6 +350,9 @@ export async function POST(request: Request) {
         }
       }
     } else {
+      if (prompt.kind === 'custom' && draftNumber !== 1) {
+        return NextResponse.json({ error: 'Custom tasks have one attempt only.' }, { status: 400 });
+      }
       if (existing.rows.some((row) => row.draft_number === draftNumber)) {
         return NextResponse.json(
           { error: `Draft ${draftNumber} already exists for this prompt` },
