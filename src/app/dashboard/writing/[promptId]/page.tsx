@@ -19,7 +19,7 @@ type Prompt = {
   hint_points: string[];
   time_limit_minutes: number;
   is_locked: boolean;
-  kind?: 'practice' | 'test' | 'bonus';
+  kind?: 'practice' | 'test' | 'bonus' | 'custom';
   stimulus_image?: string | null;
   stimulus_quote?: string | null;
   purposes?: string[] | null;
@@ -208,7 +208,7 @@ export default function WritingPracticePage() {
           (max, a) => Math.max(max, a.draft_number),
           0,
         );
-        const maxAttempts = testTask ? 1 : 3;
+        const maxAttempts = testTask || p.kind === 'custom' ? 1 : 3;
 
         if (maxDraft >= maxAttempts) {
           setAlreadyFinished(true);
@@ -350,7 +350,9 @@ export default function WritingPracticePage() {
         <p className="text-stone-700">
           {isTest
             ? 'This exam paper has been sat. You cannot re-attempt.'
-            : 'All three drafts are done for this task.'}
+            : prompt?.kind === 'custom'
+              ? 'This custom task has been completed.'
+              : 'All three drafts are done for this task.'}
         </p>
         <Link
           href={`/dashboard/writing/${promptId}/results`}
@@ -462,10 +464,12 @@ export default function WritingPracticePage() {
               ? prompt.kind === 'bonus'
                 ? 'Bonus exam paper · one sitting'
                 : 'Term review · one sitting'
-              : `Unit ${prompt.module_id} · Draft ${draftNumber}/3 · ${typeLabel(prompt.prompt_type)}`}
+                : prompt.kind === 'custom'
+                  ? `Custom task · one attempt · ${typeLabel(prompt.prompt_type)}`
+                  : `Unit ${prompt.module_id} · Draft ${draftNumber}/3 · ${typeLabel(prompt.prompt_type)}`}
           </p>
           <h1 className="text-3xl font-semibold text-stone-900">{prompt.title}</h1>
-          {draftNumber > 1 ? (
+          {draftNumber > 1 && prompt.kind !== 'custom' ? (
             <p className="mt-2 text-sm text-stone-600">
               Start with a fresh response, or review your earlier drafts for ideas.{' '}
               <Link

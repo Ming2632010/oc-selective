@@ -25,6 +25,7 @@ type PromptRow = {
   time_limit_minutes: number;
   is_active: boolean;
   kind: string;
+  student_id: string | null;
   stimulus_image: string | null;
   stimulus_quote: string | null;
   purposes: string[] | null;
@@ -37,6 +38,7 @@ const PROMPT_COLUMNS = `id, title, description, prompt_type, module_id, hint_poi
                 sample_answer_high, is_locked,
                 time_limit_minutes, is_active,
                 COALESCE(kind, 'practice') AS kind,
+                student_id,
                 stimulus_image, stimulus_quote, purposes, purpose_note, decode_guide`;
 
 function stripSamples(prompt: PromptRow) {
@@ -72,6 +74,9 @@ export async function GET(request: Request) {
 
       const prompt = result.rows[0];
       if (!prompt) {
+        return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
+      }
+      if (prompt.kind === 'custom' && (!studentId || prompt.student_id !== studentId)) {
         return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
       }
 
@@ -125,8 +130,8 @@ export async function GET(request: Request) {
           : { ...stripSamples(prompt), is_locked: reviewLocked },
         samples_unlocked: includeSamples,
         max_draft: maxDraft,
-        max_attempts: isExam ? 1 : 3,
-        kind: isExam ? prompt.kind : 'practice',
+        max_attempts: isExam || prompt.kind === 'custom' ? 1 : 3,
+        kind: isExam || prompt.kind === 'custom' ? prompt.kind : 'practice',
         unit_locked: false,
         warmup_completed: warmupCompleted,
         lock_reason: reviewLocked ? lockReason : '',
@@ -166,7 +171,13 @@ export async function GET(request: Request) {
         ? kindParam
         : 'practice';
 
-    const conditions = ['module_id = $1', 'is_active = TRUE'];
+    // Custom prompts are private to one student and must never be part of the
+    // shared unit catalogue, including broad `kind=all` requests.
+    const conditions = [
+      'module_id = $1',
+      'is_active = TRUE',
+      `COALESCE(kind, 'practice') <> 'custom'`,
+    ];
     const params: unknown[] = [moduleId];
     if (kind !== 'all') {
       params.push(kind);

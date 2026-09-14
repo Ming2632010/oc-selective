@@ -36,7 +36,7 @@ type Prompt = {
   title: string;
   hint_points: string[];
   sample_answer_high?: string;
-  kind?: 'practice' | 'test' | 'bonus';
+  kind?: 'practice' | 'test' | 'bonus' | 'custom';
 };
 
 export default function WritingResultsPage() {
@@ -96,6 +96,8 @@ export default function WritingResultsPage() {
               ? 'bonus'
               : attemptsData.prompt.kind === 'test' || attemptsData.kind === 'test'
                 ? 'test'
+                : attemptsData.prompt.kind === 'custom' || attemptsData.kind === 'custom'
+                  ? 'custom'
                 : 'practice',
         });
         setSamplesUnlocked(Boolean(attemptsData.samples_unlocked));
@@ -164,6 +166,7 @@ export default function WritingResultsPage() {
   };
 
   const isTest = prompt.kind === 'test' || prompt.kind === 'bonus';
+  const isCustom = prompt.kind === 'custom';
   const latestDraft = attempts[attempts.length - 1]?.draft_number ?? attempt.draft_number;
 
   return (
@@ -187,7 +190,7 @@ export default function WritingResultsPage() {
             and the mark from that sitting.
           </p>
         )}
-        {!isTest && attempts.length > 1 ? (
+        {!isTest && !isCustom && attempts.length > 1 ? (
           <div className="mt-4 flex flex-wrap gap-2">
             {attempts.map((row) => (
               <button
@@ -299,7 +302,7 @@ export default function WritingResultsPage() {
       )}
 
       <div className="flex flex-wrap gap-3">
-        {!isTest && latestDraft < 3 ? (
+        {!isTest && !isCustom && latestDraft < 3 ? (
           <Link
             href={`/dashboard/writing/${promptId}`}
             className="rounded-md bg-stone-900 px-4 py-2 text-white"
@@ -318,7 +321,7 @@ export default function WritingResultsPage() {
           </Link>
         ) : null}
 
-        {isTest ? null : samplesUnlocked ? (
+        {isTest || isCustom ? null : samplesUnlocked ? (
           <button
             type="button"
             onClick={() => setShowSamples((v) => !v)}
