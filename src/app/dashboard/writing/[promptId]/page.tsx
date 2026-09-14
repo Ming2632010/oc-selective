@@ -507,7 +507,7 @@ export default function WritingPracticePage() {
 
       <PromptStimulus prompt={prompt} showJobs={!isTest} />
 
-      {!isTest ? (
+      {!isTest && prompt.kind !== 'custom' ? (
         <section className="rounded-lg border border-stone-200 bg-white p-4">
           <h3 className="mb-2 font-medium">Hint points</h3>
           <ul className="list-disc space-y-1 pl-5 text-stone-700">
