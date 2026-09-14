@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { appendFileSync } from 'fs';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { WRITING_TYPES, type WritingType } from '@/lib/units';
@@ -8,6 +9,19 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const MAX_CUSTOM_TASKS = 20;
+
+function debugCustomTask(
+  hypothesisId: string,
+  location: string,
+  message: string,
+  data: Record<string, unknown>,
+) {
+  // #region agent log
+  try {
+    appendFileSync('/opt/cursor/logs/debug.log', `${JSON.stringify({ hypothesisId, location, message, data, timestamp: Date.now() })}\n`);
+  } catch {}
+  // #endregion
+}
 
 function isWritingType(value: unknown): value is WritingType {
   return typeof value === 'string' && WRITING_TYPES.includes(value as WritingType);
@@ -57,12 +71,18 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const userId = await getAuthUserId(request);
+    // #region agent log
+    debugCustomTask('A', 'src/app/api/writing/custom-tasks/route.ts:73', 'POST authenticated', { hasUserId: Boolean(userId) });
+    // #endregion
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const body = (await request.json()) as {
       student_id?: unknown; question?: unknown; prompt_type?: unknown;
     };
     const studentId = typeof body.student_id === 'string' ? body.student_id : '';
     const question = typeof body.question === 'string' ? body.question.trim() : '';
+    // #region agent log
+    debugCustomTask('B', 'src/app/api/writing/custom-tasks/route.ts:81', 'POST payload validated', { hasStudentId: Boolean(studentId), questionLength: question.length, validPromptType: isWritingType(body.prompt_type) });
+    // #endregion
     if (!studentId || !question || !isWritingType(body.prompt_type)) {
       return NextResponse.json({ error: 'student_id, question, and writing form are required' }, { status: 400 });
     }
@@ -70,6 +90,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Custom questions are limited to 2,000 characters.' }, { status: 413 });
     }
     const denied = await assertAccess(userId, studentId);
+    // #region agent log
+    debugCustomTask('C', 'src/app/api/writing/custom-tasks/route.ts:91', 'POST access checked', { status: denied?.status ?? 200 });
+    // #endregion
     if (denied) return NextResponse.json({ error: denied.error }, { status: denied.status });
 
     const inserted = await query<{ id: string; title: string }>(
@@ -86,11 +109,17 @@ export async function POST(request: Request) {
        RETURNING id, title`,
       [`My custom ${body.prompt_type.replace('_', ' ')} task`, question, body.prompt_type, studentId, MAX_CUSTOM_TASKS],
     );
+    // #region agent log
+    debugCustomTask('D', 'src/app/api/writing/custom-tasks/route.ts:110', 'POST insert completed', { insertedRows: inserted.rowCount ?? inserted.rows.length });
+    // #endregion
     if (!inserted.rows[0]) {
       return NextResponse.json({ error: `Each student can create up to ${MAX_CUSTOM_TASKS} custom tasks.` }, { status: 403 });
     }
     return NextResponse.json({ task: inserted.rows[0], max_tasks: MAX_CUSTOM_TASKS }, { status: 201 });
   } catch (error) {
+    // #region agent log
+    debugCustomTask('E', 'src/app/api/writing/custom-tasks/route.ts:118', 'POST exception', { name: error instanceof Error ? error.name : typeof error, code: typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : null });
+    // #endregion
     console.error('[writing/custom-tasks POST]', error);
     return NextResponse.json({ error: 'Failed to create custom task' }, { status: 500 });
   }
