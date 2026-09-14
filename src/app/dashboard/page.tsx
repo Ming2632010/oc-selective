@@ -317,8 +317,8 @@ export default function DashboardPage() {
     if (opening && selectedStudentId) void loadGroup(selectedStudentId, group);
   }
 
-  async function loadCustomTasks() {
-    if (!selectedStudentId || customLoaded) return;
+  async function loadCustomTasks(force = false) {
+    if (!selectedStudentId || (customLoaded && !force)) return;
     const res = await apiFetch(`/api/writing/custom-tasks?student_id=${selectedStudentId}`);
     if (!res.response.ok) throw new Error(res.data.error || 'Failed to load custom tasks');
     setCustomTasks((res.data.tasks as CustomTask[]) ?? []);
@@ -353,8 +353,7 @@ export default function DashboardPage() {
       });
       if (!res.response.ok) throw new Error(res.data.error || 'Could not create custom task');
       setCustomQuestion('');
-      setCustomLoaded(false);
-      await loadCustomTasks();
+      await loadCustomTasks(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create custom task');
     } finally {
