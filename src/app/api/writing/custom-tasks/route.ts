@@ -49,8 +49,8 @@ export async function GET(request: Request) {
       tasks: tasks.rows.map((task) => ({ ...task, max_draft: Number(task.max_draft) })),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to load custom tasks';
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('[writing/custom-tasks GET]', error);
+    return NextResponse.json({ error: 'Failed to load custom tasks' }, { status: 500 });
   }
 }
 
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ task: inserted.rows[0], max_tasks: MAX_CUSTOM_TASKS }, { status: 201 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to create custom task';
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('[writing/custom-tasks POST]', error);
+    return NextResponse.json({ error: 'Failed to create custom task' }, { status: 500 });
   }
 }

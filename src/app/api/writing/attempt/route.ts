@@ -198,8 +198,8 @@ export async function GET(request: Request) {
       prompt: publicPrompt,
       samples_unlocked: samplesUnlocked,
       max_draft: maxDraft,
-      max_attempts: examStyle ? 1 : 3,
-      kind: examStyle ? prompt.kind : 'practice',
+      max_attempts: examStyle || prompt.kind === 'custom' ? 1 : 3,
+      kind: examStyle || prompt.kind === 'custom' ? prompt.kind : 'practice',
       warmup_completed: examStyle
         ? await hasCompletedWarmup(studentId, promptId)
         : true,
