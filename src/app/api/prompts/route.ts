@@ -171,7 +171,13 @@ export async function GET(request: Request) {
         ? kindParam
         : 'practice';
 
-    const conditions = ['module_id = $1', 'is_active = TRUE'];
+    // Custom prompts are private to one student and must never be part of the
+    // shared unit catalogue, including broad `kind=all` requests.
+    const conditions = [
+      'module_id = $1',
+      'is_active = TRUE',
+      `COALESCE(kind, 'practice') <> 'custom'`,
+    ];
     const params: unknown[] = [moduleId];
     if (kind !== 'all') {
       params.push(kind);
