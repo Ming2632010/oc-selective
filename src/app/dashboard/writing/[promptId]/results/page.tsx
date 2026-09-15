@@ -167,6 +167,8 @@ export default function WritingResultsPage() {
 
   const isTest = prompt.kind === 'test' || prompt.kind === 'bonus';
   const isCustom = prompt.kind === 'custom';
+  const hasPresetHints =
+    !isCustom && prompt.hint_points.some((hint) => hint.trim().length > 0);
   const latestDraft = attempts[attempts.length - 1]?.draft_number ?? attempt.draft_number;
 
   return (
@@ -269,7 +271,7 @@ export default function WritingResultsPage() {
         </section>
       )}
 
-      {!isTest ? (
+      {!isTest && hasPresetHints ? (
         <section className="rounded-lg border border-stone-200 p-4">
           <h2 className="mb-2 text-lg font-medium">Hint checklist</h2>
           <ul className="space-y-2">
