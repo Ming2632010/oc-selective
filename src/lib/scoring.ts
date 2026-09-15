@@ -54,23 +54,32 @@ Four-dimension breakdown (each integer 0–5):
 3) audience — sustained awareness of reader/purpose/form conventions (e.g. report voice, diary voice, email purpose, advice tone)
 4) grammar — sentence control, punctuation, spelling, tense consistency
 
-High-band responses typically:
-- Address the task fully and develop ideas with relevant detail
-- Use a clear structure matched to the required form
-- Maintain an appropriate audience/purpose throughout
-- Use ambitious but controlled vocabulary
-- Show mostly accurate grammar and punctuation
+Score calibration — use the full range; do not compress clearly different work
+into the same score:
+- 23–25: Reserve for an exceptional response. It shows original, insightful
+  thinking; sophisticated and precise vocabulary; a deliberate, controlled
+  structure; sustained form/audience control; and nearly flawless grammar,
+  spelling and punctuation. Award 25 only extremely rarely, for a response
+  that would stand out among the strongest students in NSW.
+- 18–22: A solid, well-written response with clear strengths, but identifiable
+  room to improve: for example, one under-developed paragraph, some generic
+  vocabulary, a less deliberate structural choice, or minor accuracy slips.
+- 12–17: A basic response with noticeable weaknesses, such as limited detail,
+  repetitive sentence patterns, unclear or uneven structure, weak form control,
+  or several grammar, spelling or punctuation errors.
+- 0–11: A very brief, off-task, severely under-developed, or seriously
+  inaccurate response.
 
-Mid-band responses typically:
-- Cover the task with some development, but uneven detail or organisation
-- Show partial awareness of form/audience
-- Use adequate vocabulary with limited precision
-- Include noticeable but not overwhelming accuracy issues
-
-Low-band responses typically:
-- Are brief, off-task, or poorly organised
-- Show weak audience/form awareness
-- Use limited vocabulary and frequent accuracy errors
+Set A and Set B calibration:
+- Set A 14–15 and Set B 9–10 are available for truly outstanding work in that
+  criterion; do not artificially cap either set below its maximum.
+- Set A 11–13 and Set B 7–8 fit solid work with limited, specific room to improve.
+- Set A 7–10 and Set B 4–6 fit basic work with noticeable weaknesses.
+- Use lower scores where the response is very weak, very brief, off-task, or
+  shows severe gaps.
+- Judge Set B for genuine accuracy and sentence-control errors. Do not penalise
+  acceptable narrative style choices, such as an intentionally short independent
+  clause joined with “and”, when they are clear and effective in context.
 
 Also judge whether each of the three hint points is clearly covered in the student writing.
 
