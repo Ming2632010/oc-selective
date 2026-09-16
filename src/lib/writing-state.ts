@@ -920,8 +920,16 @@ export async function getWritingAccessState(
   userId: string,
   studentId: string,
 ): Promise<WritingAccessState> {
-  const result = await query<{ id: string }>(
-    `SELECT student.id
+  const result = await query<{ id: string; granted: boolean }>(
+    `SELECT student.id,
+            EXISTS (
+              SELECT 1 FROM user_subscriptions subscription
+              WHERE subscription.student_id = student.id
+                AND subscription.user_id = student.user_id
+                AND subscription.subject = 'writing'
+                AND subscription.status = 'active'
+                AND (subscription.expires_at IS NULL OR subscription.expires_at > NOW())
+            ) AS granted
      FROM students student
      WHERE student.id = $1
        AND student.user_id = $2
@@ -929,18 +937,7 @@ export async function getWritingAccessState(
     [studentId, userId],
   );
   if (!result.rows[0]) return 'not-found';
-
-  const entitlement = await query<{ id: string }>(
-    `SELECT id FROM user_subscriptions
-     WHERE student_id = $1
-       AND user_id = $2
-       AND subject = 'writing'
-       AND status = 'active'
-       AND (expires_at IS NULL OR expires_at > NOW())
-     LIMIT 1`,
-    [studentId, userId],
-  );
-  return entitlement.rows[0] ? 'granted' : 'unlicensed';
+  return result.rows[0].granted ? 'granted' : 'unlicensed';
 }
 
 export async function assertOwnedStudent(userId: string, studentId: string) {

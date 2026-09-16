@@ -202,7 +202,7 @@ export default function UnitPage() {
               {miniDone}/{drills.length} tried.
             </p>
           </div>
-          {extra?.can_generate ? (
+          {!extra || extra.can_generate ? (
             <button
               type="button"
               onClick={() => void generateMore()}

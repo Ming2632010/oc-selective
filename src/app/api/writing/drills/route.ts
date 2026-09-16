@@ -13,7 +13,6 @@ import {
   assertOwnedStudent,
   awardMiniSeeds,
   extraIsUnlocked,
-  getMiniExtraMeta,
 } from '@/lib/writing-state';
 import { typeLabel } from '@/lib/units';
 
@@ -300,13 +299,14 @@ export async function GET(request: Request) {
     let done = new Set<string>();
     if (studentId) {
       const attempts = await query<{ drill_id: string }>(
-        `SELECT DISTINCT drill_id FROM mini_drill_attempts WHERE student_id = $1`,
-        [studentId],
+        `SELECT DISTINCT attempt.drill_id
+         FROM mini_drill_attempts attempt
+         JOIN mini_drills drill ON drill.id = attempt.drill_id
+         WHERE attempt.student_id = $1 AND drill.module_id = $2`,
+        [studentId, moduleId],
       );
       done = new Set(attempts.rows.map((row) => row.drill_id));
     }
-
-    const extraMeta = studentId ? await getMiniExtraMeta(studentId, moduleId) : null;
 
     return NextResponse.json({
       module_id: moduleId,
@@ -314,15 +314,10 @@ export async function GET(request: Request) {
         ...publicDrill(row),
         attempted: done.has(row.id),
       })),
-      extra: extraMeta
-        ? {
-            can_generate: extraMeta.can_generate,
-            remaining_today: extraMeta.remaining_today,
-            remaining_unit: extraMeta.remaining_unit,
-            suggested_skills: extraMeta.suggested_skills,
-            reason: extraMeta.reason,
-          }
-        : null,
+      // Generation capacity is computed only when the student asks for more
+      // practice, rather than adding several database round trips to every
+      // unit-page load.
+      extra: null,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load drills';
