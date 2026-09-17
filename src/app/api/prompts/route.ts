@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
+import { debugLatency } from '@/lib/debug-latency';
 import { bonusExamLockMessage, termReviewLockMessage } from '@/lib/writing-guidance';
 import { isExamStyleKind } from '@/lib/seed-prompts';
 import {
@@ -51,6 +52,12 @@ function isExamKind(kind: string | null | undefined): boolean {
 }
 
 export async function GET(request: Request) {
+  const requestStartedAt = performance.now();
+  // #region agent log
+  debugLatency('A,C,D', 'src/app/api/prompts/route.ts:GET', 'Prompts request started', {
+    endpoint: 'prompts',
+  });
+  // #endregion
   try {
     const userId = await getAuthUserId(request);
     if (!userId) {
@@ -62,6 +69,15 @@ export async function GET(request: Request) {
     const promptId = searchParams.get('id');
     const studentId = searchParams.get('student_id');
     const kindParam = searchParams.get('kind');
+    // #region agent log
+    debugLatency('A,C,D', 'src/app/api/prompts/route.ts:GET', 'Prompts request parsed', {
+      hasStudentId: Boolean(studentId),
+      hasPromptId: Boolean(promptId),
+      hasModuleId: Boolean(moduleIdRaw),
+      kind: kindParam ?? 'default',
+      elapsedMs: Math.round(performance.now() - requestStartedAt),
+    });
+    // #endregion
 
     if (promptId) {
       const result = await query<PromptRow>(
@@ -200,6 +216,13 @@ export async function GET(request: Request) {
       params,
     );
 
+    // #region agent log
+    debugLatency('A,C,D', 'src/app/api/prompts/route.ts:GET', 'Prompts catalogue response', {
+      status: 200,
+      promptCount: result.rows.length,
+      durationMs: Math.round(performance.now() - requestStartedAt),
+    });
+    // #endregion
     return NextResponse.json({
       module_id: moduleId,
       unit_locked: false,

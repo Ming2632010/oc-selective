@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
+import { debugLatency } from '@/lib/debug-latency';
 import { markMiniItem } from '@/lib/mark-mini-item';
 import { markPhraseSentence } from '@/lib/mark-phrase-sentence';
 import {
@@ -171,6 +172,12 @@ function publicAttempt(row: AttemptRow) {
 }
 
 export async function GET(request: Request) {
+  const requestStartedAt = performance.now();
+  // #region agent log
+  debugLatency('A,B,C,D', 'src/app/api/writing/drills/route.ts:GET', 'Drills request started', {
+    endpoint: 'writing/drills',
+  });
+  // #endregion
   try {
     const userId = await getAuthUserId(request);
     if (!userId) {
@@ -181,6 +188,14 @@ export async function GET(request: Request) {
     const moduleIdRaw = searchParams.get('module_id');
     const studentId = searchParams.get('student_id');
     const slug = searchParams.get('slug');
+    // #region agent log
+    debugLatency('A,B,C,D', 'src/app/api/writing/drills/route.ts:GET', 'Drills request parsed', {
+      hasStudentId: Boolean(studentId),
+      hasSlug: Boolean(slug),
+      hasModuleId: Boolean(moduleIdRaw),
+      elapsedMs: Math.round(performance.now() - requestStartedAt),
+    });
+    // #endregion
 
     if (studentId) {
       const owned = await assertOwnedStudent(userId, studentId);
@@ -308,6 +323,14 @@ export async function GET(request: Request) {
       done = new Set(attempts.rows.map((row) => row.drill_id));
     }
 
+    // #region agent log
+    debugLatency('A,B,C,D', 'src/app/api/writing/drills/route.ts:GET', 'Drills catalogue response', {
+      status: 200,
+      drillCount: drills.rows.length,
+      attemptedCount: done.size,
+      durationMs: Math.round(performance.now() - requestStartedAt),
+    });
+    // #endregion
     return NextResponse.json({
       module_id: moduleId,
       drills: drills.rows.map((row) => ({
