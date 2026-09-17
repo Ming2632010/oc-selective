@@ -141,6 +141,16 @@ export default function UnitPage() {
         body: JSON.stringify({ student_id: studentId, module_id: unitId }),
       });
       if (!res.response.ok) {
+        const currentExtra = (res.data.extra as ExtraMeta | null) ?? null;
+        if (currentExtra) {
+          setExtra(currentExtra);
+          setGenerateNote(
+            typeof res.data.error === 'string'
+              ? res.data.error
+              : 'More practice is not available right now.',
+          );
+          return;
+        }
         throw new Error(res.data.error || 'Could not make extra questions');
       }
       const drillRes = await apiFetch(
