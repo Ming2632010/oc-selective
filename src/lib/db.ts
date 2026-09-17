@@ -1,5 +1,4 @@
 import { Pool, type QueryResult, type QueryResultRow } from 'pg';
-import { debugLatency } from '@/lib/debug-latency';
 
 const globalForDb = globalThis as typeof globalThis & {
   __ocSelectivePgPool?: Pool;
@@ -37,25 +36,8 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
   sql: string,
   params: unknown[] = [],
 ): Promise<QueryResult<T>> {
-  const startedAt = performance.now();
-  const statement =
-    sql.match(/\b(?:FROM|INTO|UPDATE)\s+([a-z_]+)/i)?.[1] ?? 'unclassified';
-  // #region agent log
-  debugLatency('A,B,C', 'src/lib/db.ts:query', 'Database query started', {
-    statement,
-    parameterCount: params.length,
-  });
-  // #endregion
   try {
-    const result = await getPool().query<T>(sql, params);
-    // #region agent log
-    debugLatency('A,B,C', 'src/lib/db.ts:query', 'Database query completed', {
-      statement,
-      durationMs: Math.round(performance.now() - startedAt),
-      rowCount: result.rowCount ?? result.rows.length,
-    });
-    // #endregion
-    return result;
+    return await getPool().query<T>(sql, params);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown database error';
     console.error('[db] Query failed:', message);
