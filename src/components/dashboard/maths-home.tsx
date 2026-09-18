@@ -40,8 +40,6 @@ export function MathsHome({
         </section>
       ) : null}
 
-      <SeedPatch patch={overview?.rewards ?? null} variant="maths" />
-
       <section className="space-y-3">
         <div>
           <h2 className="text-lg font-medium text-warm-ink">Maths units</h2>
@@ -77,6 +75,8 @@ export function MathsHome({
           })}
         </div>
       </section>
+
+      <SeedPatch patch={overview?.rewards ?? null} variant="maths" />
 
       <p className="text-sm text-warm-subtle">
         English and Reading for K–Y1 are still coming soon. Selective Writing stays

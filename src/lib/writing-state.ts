@@ -1255,6 +1255,7 @@ export async function awardMathsSeeds(input: {
     isCorrect: input.isCorrect,
     alreadyTried: input.alreadyTried,
     miniSeedsToday: Number(used.rows[0]?.n ?? 0),
+    kind: 'maths',
   });
   const lines: AwardLine[] =
     mini.seeds > 0 || mini.label ? [{ seeds: mini.seeds, label: mini.label }] : [];
