@@ -86,6 +86,8 @@ function yearProgram(
     image?: Program['image'];
     priceAud?: number;
     subjectsIntro?: string;
+    subjects?: TrialSubject[];
+    available?: boolean;
     metaTitle: string;
     metaDescription: string;
   },
@@ -99,14 +101,14 @@ function yearProgram(
     inNav: opts.inNav ?? false,
     onHome: opts.onHome ?? false,
     hasPage: opts.hasPage ?? false,
-    available: false,
+    available: opts.available ?? false,
     eyebrow: opts.eyebrow,
     headline: opts.headline,
     summary: opts.summary,
     subjectsIntro:
       opts.subjectsIntro ??
       `These subjects will open at $${opts.priceAud ?? EXAM_SUBJECT_PRICE_AUD} AUD for one year. You can add one when you are ready.`,
-    subjects: YEAR_SUBJECTS,
+    subjects: opts.subjects ?? YEAR_SUBJECTS,
     image: opts.image ?? YEAR_IMAGE,
     priceAud: opts.priceAud ?? EXAM_SUBJECT_PRICE_AUD,
     metaTitle: opts.metaTitle,
@@ -124,16 +126,40 @@ export const PROGRAMS: readonly Program[] = [
     inNav: true,
     onHome: true,
     hasPage: true,
+    available: true,
     priceAud: KY1_SUBJECT_PRICE_AUD,
     subjectsIntro:
-      `These subjects will open at $${KY1_SUBJECT_PRICE_AUD} AUD for one year. It is a smaller set of practice, so a parent and child can sit together without a full exam course.`,
+      `Maths is open now at $${KY1_SUBJECT_PRICE_AUD} AUD for one year. English and Reading will follow. It is a smaller set of practice, so a parent and child can sit together without a full exam course.`,
+    subjects: [
+      {
+        name: 'English',
+        icon: PenLine,
+        available: false,
+        blurb:
+          'Sounds, sentences, and first writing at this year level. Notes stay short so a parent and child can read them together.',
+      },
+      {
+        name: 'Maths',
+        icon: Calculator,
+        available: true,
+        blurb:
+          'See amounts, count, break numbers, and solve short stories. Seed Patch grows as they practise.',
+      },
+      {
+        name: 'Reading',
+        icon: BookOpen,
+        available: false,
+        blurb:
+          'Shared books and simple questions. Notes show what they understood, and where to look again.',
+      },
+    ],
     image: {
       src: '/marketing/k-y1-progress-chat.png',
       alt: 'A parent and a Kindergarten-age boy looking at TrialSeed practice progress together',
     },
     metaTitle: 'K–Y1',
     metaDescription:
-      `TrialSeed Kindergarten and Year 1 practice for English, Maths, and Reading. $${KY1_SUBJECT_PRICE_AUD} AUD per subject for one year, opening soon.`,
+      `TrialSeed Kindergarten and Year 1 practice. Maths is open now at $${KY1_SUBJECT_PRICE_AUD} AUD per subject for one year. English and Reading are coming soon.`,
   }),
   yearProgram('y2', {
     navLabel: 'Y2',

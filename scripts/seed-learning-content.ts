@@ -7,7 +7,9 @@ async function main() {
   }
 
   const { seedWritingContent } = await import('../src/lib/writing-state');
+  const { seedEarlyMathContent } = await import('../src/lib/early-math-state');
   await seedWritingContent();
+  await seedEarlyMathContent();
   console.log('Learning content seeded without replacing existing identifiers.');
 }
 

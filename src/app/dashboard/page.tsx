@@ -21,9 +21,11 @@ import {
   STUDENT_GRADES,
   isStudentGrade,
   programForGrade,
+  usesMathsDashboard,
   usesWritingDashboard,
 } from '@/lib/student-grades';
 import type { WeekNoteData } from '@/lib/week-note';
+import { MathsHome, type MathsOverview } from '@/components/dashboard/maths-home';
 
 const SubjectChat = dynamic(
   () => import('@/components/writing/subject-chat').then((module) => module.SubjectChat),
@@ -205,6 +207,7 @@ export default function DashboardPage() {
   const [customQuestion, setCustomQuestion] = useState('');
   const [customType, setCustomType] = useState('narrative');
   const [customCreating, setCustomCreating] = useState(false);
+  const [mathsOverview, setMathsOverview] = useState<MathsOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -227,6 +230,7 @@ export default function DashboardPage() {
       setWeekNote(null);
       setHistory([]);
       setRecommendation(null);
+      setMathsOverview(null);
       setExpandedGroups([]);
       setLoadedGroups({});
       setCustomOpen(false);
@@ -247,7 +251,8 @@ export default function DashboardPage() {
         throw new Error(res.data.error || 'Failed to load dashboard');
       }
       setUserName(res.data.user?.full_name || res.data.user?.email || 'there');
-      setStudents((res.data.students as Student[]) || []);
+      const studentList = (res.data.students as Student[]) || [];
+      setStudents(studentList);
       setSubscription({
         subscriptions: (res.data.subscriptions as SubscriptionItem[]) || [],
         has_active: Boolean(res.data.has_active),
@@ -268,6 +273,13 @@ export default function DashboardPage() {
       setWeekNote(guidance?.week_note ?? null);
       setHistory(guidance?.history ?? []);
       setRecommendation(guidance?.recommendation ?? null);
+      const selectedStudent = studentList.find((student) => student.id === selected);
+      if (selected && selectedStudent && usesMathsDashboard(selectedStudent.grade)) {
+        const mathsRes = await apiFetch(`/api/maths/overview?student_id=${selected}`);
+        if (mathsRes.response.ok) {
+          setMathsOverview(mathsRes.data as MathsOverview);
+        }
+      }
       const suggestedGroup =
         UNIT_GROUPS.find((group) =>
           unitsByGroup(group).some((unit) => unit.id === guidance?.recommendation?.module_id),
@@ -413,6 +425,7 @@ export default function DashboardPage() {
   const activeStudent =
     students.find((s) => s.id === selectedStudentId) ?? null;
   const showWriting = usesWritingDashboard(activeStudent?.grade ?? '');
+  const showMaths = usesMathsDashboard(activeStudent?.grade ?? '');
   const yearProgram = activeStudent ? programForGrade(activeStudent.grade) : null;
   const selectedWritingAccess = subscription?.subscriptions.find(
     (item) =>
@@ -557,8 +570,8 @@ export default function DashboardPage() {
               <h2 className="text-lg font-semibold text-warm-ink">Add another child</h2>
               <p className="text-sm text-warm-muted">
                 Each child has their own progress. Year 4–7 profiles use
-                Selective Writing; K–Y1 and later years open as those paths
-                are ready.
+                Selective Writing. Kindergarten and Year 1 profiles use K–Y1
+                Maths. Later years open as those paths are ready.
               </p>
             </div>
             <form
@@ -595,7 +608,9 @@ export default function DashboardPage() {
             </form>
           </section>
 
-          {!showWriting && yearProgram ? (
+          {showMaths ? (
+            <MathsHome overview={mathsOverview} grade={activeStudent?.grade ?? 'Kindergarten'} />
+          ) : !showWriting && yearProgram ? (
             <ProgramComingSoon program={yearProgram} />
           ) : selectedWritingAccess ? (
             <>

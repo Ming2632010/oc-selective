@@ -1236,6 +1236,34 @@ export async function awardMiniSeeds(input: {
   });
 }
 
+export async function awardMathsSeeds(input: {
+  studentId: string;
+  itemId: string;
+  isCorrect: boolean;
+  alreadyTried: boolean;
+}): Promise<SeedAwardResult> {
+  const today = calendarDateInSydney();
+  const used = await query<{ n: string }>(
+    `SELECT COALESCE(SUM(seeds), 0)::text AS n
+     FROM seed_events
+     WHERE student_id = $1 AND source IN ('mini', 'maths')
+       AND created_at >= ($2::date AT TIME ZONE 'Australia/Sydney')
+       AND created_at < (($2::date + 1) AT TIME ZONE 'Australia/Sydney')`,
+    [input.studentId, today],
+  );
+  const mini = seedsForMini({
+    isCorrect: input.isCorrect,
+    alreadyTried: input.alreadyTried,
+    miniSeedsToday: Number(used.rows[0]?.n ?? 0),
+  });
+  const lines: AwardLine[] =
+    mini.seeds > 0 || mini.label ? [{ seeds: mini.seeds, label: mini.label }] : [];
+  return persistSeedAwards(input.studentId, lines, {
+    source: 'maths',
+    meta: { item_id: input.itemId, capped: mini.capped },
+  });
+}
+
 export async function awardWritingSeeds(input: {
   studentId: string;
   promptId: string;

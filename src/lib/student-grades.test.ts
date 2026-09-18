@@ -4,6 +4,7 @@ import {
   DEFAULT_STUDENT_GRADE,
   STUDENT_GRADES,
   programIdForGrade,
+  usesMathsDashboard,
   usesWritingDashboard,
 } from './student-grades';
 
@@ -31,5 +32,8 @@ describe('student grades', () => {
     assert.equal(usesWritingDashboard('Year 3'), false);
     assert.equal(usesWritingDashboard('Year 4'), true);
     assert.equal(usesWritingDashboard('Year 7'), true);
+    assert.equal(usesMathsDashboard('Kindergarten'), true);
+    assert.equal(usesMathsDashboard('Year 1'), true);
+    assert.equal(usesMathsDashboard('Year 4'), false);
   });
 });
