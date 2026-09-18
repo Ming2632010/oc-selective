@@ -24,8 +24,8 @@ describe('K–Y1 Maths catalogue', () => {
   });
 
   it('starts Year 1 on parts and stories, and Kindergarten on seeing number', () => {
-    assert.deepEqual(recommendedUnitOrder('Year 1')[0], 3);
-    assert.deepEqual(recommendedUnitOrder('Kindergarten')[0], 1);
+    assert.deepEqual(recommendedUnitOrder('Year 1'), [3, 4, 5, 2, 6, 1]);
+    assert.deepEqual(recommendedUnitOrder('Kindergarten'), [1, 2, 3, 4, 6, 5]);
   });
 });
 

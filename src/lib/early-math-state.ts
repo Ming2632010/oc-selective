@@ -165,14 +165,17 @@ export async function getMathsOverview(studentId: string, grade: string) {
     ]),
   );
 
-  const units = EARLY_MATH_UNITS.map((unit) => ({
-    ...unit,
-    total: byUnit.get(unit.id)?.total ?? 0,
-    tried: byUnit.get(unit.id)?.tried ?? 0,
-    correct: byUnit.get(unit.id)?.correct ?? 0,
-  }));
-
   const order = recommendedUnitOrder(grade);
+  const units = order.map((unitId) => {
+    const unit = EARLY_MATH_UNITS.find((row) => row.id === unitId);
+    if (!unit) throw new Error(`Missing Maths unit ${unitId}`);
+    return {
+      ...unit,
+      total: byUnit.get(unit.id)?.total ?? 0,
+      tried: byUnit.get(unit.id)?.tried ?? 0,
+      correct: byUnit.get(unit.id)?.correct ?? 0,
+    };
+  });
   const untried = nextTried.rows;
   const nextRow =
     order
