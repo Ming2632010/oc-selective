@@ -128,13 +128,11 @@ export function seedsForMini(input: {
 
   if (input.alreadyTried) {
     seeds = input.isCorrect ? 1 : 0;
-    label = input.isCorrect
-      ? maths
-        ? 'Maths retry — correct'
-        : 'Mini retry — correct'
-      : maths
-        ? 'Maths retry'
-        : 'Mini retry';
+    if (maths) {
+      label = input.isCorrect ? 'Maths retry — correct' : 'Maths retry';
+    } else {
+      label = input.isCorrect ? 'Mini retry — correct' : 'Mini retry';
+    }
   } else if (input.isCorrect) {
     seeds = 3;
     label = maths ? 'Maths question — correct' : 'Mini practice — correct';
