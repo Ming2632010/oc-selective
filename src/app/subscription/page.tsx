@@ -12,6 +12,7 @@ import {
   isAvailableSubject,
   type Subject,
 } from '@/lib/subjects';
+import { usesWritingDashboard } from '@/lib/student-grades';
 
 type SubscriptionItem = {
   id: string;
@@ -89,6 +90,8 @@ export default function SubscriptionPage() {
   }, [data, studentId]);
 
   const hasBilling = (data?.subscriptions?.length ?? 0) > 0;
+  const selectedStudent = students.find((student) => student.id === studentId) ?? null;
+  const canBuyWriting = usesWritingDashboard(selectedStudent?.grade ?? '');
   const unassignedWriting = (data?.subscriptions ?? []).find(
     (subscription) =>
       subscription.subject === 'writing' && subscription.active && !subscription.student_id,
@@ -218,6 +221,13 @@ export default function SubscriptionPage() {
               Add a child profile on the <Link href="/dashboard">dashboard</Link> before purchasing access.
             </p>
           ) : null}
+          {selectedStudent && !canBuyWriting ? (
+            <p className="rounded-md border border-[#C9DDD0] bg-[#EEF6F0] px-4 py-3 text-sm text-brand-dark">
+              {selectedStudent.name} is in {selectedStudent.grade}. Year-level
+              courses for this path are not for sale yet. Selective Writing is
+              for Year 4–7 profiles.
+            </p>
+          ) : null}
           {unassignedWriting ? (
             <section className="rounded-lg border border-terracotta bg-[#FFF8F1] p-4">
               <h2 className="font-serif text-xl font-semibold text-warm-ink">
@@ -229,7 +239,7 @@ export default function SubscriptionPage() {
               <button
                 type="button"
                 onClick={() => void assignLegacyWritingAccess()}
-                disabled={!studentId || busy === `assign:${unassignedWriting.id}`}
+                disabled={!studentId || !canBuyWriting || busy === `assign:${unassignedWriting.id}`}
                 className="mt-3 rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
               >
                 {busy === `assign:${unassignedWriting.id}`
@@ -300,7 +310,7 @@ export default function SubscriptionPage() {
                   <button
                     type="button"
                     onClick={() => subscribe(subject)}
-                    disabled={busy === subject || !studentId}
+                    disabled={busy === subject || !studentId || !canBuyWriting}
                     className="mt-6 rounded-full bg-terracotta px-4 py-2.5 text-sm font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
                   >
                     {busy === subject

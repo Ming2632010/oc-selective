@@ -17,8 +17,9 @@ import {
   HOME_FEATURES,
   HOME_WHY_PARENTS,
 } from '@/lib/marketing-home';
+import { homePrograms } from '@/lib/programs';
 import { getSiteUrl, SITE_DESCRIPTION, SITE_NAME } from '@/lib/site';
-import { SUBJECT_PRICE_AUD } from '@/lib/subjects';
+import { KY1_SUBJECT_PRICE_AUD, SUBJECT_PRICE_AUD } from '@/lib/subjects';
 
 const ACCENT = 'text-brand';
 const ACCENT_BG = 'bg-terracotta hover:bg-terracotta-hover';
@@ -73,7 +74,7 @@ export default function Home() {
         <section className="mx-auto grid max-w-6xl items-center gap-12 px-4 pb-16 pt-12 sm:px-6 lg:grid-cols-2 lg:pt-20">
           <div>
             <p className={`text-sm font-medium uppercase tracking-wider ${ACCENT}`}>
-              NSW Selective &amp; Opportunity Class
+              NSW Selective, Opportunity Class, and K–Y1
             </p>
             <h1 className="mt-4 text-4xl font-semibold tracking-tight text-warm-ink sm:text-5xl">
               NSW Selective and Opportunity Class practice, made for your child
@@ -83,7 +84,8 @@ export default function Home() {
               Skills, and Reading. Feedback shows what is already going well
               and what to try next, so the work can follow your child.
               Writing is open now, with a progress line and a chat you can
-              use together. Other subjects will join as they are ready.
+              use together. K–Y1 is the first year-level path, with Y2 to Y6
+              to follow as they are ready.
             </p>
             <div className="mt-8 flex flex-col items-stretch gap-3 sm:flex-row">
               <Link
@@ -118,8 +120,8 @@ export default function Home() {
               Why families choose TrialSeed
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-center text-warm-muted">
-              Built for two NSW exams, with room for every subject your child
-              will need.
+              Built for two NSW exams, and for year-level practice starting
+              at K–Y1.
             </p>
             <div className="mt-12 grid gap-8 sm:grid-cols-3">
               {HOME_WHY_PARENTS.map(({ title, body }, index) => {
@@ -174,64 +176,42 @@ export default function Home() {
         <section className="border-y border-warm-border bg-warm-card py-20">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <h2 className="text-center text-3xl font-semibold text-warm-ink">
-              Choose the exam they are sitting
+              Choose the path that fits your child
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-center text-warm-muted">
-              Open a trial to see each subject. You can start with one and add
-              more later.
+              Open a year-level path or an exam trial. You can start with one
+              subject and add more later.
             </p>
-            <div className="mt-12 grid gap-8 lg:grid-cols-2">
-              <Link
-                href="/selective-trial"
-                className="group overflow-hidden rounded-lg border border-warm-border bg-warm-card shadow-card transition hover:border-[#DCCEBE]"
-              >
-                <div className="relative aspect-[16/9]">
-                  <Image
-                    src="/marketing/selective-progress-chat.png"
-                    alt="A student reviewing Selective exam practice progress on a tablet"
-                    fill
-                    className="object-cover transition duration-300 group-hover:scale-[1.02]"
-                    sizes="(min-width: 1024px) 50vw, 100vw"
-                  />
-                </div>
-                <div className="p-6">
-                  <p className={`text-xs font-semibold uppercase tracking-wider ${ACCENT}`}>
-                    Selective Trials
-                  </p>
-                  <h3 className="mt-2 text-2xl font-semibold text-warm-ink">
-                    NSW Selective High School
-                  </h3>
-                  <p className="mt-2 text-sm text-warm-muted">
-                    Writing, Math, Thinking Skills, and Reading.
-                  </p>
-                </div>
-              </Link>
-
-              <Link
-                href="/oc-trial"
-                className="group overflow-hidden rounded-lg border border-warm-border bg-warm-card shadow-card transition hover:border-[#DCCEBE]"
-              >
-                <div className="relative aspect-[16/9]">
-                  <Image
-                    src="/marketing/oc-progress-chat.png"
-                    alt="A parent and child looking at Opportunity Class practice progress on a tablet"
-                    fill
-                    className="object-cover transition duration-300 group-hover:scale-[1.02]"
-                    sizes="(min-width: 1024px) 50vw, 100vw"
-                  />
-                </div>
-                <div className="p-6">
-                  <p className={`text-xs font-semibold uppercase tracking-wider ${ACCENT}`}>
-                    OC Trials
-                  </p>
-                  <h3 className="mt-2 text-2xl font-semibold text-warm-ink">
-                    Opportunity Class
-                  </h3>
-                  <p className="mt-2 text-sm text-warm-muted">
-                    Math, Thinking Skills, and Reading.
-                  </p>
-                </div>
-              </Link>
+            <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+              {homePrograms().map((program) => (
+                <Link
+                  key={program.id}
+                  href={program.href}
+                  className="group overflow-hidden rounded-lg border border-warm-border bg-warm-card shadow-card transition hover:border-[#DCCEBE]"
+                >
+                  <div className="relative aspect-[16/9]">
+                    <Image
+                      src={program.image.src}
+                      alt={program.image.alt}
+                      fill
+                      className="object-cover transition duration-300 group-hover:scale-[1.02]"
+                      sizes="(min-width: 1024px) 33vw, 100vw"
+                    />
+                  </div>
+                  <div className="p-6">
+                    <p className={`text-xs font-semibold uppercase tracking-wider ${ACCENT}`}>
+                      {program.navLabel}
+                      {program.available ? '' : ' · Coming soon'}
+                    </p>
+                    <h3 className="mt-2 text-2xl font-semibold text-warm-ink">
+                      {program.headline}
+                    </h3>
+                    <p className="mt-2 text-sm text-warm-muted">
+                      {program.subjects.map((subject) => subject.name).join(', ')}.
+                    </p>
+                  </div>
+                </Link>
+              ))}
             </div>
           </div>
         </section>
@@ -240,16 +220,44 @@ export default function Home() {
           <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
             <h2 className="text-3xl font-semibold text-warm-ink">Simple pricing</h2>
             <p className="mt-3 text-warm-muted">
-              ${SUBJECT_PRICE_AUD} AUD per subject for a full year. Choose the
-              exam and the subjects you would like. Access lasts twelve months
-              from the day you buy, and we will not charge again unless you
-              decide to come back.
+              Pay once per subject for twelve months. Exam paths and K–Y1 are
+              priced for the size of the practice. We will not charge again
+              unless you decide to come back.
             </p>
-            <p className="mt-8 font-serif text-5xl font-semibold text-warm-ink">
-              ${SUBJECT_PRICE_AUD}
-              <span className="text-xl font-normal text-warm-subtle"> AUD</span>
-            </p>
-            <p className="mt-2 text-sm text-warm-subtle">per subject · one-off · 12 months</p>
+            <div className="mt-10 grid gap-6 sm:grid-cols-2">
+              <div className="rounded-lg border border-warm-border bg-warm-card p-6 text-left shadow-card">
+                <p className="text-xs font-semibold uppercase tracking-wider text-brand">
+                  Selective and OC
+                </p>
+                <p className="mt-3 font-serif text-4xl font-semibold text-warm-ink">
+                  ${SUBJECT_PRICE_AUD}
+                  <span className="text-lg font-normal text-warm-subtle"> AUD</span>
+                </p>
+                <p className="mt-2 text-sm text-warm-subtle">
+                  per subject · one-off · 12 months
+                </p>
+                <p className="mt-3 text-sm text-warm-muted">
+                  Exam-style practice for Writing, Math, Thinking Skills, and
+                  Reading.
+                </p>
+              </div>
+              <div className="rounded-lg border border-warm-border bg-warm-card p-6 text-left shadow-card">
+                <p className="text-xs font-semibold uppercase tracking-wider text-brand">
+                  K–Y1
+                </p>
+                <p className="mt-3 font-serif text-4xl font-semibold text-warm-ink">
+                  ${KY1_SUBJECT_PRICE_AUD}
+                  <span className="text-lg font-normal text-warm-subtle"> AUD</span>
+                </p>
+                <p className="mt-2 text-sm text-warm-subtle">
+                  per subject · one-off · 12 months
+                </p>
+                <p className="mt-3 text-sm text-warm-muted">
+                  A smaller set of English, Maths, and Reading for the first
+                  years of school.
+                </p>
+              </div>
+            </div>
             <Link
               href="/register"
               className={`mt-8 inline-flex rounded-full px-6 py-3 text-sm font-medium text-white ${ACCENT_BG}`}
@@ -257,8 +265,8 @@ export default function Home() {
               Create an account
             </Link>
             <p className="mt-4 text-sm text-warm-subtle">
-              Selective Writing is available now. Other Selective and OC
-              subjects will open at the same price.
+              Selective Writing is available now at ${SUBJECT_PRICE_AUD} AUD.
+              K–Y1 subjects will open at ${KY1_SUBJECT_PRICE_AUD} AUD.
             </p>
           </div>
         </section>

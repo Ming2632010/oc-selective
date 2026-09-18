@@ -3,6 +3,7 @@ import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { getAppUrl, getStripeClient } from '@/lib/stripe';
 import { isAvailableSubject, isSubject, priceIdForSubject } from '@/lib/subjects';
+import { usesWritingDashboard } from '@/lib/student-grades';
 import { isRateLimited } from '@/lib/rate-limit';
 import { isMissingStripeCustomer } from '@/lib/stripe-customer';
 import type Stripe from 'stripe';
@@ -53,12 +54,21 @@ export async function POST(request: Request) {
     if (!studentId) {
       return NextResponse.json({ error: 'student_id is required' }, { status: 400 });
     }
-    const student = await query<{ id: string }>(
-      `SELECT id FROM students WHERE id = $1 AND user_id = $2 AND is_active = TRUE LIMIT 1`,
+    const student = await query<{ id: string; grade: string }>(
+      `SELECT id, grade FROM students WHERE id = $1 AND user_id = $2 AND is_active = TRUE LIMIT 1`,
       [studentId, userId],
     );
     if (!student.rows[0]) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    }
+    if (subject === 'writing' && !usesWritingDashboard(student.rows[0].grade)) {
+      return NextResponse.json(
+        {
+          error:
+            'Selective Writing is for Year 4–7 profiles. Year-level courses for this child are not for sale yet.',
+        },
+        { status: 409 },
+      );
     }
     const existing = await query<{ id: string }>(
       `SELECT id FROM user_subscriptions

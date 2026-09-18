@@ -47,7 +47,7 @@ export default function RegisterPage() {
         <div>
           <h1 className="text-3xl font-semibold text-warm-ink">Create account</h1>
           <p className="mt-1 text-sm text-warm-muted">
-            Create an account to practise for Selective and OC exams.
+            Create an account to start TrialSeed practice.
           </p>
         </div>
 

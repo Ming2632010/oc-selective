@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
+import { usesWritingDashboard } from '@/lib/student-grades';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,6 +24,23 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'subscription_id and student_id are required' },
         { status: 400 },
+      );
+    }
+
+    const student = await query<{ id: string; grade: string }>(
+      `SELECT id, grade FROM students WHERE id = $1 AND user_id = $2 AND is_active = TRUE LIMIT 1`,
+      [studentId, userId],
+    );
+    if (!student.rows[0]) {
+      return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    }
+    if (!usesWritingDashboard(student.rows[0].grade)) {
+      return NextResponse.json(
+        {
+          error:
+            'Selective Writing is for Year 4–7 profiles. Choose a Year 4–7 child to assign this access.',
+        },
+        { status: 409 },
       );
     }
 
