@@ -1,17 +1,101 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { Menu } from 'lucide-react';
+import { buildHeaderNav, type HeaderNavItem, type ProgramId } from '@/lib/programs';
 
 const ACCENT_BG = 'bg-terracotta hover:bg-terracotta-hover';
 
 type MarketingHeaderProps = {
-  current?: 'home' | 'selective' | 'oc';
+  current?: 'home' | ProgramId;
 };
 
-export function MarketingHeader({ current }: MarketingHeaderProps) {
-  const linkClass = (active: boolean) =>
-    `hover:text-white ${active ? 'font-medium text-white' : 'text-white/75'}`;
+function itemIsActive(item: HeaderNavItem, current: MarketingHeaderProps['current']): boolean {
+  if (!current || current === 'home') return false;
+  if (item.type === 'link') return item.id === current;
+  return item.items.some((child) => child.id === current);
+}
 
+function navLinkClass(active: boolean, variant: 'desktop' | 'mobile'): string {
+  if (variant === 'desktop') {
+    return `hover:text-white ${active ? 'font-medium text-white' : 'text-white/75'}`;
+  }
+  return active
+    ? 'font-medium text-brand-dark'
+    : 'text-warm-muted hover:text-brand-dark';
+}
+
+function HeaderLinks({
+  current,
+  variant,
+}: {
+  current: MarketingHeaderProps['current'];
+  variant: 'desktop' | 'mobile';
+}) {
+  const items = buildHeaderNav();
+  return (
+    <>
+      {items.map((item) => {
+        if (item.type === 'link') {
+          return (
+            <Link
+              key={item.id}
+              href={item.href}
+              className={navLinkClass(itemIsActive(item, current), variant)}
+            >
+              {item.label}
+            </Link>
+          );
+        }
+
+        if (variant === 'mobile') {
+          return (
+            <div key={item.id} className="flex flex-col gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-warm-subtle">
+                {item.label}
+              </p>
+              {item.items.map((child) => (
+                <Link
+                  key={child.id}
+                  href={child.href}
+                  className={navLinkClass(child.id === current, 'mobile')}
+                >
+                  {child.label}
+                </Link>
+              ))}
+            </div>
+          );
+        }
+
+        return (
+          <details key={item.id} className="relative">
+            <summary
+              className={`cursor-pointer list-none ${navLinkClass(itemIsActive(item, current), 'desktop')} [&::-webkit-details-marker]:hidden`}
+            >
+              {item.label}
+            </summary>
+            <div className="absolute right-0 mt-2 min-w-36 rounded-lg border border-warm-border bg-warm-card p-2 text-sm text-warm-ink shadow-card">
+              {item.items.map((child) => (
+                <Link
+                  key={child.id}
+                  href={child.href}
+                  className={`block rounded-md px-3 py-2 ${
+                    child.id === current
+                      ? 'bg-[#EDF3ED] font-medium text-brand-dark'
+                      : 'text-warm-muted hover:bg-[#F5EEE6] hover:text-brand-dark'
+                  }`}
+                >
+                  {child.label}
+                </Link>
+              ))}
+            </div>
+          </details>
+        );
+      })}
+    </>
+  );
+}
+
+export function MarketingHeader({ current }: MarketingHeaderProps) {
   return (
     <header className="sticky top-0 z-30 border-b border-brand-dark bg-brand text-white shadow-sm">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
@@ -40,22 +124,7 @@ export function MarketingHeader({ current }: MarketingHeaderProps) {
               <a href="/#features" className="text-warm-muted hover:text-brand-dark">
                 Features
               </a>
-              <Link
-                href="/oc-trial"
-                className={current === 'oc' ? 'font-medium text-brand-dark' : 'text-warm-muted hover:text-brand-dark'}
-              >
-                OC Trials
-              </Link>
-              <Link
-                href="/selective-trial"
-                className={
-                  current === 'selective'
-                    ? 'font-medium text-brand-dark'
-                    : 'text-warm-muted hover:text-brand-dark'
-                }
-              >
-                Selective Trials
-              </Link>
+              <HeaderLinks current={current} variant="mobile" />
               <a href="/#pricing" className="text-warm-muted hover:text-brand-dark">
                 Pricing
               </a>
@@ -72,16 +141,11 @@ export function MarketingHeader({ current }: MarketingHeaderProps) {
           </div>
         </details>
 
-        <nav className="hidden items-center gap-6 text-sm lg:flex lg:gap-8">
+        <nav className="hidden items-center gap-5 text-sm lg:flex xl:gap-8">
           <a href="/#features" className="text-white/75 hover:text-white">
             Features
           </a>
-          <Link href="/oc-trial" className={linkClass(current === 'oc')}>
-            OC Trials
-          </Link>
-          <Link href="/selective-trial" className={linkClass(current === 'selective')}>
-            Selective Trials
-          </Link>
+          <HeaderLinks current={current} variant="desktop" />
           <a href="/#pricing" className="text-white/75 hover:text-white">
             Pricing
           </a>

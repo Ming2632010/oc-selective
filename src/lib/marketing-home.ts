@@ -6,8 +6,8 @@ export const HOME_WHY_PARENTS = [
     body: 'We look at what is already going well and where a little more practice would help, then suggest the next task. Every child gets a path that fits them.',
   },
   {
-    title: 'Selective and OC in one place',
-    body: 'Selective Trials cover Writing, Math, Thinking Skills, and Reading. OC Trials cover Math, Thinking Skills, and Reading. Choose the exam your child is sitting, and the subjects you would like to add.',
+    title: 'Exam trials and year-level paths',
+    body: 'Selective Trials cover Writing, Math, Thinking Skills, and Reading. OC Trials cover Math, Thinking Skills, and Reading. K–Y1 starts the year-level path, with Y2 to Y6 to follow. Choose the exam or the year that fits your child.',
   },
   {
     title: 'One payment, one year',
@@ -36,8 +36,8 @@ export const HOME_FEATURES = [
 
 export const HOME_FAQS: { q: string; a: string }[] = [
   {
-    q: 'What is the difference between Selective Trials and OC Trials?',
-    a: 'Selective Trials are for the NSW Selective High School test: Writing, Math, Thinking Skills, and Reading. OC Trials are for Opportunity Class: Math, Thinking Skills, and Reading. Choose the track that matches the exam your child is sitting.',
+    q: 'What is the difference between Selective Trials, OC Trials, and K–Y1?',
+    a: 'Selective Trials are for the NSW Selective High School test: Writing, Math, Thinking Skills, and Reading. OC Trials are for Opportunity Class: Math, Thinking Skills, and Reading. K–Y1 is year-level practice for Kindergarten and Year 1, with Y2 to Y6 to follow. Choose the exam or the year that fits your child.',
   },
   {
     q: 'How does the AI help my child?',
@@ -49,7 +49,7 @@ export const HOME_FAQS: { q: string; a: string }[] = [
   },
   {
     q: 'Which subjects can I use today?',
-    a: 'Selective Writing is open now. Selective Math, Thinking Skills, and Reading, and all OC Trial subjects, will open as those courses are ready. You are not charged for a subject until you choose to add it.',
+    a: 'Selective Writing is open now. Selective Math, Thinking Skills, and Reading, OC Trial subjects, and K–Y1 English, Maths, and Reading will open as those courses are ready. You are not charged for a subject until you choose to add it.',
   },
   {
     q: 'Can parent and student follow progress together?',

@@ -15,6 +15,14 @@ import { typeLabel, UNIT_GROUPS, unitsByGroup, WRITING_TYPES, type UnitGroup } f
 import { WritingProgressLine, type HistoryPoint } from '@/components/writing/progress-line';
 import { SeedPatch, type SeedPatchData } from '@/components/writing/seed-patch';
 import { WeekNote } from '@/components/writing/week-note';
+import { ProgramComingSoon } from '@/components/dashboard/program-coming-soon';
+import {
+  DEFAULT_STUDENT_GRADE,
+  STUDENT_GRADES,
+  isStudentGrade,
+  programForGrade,
+  usesWritingDashboard,
+} from '@/lib/student-grades';
 import type { WeekNoteData } from '@/lib/week-note';
 
 const SubjectChat = dynamic(
@@ -201,7 +209,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   const [newName, setNewName] = useState('');
-  const [newGrade, setNewGrade] = useState('Year 5');
+  const [newGrade, setNewGrade] = useState(DEFAULT_STUDENT_GRADE);
   const [creating, setCreating] = useState(false);
 
   async function loadDashboard(requestedStudentId?: string | null) {
@@ -404,6 +412,8 @@ export default function DashboardPage() {
 
   const activeStudent =
     students.find((s) => s.id === selectedStudentId) ?? null;
+  const showWriting = usesWritingDashboard(activeStudent?.grade ?? '');
+  const yearProgram = activeStudent ? programForGrade(activeStudent.grade) : null;
   const selectedWritingAccess = subscription?.subscriptions.find(
     (item) =>
       item.subject === 'writing' &&
@@ -446,6 +456,7 @@ export default function DashboardPage() {
       ) : null}
 
       {(() => {
+        if (!showWriting) return null;
         const banner = subscriptionBanner(subscription, selectedStudentId);
         if (!banner) return null;
         const classes =
@@ -474,13 +485,13 @@ export default function DashboardPage() {
               Let&apos;s set up a student profile
             </h2>
             <p className="mt-1 text-sm text-warm-muted">
-              Add the student who will be practising so we can track their
-              progress across all eleven units.
+              Add the student who will be practising. Choose their school year
+              so we can show the right path.
             </p>
           </div>
           <form
             onSubmit={onCreateStudent}
-            className="grid gap-3 sm:grid-cols-[1fr_10rem_auto]"
+            className="grid gap-3 sm:grid-cols-[1fr_12rem_auto]"
           >
             <input
               required
@@ -491,10 +502,12 @@ export default function DashboardPage() {
             />
             <select
               value={newGrade}
-              onChange={(e) => setNewGrade(e.target.value)}
+              onChange={(e) => {
+                if (isStudentGrade(e.target.value)) setNewGrade(e.target.value);
+              }}
               className="rounded-lg border border-warm-border bg-warm-card px-3 py-2"
             >
-              {['Year 4', 'Year 5', 'Year 6', 'Year 7'].map((g) => (
+              {STUDENT_GRADES.map((g) => (
                 <option key={g} value={g}>
                   {g}
                 </option>
@@ -543,12 +556,14 @@ export default function DashboardPage() {
             <div>
               <h2 className="text-lg font-semibold text-warm-ink">Add another child</h2>
               <p className="text-sm text-warm-muted">
-                Each child has their own progress and needs their own Selective Writing access.
+                Each child has their own progress. Year 4–7 profiles use
+                Selective Writing; K–Y1 and later years open as those paths
+                are ready.
               </p>
             </div>
             <form
               onSubmit={onCreateStudent}
-              className="grid gap-3 sm:grid-cols-[1fr_10rem_auto]"
+              className="grid gap-3 sm:grid-cols-[1fr_12rem_auto]"
             >
               <input
                 required
@@ -559,10 +574,12 @@ export default function DashboardPage() {
               />
               <select
                 value={newGrade}
-                onChange={(e) => setNewGrade(e.target.value)}
+                onChange={(e) => {
+                if (isStudentGrade(e.target.value)) setNewGrade(e.target.value);
+              }}
                 className="rounded-lg border border-warm-border bg-warm-card px-3 py-2"
               >
-                {['Year 4', 'Year 5', 'Year 6', 'Year 7'].map((g) => (
+                {STUDENT_GRADES.map((g) => (
                   <option key={g} value={g}>
                     {g}
                   </option>
@@ -578,7 +595,9 @@ export default function DashboardPage() {
             </form>
           </section>
 
-          {selectedWritingAccess ? (
+          {!showWriting && yearProgram ? (
+            <ProgramComingSoon program={yearProgram} />
+          ) : selectedWritingAccess ? (
             <>
           {recommendation ? (
             <section className="rounded-lg border border-[#D6E3D8] bg-[#EEF6F0] p-5 shadow-card">

@@ -28,6 +28,12 @@ describe('public marketing copy', () => {
     assert.match(SITE_DESCRIPTION, /Opportunity Class/);
     assert.match(SITE_DESCRIPTION, /Writing, Math, Thinking Skills, and Reading/);
   });
+
+  it('introduces K–Y1 as a year-level path without dropping exam practice', () => {
+    assert.match(SITE_DESCRIPTION, /K–Y1/);
+    assert.match(publicCopy, /K–Y1/);
+    assert.match(publicCopy, /Y2 to Y6/);
+  });
 });
 
 describe('getSiteUrl', () => {

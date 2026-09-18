@@ -18,6 +18,6 @@ export function getSiteUrl(): string {
 }
 
 export const SITE_DESCRIPTION =
-  'TrialSeed helps NSW families practise for the Selective High School and Opportunity Class exams. Writing, Math, Thinking Skills, and Reading — with feedback that follows your child.';
+  'TrialSeed helps NSW families practise for the Selective High School and Opportunity Class exams, with year-level paths starting at K–Y1. Writing, Math, Thinking Skills, and Reading — with feedback that follows your child.';
 
 export const SITE_TITLE = 'TrialSeed | NSW Selective and Opportunity Class practice';
