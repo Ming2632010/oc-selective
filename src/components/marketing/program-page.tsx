@@ -35,7 +35,7 @@ export function ProgramPage({ program }: { program: Program }) {
           <h2 className="text-2xl font-semibold text-warm-ink">Subjects</h2>
           <p className="mt-2 max-w-2xl text-sm text-warm-muted">{program.subjectsIntro}</p>
           <div className="mt-8">
-            <SubjectBlocks subjects={program.subjects} />
+            <SubjectBlocks subjects={program.subjects} priceAud={program.priceAud} />
           </div>
         </section>
       </main>

@@ -19,7 +19,7 @@ import {
 } from '@/lib/marketing-home';
 import { homePrograms } from '@/lib/programs';
 import { getSiteUrl, SITE_DESCRIPTION, SITE_NAME } from '@/lib/site';
-import { SUBJECT_PRICE_AUD } from '@/lib/subjects';
+import { KY1_SUBJECT_PRICE_AUD, SUBJECT_PRICE_AUD } from '@/lib/subjects';
 
 const ACCENT = 'text-brand';
 const ACCENT_BG = 'bg-terracotta hover:bg-terracotta-hover';
@@ -220,16 +220,44 @@ export default function Home() {
           <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
             <h2 className="text-3xl font-semibold text-warm-ink">Simple pricing</h2>
             <p className="mt-3 text-warm-muted">
-              ${SUBJECT_PRICE_AUD} AUD per subject for a full year. Choose the
-              exam and the subjects you would like. Access lasts twelve months
-              from the day you buy, and we will not charge again unless you
-              decide to come back.
+              Pay once per subject for twelve months. Exam paths and K–Y1 are
+              priced for the size of the practice. We will not charge again
+              unless you decide to come back.
             </p>
-            <p className="mt-8 font-serif text-5xl font-semibold text-warm-ink">
-              ${SUBJECT_PRICE_AUD}
-              <span className="text-xl font-normal text-warm-subtle"> AUD</span>
-            </p>
-            <p className="mt-2 text-sm text-warm-subtle">per subject · one-off · 12 months</p>
+            <div className="mt-10 grid gap-6 sm:grid-cols-2">
+              <div className="rounded-lg border border-warm-border bg-warm-card p-6 text-left shadow-card">
+                <p className="text-xs font-semibold uppercase tracking-wider text-brand">
+                  Selective and OC
+                </p>
+                <p className="mt-3 font-serif text-4xl font-semibold text-warm-ink">
+                  ${SUBJECT_PRICE_AUD}
+                  <span className="text-lg font-normal text-warm-subtle"> AUD</span>
+                </p>
+                <p className="mt-2 text-sm text-warm-subtle">
+                  per subject · one-off · 12 months
+                </p>
+                <p className="mt-3 text-sm text-warm-muted">
+                  Exam-style practice for Writing, Math, Thinking Skills, and
+                  Reading.
+                </p>
+              </div>
+              <div className="rounded-lg border border-warm-border bg-warm-card p-6 text-left shadow-card">
+                <p className="text-xs font-semibold uppercase tracking-wider text-brand">
+                  K–Y1
+                </p>
+                <p className="mt-3 font-serif text-4xl font-semibold text-warm-ink">
+                  ${KY1_SUBJECT_PRICE_AUD}
+                  <span className="text-lg font-normal text-warm-subtle"> AUD</span>
+                </p>
+                <p className="mt-2 text-sm text-warm-subtle">
+                  per subject · one-off · 12 months
+                </p>
+                <p className="mt-3 text-sm text-warm-muted">
+                  A smaller set of English, Maths, and Reading for the first
+                  years of school.
+                </p>
+              </div>
+            </div>
             <Link
               href="/register"
               className={`mt-8 inline-flex rounded-full px-6 py-3 text-sm font-medium text-white ${ACCENT_BG}`}
@@ -237,8 +265,8 @@ export default function Home() {
               Create an account
             </Link>
             <p className="mt-4 text-sm text-warm-subtle">
-              Selective Writing is available now. Other Selective, OC, and
-              K–Y1 subjects will open at the same price.
+              Selective Writing is available now at ${SUBJECT_PRICE_AUD} AUD.
+              K–Y1 subjects will open at ${KY1_SUBJECT_PRICE_AUD} AUD.
             </p>
           </div>
         </section>

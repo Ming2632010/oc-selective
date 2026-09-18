@@ -19,8 +19,12 @@ export const SUBJECT_BLURBS: Record<Subject, string> = {
   reading: 'Reading comprehension passages and questions.',
 };
 
-/** Each subject is a $99 AUD one-off payment for 1 year of access. */
+/** Selective and OC exam subjects: $99 AUD one-off for 1 year of access. */
 export const SUBJECT_PRICE_AUD = 99;
+export const EXAM_SUBJECT_PRICE_AUD = SUBJECT_PRICE_AUD;
+
+/** K–Y1 year-level subjects: a smaller set of practice at $29 AUD for 1 year. */
+export const KY1_SUBJECT_PRICE_AUD = 29;
 
 export function isSubject(value: unknown): value is Subject {
   return typeof value === 'string' && (SUBJECTS as readonly string[]).includes(value);

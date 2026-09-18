@@ -1,4 +1,5 @@
 import { BookOpen, Calculator, PenLine } from 'lucide-react';
+import { EXAM_SUBJECT_PRICE_AUD, KY1_SUBJECT_PRICE_AUD } from './subjects';
 import { OC_SUBJECTS, SELECTIVE_SUBJECTS, type TrialSubject } from './trials';
 
 export const PROGRAM_FAMILIES = ['year', 'exam'] as const;
@@ -36,6 +37,8 @@ export type Program = {
   subjectsIntro: string;
   subjects: TrialSubject[];
   image: { src: string; alt: string };
+  /** Display price in AUD for one subject for one year. */
+  priceAud: number;
   metaTitle: string;
   metaDescription: string;
 };
@@ -81,6 +84,8 @@ function yearProgram(
     hasPage?: boolean;
     href?: string;
     image?: Program['image'];
+    priceAud?: number;
+    subjectsIntro?: string;
     metaTitle: string;
     metaDescription: string;
   },
@@ -99,9 +104,11 @@ function yearProgram(
     headline: opts.headline,
     summary: opts.summary,
     subjectsIntro:
-      'These subjects will open at the same $99 yearly price. You can add one when you are ready.',
+      opts.subjectsIntro ??
+      `These subjects will open at $${opts.priceAud ?? EXAM_SUBJECT_PRICE_AUD} AUD for one year. You can add one when you are ready.`,
     subjects: YEAR_SUBJECTS,
     image: opts.image ?? YEAR_IMAGE,
+    priceAud: opts.priceAud ?? EXAM_SUBJECT_PRICE_AUD,
     metaTitle: opts.metaTitle,
     metaDescription: opts.metaDescription,
   };
@@ -113,17 +120,20 @@ export const PROGRAMS: readonly Program[] = [
     eyebrow: 'K–Y1',
     headline: 'Kindergarten and Year 1 practice',
     summary:
-      'Gentle English, Maths, and early reading for the first years of school. Feedback will stay short and kind, so a parent and child can sit together. Courses will open at the same $99 yearly price per subject.',
+      `Gentle English, Maths, and early reading for the first years of school. Feedback will stay short and kind, so a parent and child can sit together. Each subject is $${KY1_SUBJECT_PRICE_AUD} AUD for one year — a smaller set of practice than the exam paths.`,
     inNav: true,
     onHome: true,
     hasPage: true,
+    priceAud: KY1_SUBJECT_PRICE_AUD,
+    subjectsIntro:
+      `These subjects will open at $${KY1_SUBJECT_PRICE_AUD} AUD for one year. It is a smaller set of practice, so a parent and child can sit together without a full exam course.`,
     image: {
       src: '/marketing/k-y1-progress-chat.png',
       alt: 'A parent and a Kindergarten-age boy looking at TrialSeed practice progress together',
     },
     metaTitle: 'K–Y1',
     metaDescription:
-      'TrialSeed Kindergarten and Year 1 practice for English, Maths, and Reading. $99 AUD per subject for one year, opening soon.',
+      `TrialSeed Kindergarten and Year 1 practice for English, Maths, and Reading. $${KY1_SUBJECT_PRICE_AUD} AUD per subject for one year, opening soon.`,
   }),
   yearProgram('y2', {
     navLabel: 'Y2',
@@ -186,6 +196,7 @@ export const PROGRAMS: readonly Program[] = [
     subjectsIntro:
       'All three OC subjects will open at the same $99 yearly price. You can add a subject when you are ready.',
     subjects: OC_SUBJECTS,
+    priceAud: EXAM_SUBJECT_PRICE_AUD,
     image: {
       src: '/marketing/oc-progress-chat.png',
       alt: 'A parent and child looking at Opportunity Class practice progress on a tablet',
@@ -210,6 +221,7 @@ export const PROGRAMS: readonly Program[] = [
     subjectsIntro:
       'Writing is open now. Math, Thinking Skills, and Reading will open at the same price.',
     subjects: SELECTIVE_SUBJECTS,
+    priceAud: EXAM_SUBJECT_PRICE_AUD,
     image: {
       src: '/marketing/selective-progress-chat.png',
       alt: 'A student reviewing Selective exam practice progress on a tablet',

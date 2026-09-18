@@ -34,6 +34,12 @@ describe('public marketing copy', () => {
     assert.match(publicCopy, /K–Y1/);
     assert.match(publicCopy, /Y2 to Y6/);
   });
+
+  it('prices K–Y1 below the exam paths', () => {
+    assert.match(publicCopy, /\$29/);
+    assert.match(publicCopy, /\$99/);
+    assert.match(publicCopy, /smaller set of practice/);
+  });
 });
 
 describe('getSiteUrl', () => {

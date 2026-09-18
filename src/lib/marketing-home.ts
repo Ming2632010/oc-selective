@@ -1,4 +1,4 @@
-import { SUBJECT_PRICE_AUD } from './subjects';
+import { KY1_SUBJECT_PRICE_AUD, SUBJECT_PRICE_AUD } from './subjects';
 
 export const HOME_WHY_PARENTS = [
   {
@@ -11,7 +11,7 @@ export const HOME_WHY_PARENTS = [
   },
   {
     title: 'One payment, one year',
-    body: `$${SUBJECT_PRICE_AUD} AUD per subject, paid once, for twelve months. When the year ends we do not charge again unless you choose to return. You can enter a promotion code at checkout.`,
+    body: `Selective and OC subjects are $${SUBJECT_PRICE_AUD} AUD for twelve months. K–Y1 subjects are $${KY1_SUBJECT_PRICE_AUD} AUD, because that path is a smaller set of practice. Paid once. When the year ends we do not charge again unless you choose to return. You can enter a promotion code at checkout.`,
   },
 ];
 
@@ -45,7 +45,7 @@ export const HOME_FAQS: { q: string; a: string }[] = [
   },
   {
     q: 'How does payment work?',
-    a: `Each subject is a one-off $${SUBJECT_PRICE_AUD} AUD payment for 12 months. We do not renew it automatically. You only pay for subjects you add. A second child is a separate purchase.`,
+    a: `Selective and OC subjects are $${SUBJECT_PRICE_AUD} AUD for 12 months. K–Y1 subjects are $${KY1_SUBJECT_PRICE_AUD} AUD for 12 months, because that path is a smaller set of practice. We do not renew automatically. You only pay for subjects you add. A second child is a separate purchase.`,
   },
   {
     q: 'Which subjects can I use today?',

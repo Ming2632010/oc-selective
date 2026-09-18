@@ -18,8 +18,8 @@ export function ProgramComingSoon({ program }: { program: Program }) {
         ))}
       </ul>
       <p className="text-sm text-warm-muted">
-        Selective Writing stays on Year 4–7 profiles, so this child’s work is never mixed with
-        exam-year tasks.
+        Each subject will be ${program.priceAud} AUD for one year. Selective Writing stays on
+        Year 4–7 profiles, so this child’s work is never mixed with exam-year tasks.
       </p>
       {program.hasPage ? (
         <Link

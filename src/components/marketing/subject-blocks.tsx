@@ -4,7 +4,13 @@ import type { TrialSubject } from '@/lib/trials';
 const ACCENT = 'text-brand';
 const ACCENT_BG = 'bg-terracotta hover:bg-terracotta-hover';
 
-export function SubjectBlocks({ subjects }: { subjects: TrialSubject[] }) {
+export function SubjectBlocks({
+  subjects,
+  priceAud,
+}: {
+  subjects: TrialSubject[];
+  priceAud: number;
+}) {
   return (
     <div className="grid gap-6 sm:grid-cols-2">
       {subjects.map(({ name, blurb, icon: Icon, available }) => (
@@ -36,7 +42,9 @@ export function SubjectBlocks({ subjects }: { subjects: TrialSubject[] }) {
               Start {name}
             </Link>
           ) : (
-            <p className="mt-6 text-sm text-warm-subtle">Opens at the same $99 yearly price.</p>
+            <p className="mt-6 text-sm text-warm-subtle">
+              Opens at ${priceAud} AUD for one year.
+            </p>
           )}
         </article>
       ))}
