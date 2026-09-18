@@ -19,6 +19,7 @@ describe('programs catalogue', () => {
     );
     assert.equal(getProgram('k-y1').navLabel, 'K–Y1');
     assert.equal(getProgram('k-y1').hasPage, true);
+    assert.equal(getProgram('k-y1').image.src, '/marketing/k-y1-progress-chat.png');
     assert.equal(getProgram('y2').inNav, false);
     assert.equal(getProgram('y6').hasPage, false);
     assert.deepEqual(

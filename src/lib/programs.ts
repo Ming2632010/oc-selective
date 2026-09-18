@@ -80,6 +80,7 @@ function yearProgram(
     onHome?: boolean;
     hasPage?: boolean;
     href?: string;
+    image?: Program['image'];
     metaTitle: string;
     metaDescription: string;
   },
@@ -100,7 +101,7 @@ function yearProgram(
     subjectsIntro:
       'These subjects will open at the same $99 yearly price. You can add one when you are ready.',
     subjects: YEAR_SUBJECTS,
-    image: YEAR_IMAGE,
+    image: opts.image ?? YEAR_IMAGE,
     metaTitle: opts.metaTitle,
     metaDescription: opts.metaDescription,
   };
@@ -116,6 +117,10 @@ export const PROGRAMS: readonly Program[] = [
     inNav: true,
     onHome: true,
     hasPage: true,
+    image: {
+      src: '/marketing/k-y1-progress-chat.png',
+      alt: 'A parent and a Kindergarten-age boy looking at TrialSeed practice progress together',
+    },
     metaTitle: 'K–Y1',
     metaDescription:
       'TrialSeed Kindergarten and Year 1 practice for English, Maths, and Reading. $99 AUD per subject for one year, opening soon.',
