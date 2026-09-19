@@ -88,7 +88,7 @@ export function MathsHome({
             <Link
               href={playHref}
               aria-label={`Play ${playTitle}`}
-              className="flex h-24 w-24 items-center justify-center rounded-full bg-terracotta text-white shadow-float hover:bg-terracotta-hover"
+              className="flex h-28 w-28 items-center justify-center rounded-full bg-terracotta text-white shadow-float hover:bg-terracotta-hover"
             >
               <PlayIcon />
             </Link>
@@ -112,23 +112,23 @@ export function MathsHome({
                   className="relative flex items-center gap-4 rounded-3xl px-1 py-1 hover:bg-white/70"
                 >
                   <span
-                    className={`relative z-10 flex h-16 w-16 shrink-0 items-center justify-center rounded-full ${
-                      stop.done ? 'bg-brand text-white' : 'bg-[#D6D1C7] text-warm-ink'
+                    className={`relative z-10 flex ${
+                      stop.current ? 'h-20 w-20' : 'h-16 w-16'
+                    } shrink-0 items-center justify-center rounded-full ${
+                      stop.done ? 'bg-brand text-white' : 'bg-[#D6D1C7]'
                     } ${stop.current ? 'maths-path-current' : ''}`}
+                    style={
+                      stop.done
+                        ? undefined
+                        : {
+                            background: `conic-gradient(#2D5A4A 0 ${Math.max(stop.pct, stop.started ? 18 : 0)}%, #D6D1C7 ${Math.max(stop.pct, stop.started ? 18 : 0)}% 100%)`,
+                          }
+                    }
                   >
-                    {stop.started && !stop.done ? (
-                      <span
-                        aria-hidden
-                        className="absolute inset-0 rounded-full"
-                        style={{
-                          background: `conic-gradient(#2D5A4A 0 ${stop.pct}%, #D6D1C7 ${stop.pct}% 100%)`,
-                        }}
-                      />
-                    ) : null}
                     <span
-                      className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-full text-2xl font-semibold ${
-                        stop.done ? 'text-white' : 'bg-white text-warm-ink'
-                      }`}
+                      className={`flex items-center justify-center rounded-full text-2xl font-semibold ${
+                        stop.current ? 'h-12 w-12' : 'h-10 w-10'
+                      } ${stop.done ? 'text-white' : 'bg-white/90 text-warm-ink'}`}
                     >
                       {stop.done ? <CheckIcon /> : unit.id}
                     </span>

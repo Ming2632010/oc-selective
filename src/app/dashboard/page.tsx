@@ -578,7 +578,7 @@ export default function DashboardPage() {
                 </>
               )}
             </div>
-            {students.length > 1 ? (
+            {students.length > 1 && (!showMaths || mathsParentView) ? (
               <div className="flex flex-wrap justify-center gap-2">
                 {students.map((student) => (
                   <button
