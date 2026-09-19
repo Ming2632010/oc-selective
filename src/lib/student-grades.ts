@@ -31,6 +31,11 @@ export function usesWritingDashboard(grade: string): boolean {
   return grade === 'Year 4' || grade === 'Year 5' || grade === 'Year 6' || grade === 'Year 7';
 }
 
+/** Kindergarten and Year 1 use the K–Y1 Maths dashboard. */
+export function usesMathsDashboard(grade: string): boolean {
+  return grade === 'Kindergarten' || grade === 'Year 1';
+}
+
 export function programIdForGrade(grade: string): ProgramId | null {
   if (!isStudentGrade(grade)) return null;
   return GRADE_PROGRAM[grade];

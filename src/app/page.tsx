@@ -266,7 +266,8 @@ export default function Home() {
             </Link>
             <p className="mt-4 text-sm text-warm-subtle">
               Selective Writing is available now at ${SUBJECT_PRICE_AUD} AUD.
-              K–Y1 subjects will open at ${KY1_SUBJECT_PRICE_AUD} AUD.
+              K–Y1 Maths is open at ${KY1_SUBJECT_PRICE_AUD} AUD. English and
+              Reading will follow.
             </p>
           </div>
         </section>

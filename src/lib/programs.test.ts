@@ -21,13 +21,18 @@ describe('programs catalogue', () => {
     assert.equal(getProgram('k-y1').hasPage, true);
     assert.equal(getProgram('k-y1').image.src, '/marketing/k-y1-progress-chat.png');
     assert.equal(getProgram('k-y1').priceAud, 29);
+    assert.equal(getProgram('k-y1').available, true);
+    assert.equal(
+      getProgram('k-y1').subjects.find((subject) => subject.name === 'Maths')?.available,
+      true,
+    );
     assert.equal(getProgram('selective').priceAud, 99);
     assert.equal(getProgram('oc').priceAud, 99);
     assert.equal(getProgram('y2').inNav, false);
     assert.equal(getProgram('y6').hasPage, false);
     assert.deepEqual(
       homePrograms().map((program) => program.id),
-      ['selective', 'oc', 'k-y1'],
+      ['selective', 'k-y1', 'oc'],
     );
   });
 
