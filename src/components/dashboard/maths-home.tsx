@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { SeedPatch, type SeedPatchData } from '@/components/writing/seed-patch';
+import { MathsUnitSticker, stickerLabel } from '@/components/maths/unit-stickers';
 import type { EarlyMathUnit } from '@/lib/early-math';
 
 export type MathsUnitProgress = EarlyMathUnit & {
@@ -60,25 +61,36 @@ export function MathsHome({
         compact={!parentView}
       />
 
-      <ol className="flex items-center justify-center gap-2 sm:gap-3">
+      <ol className="flex flex-wrap items-end justify-center gap-3 sm:gap-4">
         {units.map((unit) => {
           const stop = unitStop(unit, currentId);
+          const name = stickerLabel(unit.id);
           return (
-            <li key={unit.id}>
+            <li key={unit.id} className="flex flex-col items-center gap-1">
               <Link
                 href={`/dashboard/maths/unit/${unit.id}`}
-                aria-label={`Unit ${unit.id}${stop.current ? ', current' : ''}${stop.done ? ', finished' : ''}`}
+                aria-label={`${name}${stop.current ? ', play next' : ''}${stop.done ? ', finished' : ''}`}
                 aria-current={stop.current ? 'step' : undefined}
-                className={`flex h-11 w-11 items-center justify-center rounded-full text-lg font-semibold sm:h-12 sm:w-12 ${
+                className={`relative flex h-16 w-16 items-center justify-center rounded-[1.4rem] border-2 sm:h-[4.5rem] sm:w-[4.5rem] ${
                   stop.done
-                    ? 'bg-brand text-white'
+                    ? 'border-brand bg-[#EEF6F0]'
                     : stop.started
-                      ? 'bg-[#C5D8CC] text-brand-dark'
-                      : 'bg-[#D6D1C7] text-warm-ink'
-                } ${stop.current ? 'maths-path-current ring-2 ring-brand ring-offset-2 ring-offset-[#f7f5f0]' : ''}`}
+                      ? 'border-terracotta bg-white'
+                      : 'border-dashed border-[#D6D1C7] bg-[#F7F5F0]'
+                } ${stop.current ? 'maths-path-current scale-110 border-brand' : ''}`}
               >
-                {stop.done ? <CheckIcon /> : unit.id}
+                <span className={stop.done || stop.started || stop.current ? '' : 'opacity-40'}>
+                  <MathsUnitSticker unitId={unit.id} />
+                </span>
+                {stop.done ? (
+                  <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-brand text-white">
+                    <CheckIcon />
+                  </span>
+                ) : null}
               </Link>
+              {parentView ? (
+                <span className="text-xs text-warm-muted">{name}</span>
+              ) : null}
             </li>
           );
         })}
@@ -104,7 +116,7 @@ function PlayIcon() {
 
 function CheckIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden>
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
       <path
         fill="currentColor"
         d="M9.2 16.2 5.8 12.8l-1.6 1.6 5 5 11-11-1.6-1.6z"
