@@ -47,7 +47,7 @@ export function MathsHome({
     <div className="space-y-8">
       <Link
         href={playHref}
-        className="mx-auto flex w-full max-w-xl items-center justify-center gap-5 rounded-[2.5rem] bg-terracotta px-8 py-10 text-5xl font-semibold text-white shadow-float hover:bg-terracotta-hover sm:text-6xl"
+        className="mx-auto flex w-full max-w-3xl items-center justify-center gap-5 rounded-[2.5rem] bg-terracotta px-8 py-12 text-6xl font-semibold text-white shadow-float hover:bg-terracotta-hover sm:text-7xl"
       >
         <PlayIcon />
         Play

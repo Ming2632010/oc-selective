@@ -37,7 +37,7 @@ export function SeedPatch({
     return (
       <section
         className={`mx-auto overflow-hidden rounded-3xl border border-amber-200/80 bg-[#f6f1e6] text-center ${
-          compact ? 'max-w-md px-4 py-4' : 'px-5 pb-6 pt-8 shadow-float'
+          compact ? 'max-w-sm px-3 py-3' : 'px-5 pb-6 pt-8 shadow-float'
         }`}
       >
         <p
