@@ -23,24 +23,32 @@ export function SeedPatch({
   patch,
   variant = 'writing',
   parentView = false,
+  compact = false,
 }: {
   patch: SeedPatchData | null;
   variant?: 'writing' | 'maths';
   parentView?: boolean;
+  compact?: boolean;
 }) {
   const maths = variant === 'maths';
   if (maths && !parentView) {
     const seeds = patch?.lifetime_seeds ?? 0;
     const stage = patch?.stage.label ?? 'Sprout';
     return (
-      <section className="overflow-hidden rounded-[2rem] border border-amber-200/80 bg-[#f6f1e6] px-5 pb-6 pt-8 text-center shadow-float">
+      <section
+        className={`mx-auto overflow-hidden rounded-3xl border border-amber-200/80 bg-[#f6f1e6] text-center ${
+          compact ? 'max-w-md px-4 py-4' : 'px-5 pb-6 pt-8 shadow-float'
+        }`}
+      >
         <p
-          className="font-serif text-[48px] font-semibold leading-none text-stone-900"
+          className={`font-serif font-semibold leading-none text-stone-900 ${
+            compact ? 'text-2xl' : 'text-[48px]'
+          }`}
           aria-label={`${seeds} ${seeds === 1 ? 'seed' : 'seeds'}`}
         >
           {seeds}
         </p>
-        <p className="mt-2 text-lg text-stone-600">
+        <p className={`text-stone-600 ${compact ? 'mt-1 text-sm' : 'mt-2 text-lg'}`}>
           {seeds === 1 ? 'seed' : 'seeds'}
           <span className="mx-2 text-stone-300" aria-hidden>
             ·
@@ -50,7 +58,7 @@ export function SeedPatch({
         <SeedGardenScene
           stageId={patch?.stage.id ?? 'sprout'}
           showStageRail={false}
-          className="mx-auto mt-5 max-w-3xl"
+          className={`mx-auto ${compact ? 'mt-3' : 'mt-5 max-w-3xl'}`}
         />
       </section>
     );

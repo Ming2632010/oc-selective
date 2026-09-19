@@ -438,20 +438,35 @@ export default function DashboardPage() {
   return (
     <main className="mx-auto max-w-5xl space-y-8 p-6">
       {showMaths && !mathsParentView ? (
-        <header className="flex justify-end gap-2">
-          <Link
-            href="/subscription"
-            className="rounded-full px-3 py-2 text-sm text-warm-subtle hover:text-warm-ink"
-          >
-            Subscription
-          </Link>
-          <button
-            type="button"
-            onClick={logout}
-            className="rounded-full px-3 py-2 text-sm text-warm-subtle hover:text-warm-ink"
-          >
-            Log out
-          </button>
+        <header className="flex justify-end">
+          <details className="relative">
+            <summary className="cursor-pointer list-none rounded-full px-2 py-1 text-xl leading-none text-warm-subtle hover:text-warm-ink [&::-webkit-details-marker]:hidden">
+              <span aria-hidden>⋯</span>
+              <span className="sr-only">Grown-ups menu</span>
+            </summary>
+            <div className="absolute right-0 z-20 mt-2 w-48 rounded-xl border border-warm-border bg-white p-2 shadow-float">
+              <button
+                type="button"
+                onClick={() => setMathsParentView(true)}
+                className="block w-full rounded-lg px-3 py-2 text-left text-sm text-warm-ink hover:bg-[#F7F5F0]"
+              >
+                Grown-ups
+              </button>
+              <Link
+                href="/subscription"
+                className="block rounded-lg px-3 py-2 text-sm text-warm-ink hover:bg-[#F7F5F0]"
+              >
+                Subscription
+              </Link>
+              <button
+                type="button"
+                onClick={logout}
+                className="block w-full rounded-lg px-3 py-2 text-left text-sm text-warm-ink hover:bg-[#F7F5F0]"
+              >
+                Log out
+              </button>
+            </div>
+          </details>
         </header>
       ) : (
       <header
@@ -556,29 +571,28 @@ export default function DashboardPage() {
         </section>
       ) : (
         <>
+          {!(showMaths && !mathsParentView) ? (
           <section
-            className={
-              showMaths && !mathsParentView
-                ? 'flex flex-col items-center gap-3 text-center'
-                : 'flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warm-border bg-warm-card p-4 shadow-card'
-            }
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warm-border bg-warm-card p-4 shadow-card"
           >
             <div>
-              {showMaths && !mathsParentView ? (
-                <p className="font-serif text-4xl font-semibold text-warm-ink">
-                  {activeStudent?.name}
-                </p>
-              ) : (
-                <>
-                  <p className="text-sm text-warm-subtle">Student</p>
-                  <p className="text-lg font-medium text-warm-ink">
-                    {activeStudent?.name}{' '}
-                    <span className="text-warm-subtle">· {activeStudent?.grade}</span>
-                  </p>
-                </>
-              )}
+              <p className="text-sm text-warm-subtle">Student</p>
+              <p className="text-lg font-medium text-warm-ink">
+                {activeStudent?.name}{' '}
+                <span className="text-warm-subtle">· {activeStudent?.grade}</span>
+              </p>
             </div>
-            {students.length > 1 && (!showMaths || mathsParentView) ? (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {showMaths && mathsParentView ? (
+                <button
+                  type="button"
+                  onClick={() => setMathsParentView(false)}
+                  className="rounded-full px-4 py-2 text-sm text-warm-ink hover:bg-[#F7F5F0]"
+                >
+                  Back to the game
+                </button>
+              ) : null}
+              {students.length > 1 ? (
               <div className="flex flex-wrap justify-center gap-2">
                 {students.map((student) => (
                   <button
@@ -597,15 +611,16 @@ export default function DashboardPage() {
                   </button>
                 ))}
               </div>
-            ) : null}
+              ) : null}
+            </div>
           </section>
+          ) : null}
 
           {showMaths ? (
             <MathsHome
               overview={mathsOverview}
               grade={activeStudent?.grade ?? 'Kindergarten'}
               parentView={mathsParentView}
-              onToggleParent={() => setMathsParentView((open) => !open)}
             />
           ) : null}
 
