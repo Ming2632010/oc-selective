@@ -214,6 +214,7 @@ export default function DashboardPage() {
   const [newName, setNewName] = useState('');
   const [newGrade, setNewGrade] = useState(DEFAULT_STUDENT_GRADE);
   const [creating, setCreating] = useState(false);
+  const [mathsParentView, setMathsParentView] = useState(false);
 
   async function loadDashboard(requestedStudentId?: string | null) {
     if (!getToken()) {
@@ -436,6 +437,23 @@ export default function DashboardPage() {
 
   return (
     <main className="mx-auto max-w-5xl space-y-8 p-6">
+      {showMaths && !mathsParentView ? (
+        <header className="flex justify-end gap-2">
+          <Link
+            href="/subscription"
+            className="rounded-full px-3 py-2 text-sm text-warm-subtle hover:text-warm-ink"
+          >
+            Subscription
+          </Link>
+          <button
+            type="button"
+            onClick={logout}
+            className="rounded-full px-3 py-2 text-sm text-warm-subtle hover:text-warm-ink"
+          >
+            Log out
+          </button>
+        </header>
+      ) : (
       <header
         className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand-dark p-5 text-white shadow-float"
         style={{
@@ -463,6 +481,7 @@ export default function DashboardPage() {
           </button>
         </div>
       </header>
+      )}
 
       {error ? (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
@@ -537,22 +556,38 @@ export default function DashboardPage() {
         </section>
       ) : (
         <>
-          <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warm-border bg-warm-card p-4 shadow-card">
+          <section
+            className={
+              showMaths && !mathsParentView
+                ? 'flex flex-col items-center gap-3 text-center'
+                : 'flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warm-border bg-warm-card p-4 shadow-card'
+            }
+          >
             <div>
-              <p className="text-sm text-warm-subtle">Student</p>
-              <p className="text-lg font-medium text-warm-ink">
-                {activeStudent?.name}{' '}
-                <span className="text-warm-subtle">· {activeStudent?.grade}</span>
-              </p>
+              {showMaths && !mathsParentView ? (
+                <p className="font-serif text-4xl font-semibold text-warm-ink">
+                  {activeStudent?.name}
+                </p>
+              ) : (
+                <>
+                  <p className="text-sm text-warm-subtle">Student</p>
+                  <p className="text-lg font-medium text-warm-ink">
+                    {activeStudent?.name}{' '}
+                    <span className="text-warm-subtle">· {activeStudent?.grade}</span>
+                  </p>
+                </>
+              )}
             </div>
             {students.length > 1 ? (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap justify-center gap-2">
                 {students.map((student) => (
                   <button
                     key={student.id}
                     type="button"
                     onClick={() => onSelectStudent(student.id)}
-                    className={`rounded-full px-3 py-2 text-sm ${
+                    className={`rounded-full px-4 py-2 ${
+                      showMaths ? 'text-lg' : 'text-sm'
+                    } ${
                       selectedStudentId === student.id
                         ? 'bg-brand text-white'
                         : 'border border-warm-border bg-warm-card text-warm-ink hover:border-brand'
@@ -565,6 +600,16 @@ export default function DashboardPage() {
             ) : null}
           </section>
 
+          {showMaths ? (
+            <MathsHome
+              overview={mathsOverview}
+              grade={activeStudent?.grade ?? 'Kindergarten'}
+              parentView={mathsParentView}
+              onToggleParent={() => setMathsParentView((open) => !open)}
+            />
+          ) : null}
+
+          {!showMaths || mathsParentView ? (
           <section className="space-y-3 rounded-lg border border-warm-border bg-warm-card p-4 shadow-card">
             <div>
               <h2 className="text-lg font-semibold text-warm-ink">Add another child</h2>
@@ -607,10 +652,9 @@ export default function DashboardPage() {
               </button>
             </form>
           </section>
+          ) : null}
 
-          {showMaths ? (
-            <MathsHome overview={mathsOverview} grade={activeStudent?.grade ?? 'Kindergarten'} />
-          ) : !showWriting && yearProgram ? (
+          {showMaths ? null : !showWriting && yearProgram ? (
             <ProgramComingSoon program={yearProgram} />
           ) : selectedWritingAccess ? (
             <>

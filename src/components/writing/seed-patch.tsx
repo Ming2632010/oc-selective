@@ -22,11 +22,39 @@ export type SeedPatchData = {
 export function SeedPatch({
   patch,
   variant = 'writing',
+  parentView = false,
 }: {
   patch: SeedPatchData | null;
   variant?: 'writing' | 'maths';
+  parentView?: boolean;
 }) {
   const maths = variant === 'maths';
+  if (maths && !parentView) {
+    const seeds = patch?.lifetime_seeds ?? 0;
+    const stage = patch?.stage.label ?? 'Sprout';
+    return (
+      <section className="overflow-hidden rounded-[2rem] border border-amber-200/80 bg-[#f6f1e6] px-5 pb-6 pt-8 text-center shadow-float">
+        <p
+          className="font-serif text-[48px] font-semibold leading-none text-stone-900"
+          aria-label={`${seeds} ${seeds === 1 ? 'seed' : 'seeds'}`}
+        >
+          {seeds}
+        </p>
+        <p className="mt-2 text-lg text-stone-600">
+          {seeds === 1 ? 'seed' : 'seeds'}
+          <span className="mx-2 text-stone-300" aria-hidden>
+            ·
+          </span>
+          <span>{stage}</span>
+        </p>
+        <SeedGardenScene
+          stageId={patch?.stage.id ?? 'sprout'}
+          showStageRail={false}
+          className="mx-auto mt-5 max-w-3xl"
+        />
+      </section>
+    );
+  }
   if (!patch) {
     return (
       <section className="rounded-xl border border-amber-200/80 bg-[#f6f1e6] p-5">
