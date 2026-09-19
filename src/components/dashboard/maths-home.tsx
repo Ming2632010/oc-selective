@@ -46,20 +46,22 @@ export function MathsHome({
 
   return (
     <div className="space-y-8">
-      <Link
-        href={playHref}
-        className="mx-auto flex w-full max-w-3xl items-center justify-center gap-5 rounded-[2.5rem] bg-terracotta px-8 py-12 text-6xl font-semibold text-white shadow-float hover:bg-terracotta-hover sm:text-7xl"
-      >
-        <PlayIcon />
-        Play
-      </Link>
+      <div className="mx-auto w-full max-w-3xl space-y-8">
+        <Link
+          href={playHref}
+          className="flex w-full items-center justify-center gap-5 rounded-[2.5rem] bg-terracotta px-8 py-12 text-6xl font-semibold text-white shadow-float hover:bg-terracotta-hover sm:text-7xl"
+        >
+          <PlayIcon />
+          Play
+        </Link>
 
-      <SeedPatch
-        patch={overview?.rewards ?? null}
-        variant="maths"
-        parentView={parentView}
-        compact={!parentView}
-      />
+        <SeedPatch
+          patch={overview?.rewards ?? null}
+          variant="maths"
+          parentView={parentView}
+          compact={!parentView}
+        />
+      </div>
 
       <ol className="-mx-3 flex flex-nowrap items-end justify-center gap-1.5 overflow-visible px-3 py-5 sm:mx-0 sm:gap-5">
         {units.map((unit) => {
