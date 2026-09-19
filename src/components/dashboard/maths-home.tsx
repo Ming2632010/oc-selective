@@ -57,7 +57,7 @@ export function MathsHome({
   parentView?: boolean;
   onToggleParent?: () => void;
 }) {
-  const units = overview?.units ?? [];
+  const units = [...(overview?.units ?? [])].sort((a, b) => a.id - b.id);
   const currentId = overview?.next?.unitId ?? null;
   const playHref = overview?.next
     ? `/dashboard/maths/unit/${overview.next.unitId}/practice/${overview.next.slug}`
@@ -81,7 +81,7 @@ export function MathsHome({
               type="button"
               onClick={() => speak(`Let's play. ${playTitle}.`)}
               aria-label="Hear the next game"
-              className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-brand bg-white text-3xl text-brand shadow-card hover:bg-[#EEF6F0]"
+              className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-brand bg-white text-3xl text-brand shadow-card hover:bg-[#EEF6F0]"
             >
               <SpeakerIcon />
             </button>
