@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { SeedPatch, type SeedPatchData } from '@/components/writing/seed-patch';
-import { MathsUnitSticker, stickerLabel } from '@/components/maths/unit-stickers';
+import { MathsUnitSticker, stampTilt, stickerLabel } from '@/components/maths/unit-stickers';
 import type { EarlyMathUnit } from '@/lib/early-math';
 
 export type MathsUnitProgress = EarlyMathUnit & {
@@ -61,23 +61,29 @@ export function MathsHome({
         compact={!parentView}
       />
 
-      <ol className="flex flex-nowrap items-end justify-center gap-2 overflow-x-auto px-1 sm:gap-4">
+      <ol className="-mx-3 flex flex-nowrap items-end justify-center gap-1.5 overflow-visible px-3 py-5 sm:mx-0 sm:gap-5">
         {units.map((unit) => {
           const stop = unitStop(unit, currentId);
           const name = stickerLabel(unit.id);
+          const frame = stop.current
+            ? 'maths-path-current rotate-0 border-solid border-brand bg-white'
+            : stop.done
+              ? 'border-solid border-brand bg-[#EEF6F0]'
+              : stop.started
+                ? 'border-solid border-terracotta bg-[#FFF8F2]'
+                : 'border-dashed border-[#D6D1C7] bg-[#F4F1EA]';
           return (
-            <li key={unit.id} className="flex flex-col items-center gap-1">
+            <li
+              key={unit.id}
+              className={`flex shrink-0 flex-col items-center gap-1 ${stop.current ? 'z-10' : ''}`}
+            >
               <Link
                 href={`/dashboard/maths/unit/${unit.id}`}
                 aria-label={`${name}${stop.current ? ', play next' : ''}${stop.done ? ', finished' : ''}`}
                 aria-current={stop.current ? 'step' : undefined}
-                className={`relative flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.3rem] border-2 sm:h-[4.5rem] sm:w-[4.5rem] ${
-                  stop.done
-                    ? 'border-brand bg-[#EEF6F0]'
-                    : stop.started
-                      ? 'border-terracotta bg-white'
-                      : 'border-dashed border-[#D6D1C7] bg-[#F7F5F0]'
-                } ${stop.current ? 'maths-path-current scale-110 border-brand' : ''}`}
+                className={`relative flex h-14 w-14 items-center justify-center rounded-[1.35rem] border-[3px] shadow-[2px_3px_0_rgba(61,53,46,0.1)] sm:h-[4.75rem] sm:w-[4.75rem] ${frame} ${
+                  stop.current ? '' : stampTilt(unit.id)
+                } ${stop.done || stop.started || stop.current ? '' : 'shadow-none'}`}
               >
                 <span className={stop.done || stop.started || stop.current ? '' : 'opacity-40'}>
                   <MathsUnitSticker unitId={unit.id} />

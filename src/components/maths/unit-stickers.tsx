@@ -7,6 +7,15 @@ const STICKER_LABELS: Record<number, string> = {
   6: 'Today',
 };
 
+const STAMP_TILT: Record<number, string> = {
+  1: '-rotate-2',
+  2: 'rotate-2',
+  3: '-rotate-1',
+  4: 'rotate-3',
+  5: '-rotate-3',
+  6: 'rotate-1',
+};
+
 export function MathsUnitSticker({
   unitId,
   className,
@@ -34,16 +43,21 @@ export function stickerLabel(unitId: number) {
   return STICKER_LABELS[unitId] ?? `Unit ${unitId}`;
 }
 
-const iconClass = 'h-9 w-9 sm:h-10 sm:w-10';
+export function stampTilt(unitId: number) {
+  return STAMP_TILT[unitId] ?? '';
+}
+
+const iconClass = 'h-10 w-10 sm:h-12 sm:w-12';
 
 function DiceSticker({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 40 40" className={className ?? iconClass} aria-hidden>
-      <rect x="4" y="4" width="32" height="32" rx="8" fill="#C49B7A" />
-      <circle cx="13" cy="13" r="3.2" fill="#fff" />
-      <circle cx="27" cy="13" r="3.2" fill="#fff" />
-      <circle cx="13" cy="27" r="3.2" fill="#fff" />
-      <circle cx="27" cy="27" r="3.2" fill="#fff" />
+      <rect x="3" y="3" width="34" height="34" rx="8" fill="#C49B7A" />
+      <circle cx="13" cy="13" r="3.6" fill="#fff" />
+      <circle cx="27" cy="13" r="3.6" fill="#fff" />
+      <circle cx="20" cy="20" r="3.6" fill="#fff" />
+      <circle cx="13" cy="27" r="3.6" fill="#fff" />
+      <circle cx="27" cy="27" r="3.6" fill="#fff" />
     </svg>
   );
 }
@@ -51,17 +65,11 @@ function DiceSticker({ className }: { className?: string }) {
 function FingersSticker({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 40 40" className={className ?? iconClass} aria-hidden>
-      {[8, 14, 20, 26, 32].map((x, i) => (
-        <rect
-          key={x}
-          x={x}
-          y={i === 0 ? 10 : 6}
-          width="5"
-          height={i === 0 ? 22 : 26}
-          rx="2.5"
-          fill="#E8A07A"
-        />
-      ))}
+      <path
+        d="M12 34c-3 0-5-2-5-5V20c0-1.4 1.2-2.6 2.6-2.6S12 18.6 12 20v1.2V10.2c0-1.6 1.3-2.8 2.9-2.8S18 8.6 18 10.2V8.6c0-1.7 1.4-3.1 3.1-3.1S24 6.9 24 8.6v2.2c0-1.5 1.3-2.7 2.8-2.7s2.8 1.2 2.8 2.7v7.4c1.4-.4 3.1.4 3.6 1.8.4 1.2 0 2.5-1 3.2V29c0 3-2.2 5-5.2 5H12z"
+        fill="#E8A07A"
+      />
+      <path d="M11 22.5h18" stroke="#F6D2BB" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
   );
 }
@@ -69,13 +77,13 @@ function FingersSticker({ className }: { className?: string }) {
 function TenSticker({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 40 40" className={className ?? iconClass} aria-hidden>
-      <rect x="5" y="8" width="30" height="24" rx="6" fill="#2D5A4A" />
+      <rect x="3" y="6" width="34" height="28" rx="8" fill="#2D5A4A" />
       <text
         x="20"
-        y="26"
+        y="27"
         textAnchor="middle"
         fill="#fff"
-        fontSize="16"
+        fontSize="17"
         fontWeight="700"
         fontFamily="Georgia, serif"
       >
@@ -88,9 +96,9 @@ function TenSticker({ className }: { className?: string }) {
 function BookSticker({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 40 40" className={className ?? iconClass} aria-hidden>
-      <path d="M7 8h11c3 0 5 2 5 5v19H12c-3 0-5-2-5-5V8z" fill="#4A7A64" />
-      <path d="M33 8H22c-3 0-5 2-5 5v19h11c3 0 5-2 5-5V8z" fill="#C49B7A" />
-      <path d="M20 13v19" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M5 7h13c3.4 0 5.6 2.2 5.6 5.4V34H11.2C7.8 34 5 31.6 5 28.2V7z" fill="#4A7A64" />
+      <path d="M35 7H22c-3.4 0-5.6 2.2-5.6 5.4V34h12.4c3.4 0 6.2-2.4 6.2-5.8V7z" fill="#C49B7A" />
+      <path d="M20 12.2V34" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -98,9 +106,10 @@ function BookSticker({ className }: { className?: string }) {
 function BlocksSticker({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 40 40" className={className ?? iconClass} aria-hidden>
-      <rect x="6" y="7" width="10" height="26" rx="2" fill="#2D5A4A" />
-      <rect x="18" y="7" width="10" height="26" rx="2" fill="#4A7A64" />
-      <rect x="30" y="23" width="6" height="10" rx="1.5" fill="#C49B7A" />
+      <rect x="4" y="6" width="12" height="28" rx="2.5" fill="#2D5A4A" />
+      <path d="M4 13.5h12M4 20.5h12M4 27.5h12" stroke="#EEF6F0" strokeWidth="1.4" />
+      <rect x="20" y="22" width="8" height="12" rx="1.8" fill="#4A7A64" />
+      <rect x="29.5" y="22" width="8" height="12" rx="1.8" fill="#C49B7A" />
     </svg>
   );
 }
@@ -108,10 +117,11 @@ function BlocksSticker({ className }: { className?: string }) {
 function ClockSticker({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 40 40" className={className ?? iconClass} aria-hidden>
-      <circle cx="20" cy="20" r="14" fill="#F4E4C8" stroke="#C49B7A" strokeWidth="3" />
-      <circle cx="20" cy="20" r="2" fill="#3D352E" />
-      <path d="M20 20V12" stroke="#3D352E" strokeWidth="2.4" strokeLinecap="round" />
-      <path d="M20 20l7 4" stroke="#3D352E" strokeWidth="2.4" strokeLinecap="round" />
+      <circle cx="20" cy="20" r="16" fill="#F4E4C8" />
+      <circle cx="20" cy="20" r="16" fill="none" stroke="#C49B7A" strokeWidth="4" />
+      <circle cx="20" cy="20" r="2.2" fill="#3D352E" />
+      <path d="M20 20V10" stroke="#3D352E" strokeWidth="2.8" strokeLinecap="round" />
+      <path d="M20 20l8 4.5" stroke="#3D352E" strokeWidth="2.8" strokeLinecap="round" />
     </svg>
   );
 }
