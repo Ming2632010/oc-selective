@@ -61,7 +61,7 @@ export function MathsHome({
         compact={!parentView}
       />
 
-      <ol className="flex flex-wrap items-end justify-center gap-3 sm:gap-4">
+      <ol className="flex flex-nowrap items-end justify-center gap-2 overflow-x-auto px-1 sm:gap-4">
         {units.map((unit) => {
           const stop = unitStop(unit, currentId);
           const name = stickerLabel(unit.id);
@@ -71,7 +71,7 @@ export function MathsHome({
                 href={`/dashboard/maths/unit/${unit.id}`}
                 aria-label={`${name}${stop.current ? ', play next' : ''}${stop.done ? ', finished' : ''}`}
                 aria-current={stop.current ? 'step' : undefined}
-                className={`relative flex h-16 w-16 items-center justify-center rounded-[1.4rem] border-2 sm:h-[4.5rem] sm:w-[4.5rem] ${
+                className={`relative flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.3rem] border-2 sm:h-[4.5rem] sm:w-[4.5rem] ${
                   stop.done
                     ? 'border-brand bg-[#EEF6F0]'
                     : stop.started
