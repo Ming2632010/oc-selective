@@ -1,6 +1,7 @@
 import { query } from '@/lib/db';
 import {
   EARLY_MATH_UNITS,
+  mathsPracticePair,
   recommendedUnitOrder,
   type EarlyMathItem,
 } from '@/lib/early-math';
@@ -235,14 +236,6 @@ export async function getMathsItem(studentId: string, slug: string) {
   );
   const attempted = Number(tried.rows[0]?.n ?? 0) > 0;
 
-  const next = await query<{ slug: string }>(
-    `SELECT slug FROM early_math_items
-     WHERE is_active = TRUE AND unit_id = $1 AND sort_order > $2
-     ORDER BY sort_order ASC
-     LIMIT 1`,
-    [row.unit_id, row.sort_order],
-  );
-
   const history = await query<{
     answer_index: number | null;
     answer_text: string | null;
@@ -257,9 +250,14 @@ export async function getMathsItem(studentId: string, slug: string) {
     [studentId, row.id],
   );
 
+  const unitItems = await listMathsUnit(studentId, row.unit_id);
+  const grouped = mathsPracticePair(unitItems, slug);
+  const pairItem = grouped?.pair.find((item) => item.slug !== slug) ?? null;
+
   return {
     item: publicMathsItem(row, attempted),
-    nextSlug: next.rows[0]?.slug ?? null,
+    pairItem,
+    nextSlug: grouped?.nextSlug ?? null,
     attempts: history.rows,
   };
 }

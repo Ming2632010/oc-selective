@@ -238,6 +238,20 @@ export function recommendedUnitOrder(grade: string): number[] {
   return [1, 2, 3, 4, 6, 5];
 }
 
+/** Consecutive questions share a page: 1+2, 3+4, leftover alone. */
+export function mathsPracticePair<T extends { slug: string }>(
+  items: readonly T[],
+  slug: string,
+): { pair: T[]; nextSlug: string | null } | null {
+  const index = items.findIndex((item) => item.slug === slug);
+  if (index < 0) return null;
+  const start = index - (index % 2);
+  return {
+    pair: items.slice(start, start + 2),
+    nextSlug: items[start + 2]?.slug ?? null,
+  };
+}
+
 const ASK_BY_SKILL: Record<EarlyMathSkill, string> = {
   'subitise-perceptual': 'How many?',
   'subitise-structured': 'How many?',

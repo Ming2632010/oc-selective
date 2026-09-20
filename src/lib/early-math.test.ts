@@ -4,6 +4,7 @@ import {
   EARLY_MATH_SKILLS,
   EARLY_MATH_UNITS,
   kidAskForItem,
+  mathsPracticePair,
   recommendedUnitOrder,
 } from './early-math';
 import { canonicalizeCount, markEarlyMathItem } from './mark-early-math';
@@ -27,6 +28,33 @@ describe('K–Y1 Maths catalogue', () => {
   it('starts Year 1 on parts and stories, and Kindergarten on seeing number', () => {
     assert.deepEqual(recommendedUnitOrder('Year 1'), [3, 4, 5, 2, 6, 1]);
     assert.deepEqual(recommendedUnitOrder('Kindergarten'), [1, 2, 3, 4, 6, 5]);
+  });
+
+  it('puts two questions on a practice page and leaves a leftover alone', () => {
+    const items = ['a', 'b', 'c', 'd', 'e'].map((slug) => ({ slug }));
+    assert.deepEqual(mathsPracticePair(items, 'a')?.pair.map((row) => row.slug), ['a', 'b']);
+    assert.equal(mathsPracticePair(items, 'a')?.nextSlug, 'c');
+    assert.deepEqual(mathsPracticePair(items, 'b')?.pair.map((row) => row.slug), ['a', 'b']);
+    assert.equal(mathsPracticePair(items, 'b')?.nextSlug, 'c');
+    assert.deepEqual(mathsPracticePair(items, 'e')?.pair.map((row) => row.slug), ['e']);
+    assert.equal(mathsPracticePair(items, 'e')?.nextSlug, null);
+    assert.equal(mathsPracticePair(items, 'z'), null);
+  });
+
+  it('pairs every seeded unit by sort order', () => {
+    for (const unit of EARLY_MATH_UNITS) {
+      const items = SEED_EARLY_MATH.filter((item) => item.unitId === unit.id);
+      const first = mathsPracticePair(items, items[0].slug);
+      assert.ok(first);
+      assert.equal(first.pair[0].slug, items[0].slug);
+      if (items.length >= 2) {
+        assert.equal(first.pair[1].slug, items[1].slug);
+        assert.equal(first.nextSlug, items[2]?.slug ?? null);
+      }
+      const last = items[items.length - 1];
+      const lastPair = mathsPracticePair(items, last.slug);
+      assert.equal(lastPair?.pair.length, items.length % 2 === 0 ? 2 : 1);
+    }
   });
 });
 

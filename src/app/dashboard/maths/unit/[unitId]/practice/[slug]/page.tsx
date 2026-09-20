@@ -25,38 +25,29 @@ type Item = {
   stimulus?: MathStimulus;
   options: string[];
   parentPrompt: string;
+  sortOrder?: number;
 };
+
+function sortPair(items: Item[]) {
+  return [...items].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+}
 
 export default function MathsPracticePage() {
   const params = useParams<{ unitId: string; slug: string }>();
   const router = useRouter();
   const unitId = Number(params.unitId);
   const unit = getEarlyMathUnit(unitId);
-  const [item, setItem] = useState<Item | null>(null);
+  const [items, setItems] = useState<Item[]>([]);
   const [nextSlug, setNextSlug] = useState<string | null>(null);
-  const [chosen, setChosen] = useState<number | null>(null);
-  const [answerText, setAnswerText] = useState('');
-  const [result, setResult] = useState<{
-    isCorrect: boolean;
-    explanation: string;
-    parentPrompt: string;
-  } | null>(null);
-  const [award, setAward] = useState<{
-    total: number;
-    lines: { seeds: number; label: string }[];
-  } | null>(null);
+  const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
       setError(null);
-      setChosen(null);
-      setAnswerText('');
-      setResult(null);
-      setAward(null);
+      setChecked({});
       const token = getToken();
       const studentId = getStudentId();
       if (!token) {
@@ -72,7 +63,9 @@ export default function MathsPracticePage() {
           `/api/maths/items?slug=${encodeURIComponent(params.slug)}&student_id=${studentId}`,
         );
         if (!res.response.ok) throw new Error(res.data.error || 'Could not load the question');
-        setItem(res.data.item as Item);
+        const first = res.data.item as Item;
+        const partner = (res.data.pairItem as Item | null) ?? null;
+        setItems(sortPair([first, partner].filter((row): row is Item => Boolean(row))));
         setNextSlug(typeof res.data.nextSlug === 'string' ? res.data.nextSlug : null);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Could not load the question');
@@ -83,9 +76,83 @@ export default function MathsPracticePage() {
     void load();
   }, [params.slug, router]);
 
+  const allChecked = items.length > 0 && items.every((item) => checked[item.slug]);
+
+  if (loading) {
+    return <main className="min-h-dvh bg-[#FFF8E8] p-6 text-warm-ink">Loading…</main>;
+  }
+
+  return (
+    <main className="min-h-dvh bg-[#FFF8E8] px-4 py-6">
+      <div className="mx-auto max-w-2xl space-y-4">
+        <Link
+          href={`/dashboard/maths/unit/${unitId}`}
+          className="inline-flex text-sm text-warm-muted hover:text-warm-ink"
+        >
+          ← {unit?.title ?? 'Back'}
+        </Link>
+        {error ? (
+          <p className="rounded-2xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+        ) : null}
+        {items.map((item, index) => (
+          <QuestionCard
+            key={item.slug}
+            item={item}
+            number={items.length > 1 ? index + 1 : null}
+            onChecked={() => setChecked((prev) => ({ ...prev, [item.slug]: true }))}
+          />
+        ))}
+        {allChecked ? (
+          nextSlug ? (
+            <Link
+              href={`/dashboard/maths/unit/${unitId}/practice/${nextSlug}`}
+              className="flex w-full items-center justify-center rounded-[1.6rem] bg-terracotta py-4 text-2xl font-semibold text-white hover:bg-terracotta-hover"
+            >
+              Next
+            </Link>
+          ) : (
+            <Link
+              href={`/dashboard/maths/unit/${unitId}`}
+              className="flex w-full items-center justify-center rounded-[1.6rem] bg-terracotta py-4 text-2xl font-semibold text-white hover:bg-terracotta-hover"
+            >
+              Done
+            </Link>
+          )
+        ) : null}
+      </div>
+    </main>
+  );
+}
+
+function QuestionCard({
+  item,
+  number,
+  onChecked,
+}: {
+  item: Item;
+  number: number | null;
+  onChecked: () => void;
+}) {
+  const [chosen, setChosen] = useState<number | null>(null);
+  const [answerText, setAnswerText] = useState('');
+  const [result, setResult] = useState<{
+    isCorrect: boolean;
+    explanation: string;
+    parentPrompt: string;
+  } | null>(null);
+  const [award, setAward] = useState<{
+    total: number;
+    lines: { seeds: number; label: string }[];
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const pictures = pictureChoices(item.stimulus);
+  const hidePictureRow =
+    item.stimulus?.type === 'oddOneOut' || item.stimulus?.type === 'tapPictures';
+
   async function onSubmit() {
     const studentId = getStudentId();
-    if (!studentId || !item || submitting) return;
+    if (!studentId || submitting) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -105,7 +172,7 @@ export default function MathsPracticePage() {
         parentPrompt: String(res.data.parentPrompt ?? item.parentPrompt),
       });
       setAward(res.data.award ?? null);
-      if (typeof res.data.nextSlug === 'string') setNextSlug(res.data.nextSlug);
+      onChecked();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not check that answer');
     } finally {
@@ -113,152 +180,124 @@ export default function MathsPracticePage() {
     }
   }
 
-  const pictures = pictureChoices(item?.stimulus);
-  const hidePictureRow =
-    item?.stimulus?.type === 'oddOneOut' || item?.stimulus?.type === 'tapPictures';
-
-  if (loading) {
-    return <main className="min-h-dvh bg-[#FFF8E8] p-6 text-warm-ink">Loading…</main>;
-  }
-
   return (
-    <main className="min-h-dvh bg-[#FFF8E8] px-4 py-6">
-      <div className="mx-auto max-w-2xl space-y-5">
-        <Link
-          href={`/dashboard/maths/unit/${unitId}`}
-          className="inline-flex text-sm text-warm-muted hover:text-warm-ink"
+    <section className="space-y-5 rounded-[2rem] border-2 border-[#E8D9B0] bg-[#FFFCF3] p-5 shadow-[3px_5px_0_rgba(61,53,46,0.08)] sm:p-6">
+      {number ? (
+        <p className="flex justify-center">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-terracotta text-sm font-bold text-white">
+            {number}
+          </span>
+        </p>
+      ) : null}
+      <h1 className="sr-only">{item.title}</h1>
+      <p className="sr-only">{item.stem}</p>
+      {hidePictureRow ? null : <MathsStimulus stimulus={item.stimulus} />}
+      <p className="text-center text-2xl leading-snug font-semibold text-warm-ink sm:text-3xl">
+        {kidAskForItem(item)}
+      </p>
+      {pictures ? (
+        <div
+          className={`grid grid-cols-2 gap-3 ${
+            pictures.length === 4 ? 'sm:grid-cols-4' : 'sm:grid-cols-3'
+          }`}
         >
-          ← {unit?.title ?? 'Back'}
-        </Link>
-        {error ? (
-          <p className="rounded-2xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-        ) : null}
-        {item ? (
-          <section className="space-y-6 rounded-[2rem] border-2 border-[#E8D9B0] bg-[#FFFCF3] p-5 shadow-[3px_5px_0_rgba(61,53,46,0.08)] sm:p-8">
-            <h1 className="sr-only">{item.title}</h1>
-            <p className="sr-only">{item.stem}</p>
-            {hidePictureRow ? null : <MathsStimulus stimulus={item.stimulus} />}
-            <p className="text-center text-3xl leading-snug font-semibold text-warm-ink sm:text-4xl">
-              {kidAskForItem(item)}
-            </p>
-            {pictures ? (
-              <div
-                className={`grid grid-cols-2 gap-3 ${
-                  pictures.length === 4 ? 'sm:grid-cols-4' : 'sm:grid-cols-3'
-                }`}
-              >
-                {pictures.map((picture, index) => (
-                  <button
-                    key={`${picture.icon}-${index}`}
-                    type="button"
-                    disabled={Boolean(result)}
-                    onClick={() => setChosen(index)}
-                    aria-label={item.options[index] ?? `Picture ${index + 1}`}
-                    className={`rounded-[1.4rem] border-[3px] px-3 py-3 ${
-                      chosen === index
-                        ? 'border-[#2D5A4A] bg-[#EEF6F0]'
-                        : 'border-[#E8D9B0] bg-white hover:border-terracotta'
-                    }`}
-                  >
-                    <PictureTray
-                      icon={picture.icon}
-                      count={picture.count}
-                      color={picture.color}
-                    />
-                  </button>
-                ))}
-              </div>
-            ) : item.kind === 'count' ? (
-              <NumberPad
-                value={answerText}
-                disabled={Boolean(result)}
-                onChange={setAnswerText}
+          {pictures.map((picture, index) => (
+            <button
+              key={`${picture.icon}-${index}`}
+              type="button"
+              disabled={Boolean(result)}
+              onClick={() => setChosen(index)}
+              aria-label={item.options[index] ?? `Picture ${index + 1}`}
+              className={`rounded-[1.4rem] border-[3px] px-3 py-3 ${
+                chosen === index
+                  ? 'border-[#2D5A4A] bg-[#EEF6F0]'
+                  : 'border-[#E8D9B0] bg-white hover:border-terracotta'
+              }`}
+            >
+              <PictureTray
+                icon={picture.icon}
+                count={picture.count}
+                color={picture.color}
               />
-            ) : (
-              <div
-                className={`grid gap-3 ${
-                  item.options.length <= 4 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'
+            </button>
+          ))}
+        </div>
+      ) : item.kind === 'count' ? (
+        <NumberPad
+          value={answerText}
+          disabled={Boolean(result)}
+          onChange={setAnswerText}
+        />
+      ) : (
+        <div
+          className={`grid gap-3 ${
+            item.options.length <= 4 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'
+          }`}
+        >
+          {item.options.map((option, index) => {
+            const toy = optionToy(option);
+            return (
+              <button
+                key={`${option}-${index}`}
+                type="button"
+                disabled={Boolean(result)}
+                onClick={() => setChosen(index)}
+                className={`min-h-20 rounded-[1.4rem] border-[3px] px-3 py-3 ${
+                  toy ? '' : 'text-2xl font-bold sm:text-3xl'
+                } ${
+                  chosen === index
+                    ? 'border-[#2D5A4A] bg-[#EEF6F0] text-brand-dark'
+                    : 'border-[#E8D9B0] bg-white text-warm-ink hover:border-terracotta'
                 }`}
               >
-                {item.options.map((option, index) => {
-                  const toy = optionToy(option);
-                  return (
-                    <button
-                      key={`${option}-${index}`}
-                      type="button"
-                      disabled={Boolean(result)}
-                      onClick={() => setChosen(index)}
-                      className={`min-h-20 rounded-[1.4rem] border-[3px] px-3 py-3 ${
-                        toy ? '' : 'text-2xl font-bold sm:text-3xl'
-                      } ${
-                        chosen === index
-                          ? 'border-[#2D5A4A] bg-[#EEF6F0] text-brand-dark'
-                          : 'border-[#E8D9B0] bg-white text-warm-ink hover:border-terracotta'
-                      }`}
-                    >
-                      {toy ? (
-                        <span className="flex flex-col items-center gap-1">
-                          <ToyIcon name={toy.icon} color={toy.color} />
-                          <span className="text-sm font-semibold">{option}</span>
-                        </span>
-                      ) : (
-                        option
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            {!result ? (
-              <button
-                type="button"
-                onClick={() => void onSubmit()}
-                disabled={
-                  submitting ||
-                  (item.kind === 'count' ? answerText.trim().length === 0 : chosen === null)
-                }
-                className="flex w-full items-center justify-center rounded-[1.6rem] bg-terracotta py-4 text-2xl font-semibold text-white hover:bg-terracotta-hover disabled:opacity-50"
-              >
-                {submitting ? '…' : 'Check'}
-              </button>
-            ) : (
-              <div className="space-y-4">
-                <p
-                  className={`rounded-2xl px-4 py-3 text-lg font-medium ${
-                    result.isCorrect
-                      ? 'bg-[#E3EFE6] text-brand-dark'
-                      : 'bg-[#FFF1D6] text-warm-ink'
-                  }`}
-                >
-                  {result.isCorrect ? 'Yes!' : 'Try again next time.'} {result.explanation}
-                </p>
-                <details className="rounded-2xl bg-white/70 px-4 py-3 text-sm text-warm-muted">
-                  <summary className="cursor-pointer font-medium text-warm-ink">Grown-ups</summary>
-                  <p className="mt-2">{item.stem}</p>
-                  <p className="mt-2">{result.parentPrompt}</p>
-                </details>
-                {award ? <SeedAwardBanner total={award.total} lines={award.lines} /> : null}
-                {nextSlug ? (
-                  <Link
-                    href={`/dashboard/maths/unit/${unitId}/practice/${nextSlug}`}
-                    className="flex w-full items-center justify-center rounded-[1.6rem] bg-terracotta py-4 text-2xl font-semibold text-white hover:bg-terracotta-hover"
-                  >
-                    Next
-                  </Link>
+                {toy ? (
+                  <span className="flex flex-col items-center gap-1">
+                    <ToyIcon name={toy.icon} color={toy.color} />
+                    <span className="text-sm font-semibold">{option}</span>
+                  </span>
                 ) : (
-                  <Link
-                    href={`/dashboard/maths/unit/${unitId}`}
-                    className="flex w-full items-center justify-center rounded-[1.6rem] bg-terracotta py-4 text-2xl font-semibold text-white hover:bg-terracotta-hover"
-                  >
-                    Done
-                  </Link>
+                  option
                 )}
-              </div>
-            )}
-          </section>
-        ) : null}
-      </div>
-    </main>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {error ? (
+        <p className="rounded-2xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+      ) : null}
+      {!result ? (
+        <button
+          type="button"
+          onClick={() => void onSubmit()}
+          disabled={
+            submitting ||
+            (item.kind === 'count' ? answerText.trim().length === 0 : chosen === null)
+          }
+          className="flex w-full items-center justify-center rounded-[1.6rem] bg-terracotta py-4 text-2xl font-semibold text-white hover:bg-terracotta-hover disabled:opacity-50"
+        >
+          {submitting ? '…' : 'Check'}
+        </button>
+      ) : (
+        <div className="space-y-3">
+          <p
+            className={`rounded-2xl px-4 py-3 text-lg font-medium ${
+              result.isCorrect
+                ? 'bg-[#E3EFE6] text-brand-dark'
+                : 'bg-[#FFF1D6] text-warm-ink'
+            }`}
+          >
+            {result.isCorrect ? 'Yes!' : 'Try again next time.'} {result.explanation}
+          </p>
+          <details className="rounded-2xl bg-white/70 px-4 py-3 text-sm text-warm-muted">
+            <summary className="cursor-pointer font-medium text-warm-ink">Grown-ups</summary>
+            <p className="mt-2">{item.stem}</p>
+            <p className="mt-2">{result.parentPrompt}</p>
+          </details>
+          {award ? <SeedAwardBanner total={award.total} lines={award.lines} /> : null}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -272,10 +311,10 @@ function pictureChoices(stimulus?: MathStimulus) {
     }));
   }
   if (stimulus.type === 'oddOneOut' || stimulus.type === 'tapPictures') {
-    return stimulus.items.map((item) => ({
-      icon: item.icon,
-      count: item.count ?? 1,
-      color: item.color,
+    return stimulus.items.map((row) => ({
+      icon: row.icon,
+      count: row.count ?? 1,
+      color: row.color,
     }));
   }
   return null;
