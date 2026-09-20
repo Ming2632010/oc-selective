@@ -128,9 +128,10 @@ export default function MathsPracticePage() {
         {item ? (
           <section className="space-y-6 rounded-[2rem] border-2 border-[#E8D9B0] bg-[#FFFCF3] p-5 shadow-[3px_5px_0_rgba(61,53,46,0.08)] sm:p-8">
             <h1 className="sr-only">{item.title}</h1>
+            <p className="sr-only">{item.stem}</p>
             <MathsStimulus stimulus={item.stimulus} />
-            <p className="text-center text-2xl leading-snug font-semibold text-warm-ink sm:text-3xl">
-              {item.stem}
+            <p className="text-center text-3xl leading-snug font-semibold text-warm-ink sm:text-4xl">
+              {kidAsk(item)}
             </p>
             {item.kind === 'count' ? (
               <NumberPad
@@ -192,6 +193,7 @@ export default function MathsPracticePage() {
                 </p>
                 <details className="rounded-2xl bg-white/70 px-4 py-3 text-sm text-warm-muted">
                   <summary className="cursor-pointer font-medium text-warm-ink">Grown-ups</summary>
+                  <p className="mt-2">{item.stem}</p>
                   <p className="mt-2">{result.parentPrompt}</p>
                 </details>
                 {award ? <SeedAwardBanner total={award.total} lines={award.lines} /> : null}
@@ -217,6 +219,22 @@ export default function MathsPracticePage() {
       </div>
     </main>
   );
+}
+
+function kidAsk(item: Item) {
+  const stimulus = item.stimulus;
+  if (!stimulus || !('type' in stimulus)) return item.stem;
+  if (stimulus.type === 'tenFrame' || stimulus.type === 'dots' || stimulus.type === 'fingers') {
+    return 'How many?';
+  }
+  if (stimulus.type === 'numberTrack' && stimulus.missing?.length) {
+    return 'What number is missing?';
+  }
+  if (stimulus.type === 'pattern') return 'What comes next?';
+  if (stimulus.type === 'partWhole') return 'What is the missing part?';
+  if (stimulus.type === 'clock') return 'What time is it?';
+  if (stimulus.type === 'sharing') return 'How many for each?';
+  return item.stem;
 }
 
 function NumberPad({

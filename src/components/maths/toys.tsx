@@ -45,7 +45,7 @@ export function ToyIcon({ name }: { name: string }) {
 
 export function TrainEngine() {
   return (
-    <svg viewBox="0 0 56 40" className="h-12 w-16" aria-hidden>
+    <svg viewBox="0 0 56 40" className="h-14 w-[4.5rem]" aria-hidden>
       <rect x="18" y="8" width="28" height="22" rx="4" fill="#C45C26" />
       <rect x="4" y="18" width="18" height="12" rx="3" fill="#2D5A4A" />
       <circle cx="16" cy="33" r="5" fill="#3D352E" />

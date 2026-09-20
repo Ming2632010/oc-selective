@@ -231,7 +231,7 @@ export function MathsStimulus({ stimulus }: { stimulus?: MathStimulus | Record<s
           return (
             <span
               key={n}
-              className={`flex h-12 min-w-12 items-center justify-center rounded-xl border-[3px] text-lg font-bold ${
+              className={`flex h-14 min-w-14 items-center justify-center rounded-2xl border-[3px] text-xl font-bold ${
                 missing
                   ? 'border-dashed border-terracotta bg-white text-terracotta'
                   : highlight
