@@ -338,9 +338,10 @@ export function MathsStimulus({ stimulus }: { stimulus?: MathStimulus | Record<s
       return (
         <div className="relative mx-auto h-36 w-64">
           <div className="absolute bottom-12 left-6 right-6 h-5 rounded-lg bg-[#C49B7A]" />
-          <div className="absolute bottom-4 left-10 h-12 w-10 rounded-xl bg-terracotta" />
+          <div className="absolute bottom-4 left-10">
+            <ToyIcon name="bag" />
+          </div>
           <p className="absolute right-6 bottom-16 text-xs font-medium text-warm-muted">bench</p>
-          <p className="absolute bottom-0 left-8 text-xs font-medium text-warm-muted">bag</p>
         </div>
       );
     }
@@ -467,13 +468,85 @@ export function MathsStimulus({ stimulus }: { stimulus?: MathStimulus | Record<s
       </div>
     );
   }
-  if (stimulus.type === 'oddOneOut') {
+  if (stimulus.type === 'oddOneOut' || stimulus.type === 'tapPictures') {
     return (
       <div className="flex flex-wrap justify-center gap-3">
         {stimulus.items.map((item, i) => (
           <div key={i} className="rounded-[1.4rem] bg-[#FFF1D6] px-4 py-3">
             <PictureTray icon={item.icon} count={item.count ?? 1} color={item.color} />
           </div>
+        ))}
+      </div>
+    );
+  }
+  if (stimulus.type === 'giantNumber') {
+    return (
+      <div className="flex justify-center">
+        <span className="flex min-h-28 min-w-28 items-center justify-center rounded-[2rem] bg-[#2D5A4A] px-5 text-5xl font-bold text-white shadow-[3px_4px_0_rgba(61,53,46,0.16)] sm:text-6xl">
+          {stimulus.value}
+        </span>
+      </div>
+    );
+  }
+  if (stimulus.type === 'lineup') {
+    return (
+      <div className="flex flex-wrap items-end justify-center gap-4">
+        {stimulus.names.map((name, i) => (
+          <div key={name} className="text-center">
+            <ToyIcon name="child" />
+            <p className="mt-1 text-sm font-bold text-warm-ink">{name}</p>
+            <p className="text-xs text-warm-muted">{i + 1}</p>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (stimulus.type === 'balance') {
+    const leftDown = stimulus.down === 'left';
+    return (
+      <div className="mx-auto max-w-sm">
+        <div className="flex items-end justify-between gap-6">
+          <div className={`flex-1 rounded-[1.4rem] px-3 py-4 text-center ${leftDown ? 'bg-[#FFF1D6] pt-10' : 'bg-[#EEF6F0]'}`}>
+            <ToyIcon name={stimulus.left} />
+          </div>
+          <div className={`flex-1 rounded-[1.4rem] px-3 py-4 text-center ${leftDown ? 'bg-[#EEF6F0]' : 'bg-[#FFF1D6] pt-10'}`}>
+            <ToyIcon name={stimulus.right} />
+          </div>
+        </div>
+        <div className="mx-auto mt-2 h-2 w-40 rounded-full bg-[#C49B7A]" />
+        <div className="mx-auto h-8 w-2 bg-[#C49B7A]" />
+      </div>
+    );
+  }
+  if (stimulus.type === 'jugs') {
+    return (
+      <div className="flex items-end justify-center gap-10">
+        <div className="text-center">
+          <div className="mx-auto h-32 w-10 rounded-b-2xl border-[3px] border-[#4A86B8] bg-[#D7E6DA]" />
+          <p className="mt-2 text-sm font-medium">Tall · {stimulus.tallCups} cups</p>
+        </div>
+        <div className="text-center">
+          <div className="mx-auto h-20 w-24 rounded-b-2xl border-[3px] border-terracotta bg-[#FFF1D6]" />
+          <p className="mt-2 text-sm font-medium">Wide · {stimulus.wideCups} cups</p>
+        </div>
+      </div>
+    );
+  }
+  if (stimulus.type === 'dayStrip') {
+    const days = stimulus.days ?? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return (
+      <div className="flex flex-wrap justify-center gap-1.5">
+        {days.map((day) => (
+          <span
+            key={day}
+            className={`flex h-12 min-w-12 items-center justify-center rounded-2xl border-[3px] px-2 text-sm font-bold ${
+              day === stimulus.highlight
+                ? 'border-[#2D5A4A] bg-[#2D5A4A] text-white'
+                : 'border-[#E8D9B0] bg-[#FFF1D6] text-warm-ink'
+            }`}
+          >
+            {day}
+          </span>
         ))}
       </div>
     );

@@ -5,13 +5,20 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { apiFetch, getStudentId, getToken } from '@/lib/client-auth';
 import { MathsStimulus } from '@/components/maths/stimulus';
-import { PictureTray } from '@/components/maths/toys';
+import { PictureTray, ToyIcon } from '@/components/maths/toys';
 import { SeedAwardBanner } from '@/components/writing/seed-patch';
-import { getEarlyMathUnit, type EarlyMathKind, type MathStimulus } from '@/lib/early-math';
+import {
+  getEarlyMathUnit,
+  kidAskForItem,
+  type EarlyMathKind,
+  type EarlyMathSkill,
+  type MathStimulus,
+} from '@/lib/early-math';
 
 type Item = {
   slug: string;
   unitId: number;
+  skill: EarlyMathSkill;
   kind: EarlyMathKind;
   title: string;
   stem: string;
@@ -107,12 +114,8 @@ export default function MathsPracticePage() {
   }
 
   const pictures = pictureChoices(item?.stimulus);
-  const tileAnswers = Boolean(
-    !pictures &&
-      item &&
-      item.options.length > 0 &&
-      item.options.every((option) => option.length <= 8),
-  );
+  const hidePictureRow =
+    item?.stimulus?.type === 'oddOneOut' || item?.stimulus?.type === 'tapPictures';
 
   if (loading) {
     return <main className="min-h-dvh bg-[#FFF8E8] p-6 text-warm-ink">Loading…</main>;
@@ -134,11 +137,9 @@ export default function MathsPracticePage() {
           <section className="space-y-6 rounded-[2rem] border-2 border-[#E8D9B0] bg-[#FFFCF3] p-5 shadow-[3px_5px_0_rgba(61,53,46,0.08)] sm:p-8">
             <h1 className="sr-only">{item.title}</h1>
             <p className="sr-only">{item.stem}</p>
-            {item.stimulus?.type === 'oddOneOut' ? null : (
-              <MathsStimulus stimulus={item.stimulus} />
-            )}
+            {hidePictureRow ? null : <MathsStimulus stimulus={item.stimulus} />}
             <p className="text-center text-3xl leading-snug font-semibold text-warm-ink sm:text-4xl">
-              {kidAsk(item)}
+              {kidAskForItem(item)}
             </p>
             {pictures ? (
               <div
@@ -175,31 +176,37 @@ export default function MathsPracticePage() {
               />
             ) : (
               <div
-                className={
-                  tileAnswers
-                    ? 'grid grid-cols-2 gap-3 sm:grid-cols-4'
-                    : 'grid gap-3'
-                }
+                className={`grid gap-3 ${
+                  item.options.length <= 4 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'
+                }`}
               >
-                {item.options.map((option, index) => (
-                  <button
-                    key={option}
-                    type="button"
-                    disabled={Boolean(result)}
-                    onClick={() => setChosen(index)}
-                    className={`${
-                      tileAnswers
-                        ? 'min-h-20 rounded-[1.4rem] text-3xl font-bold'
-                        : 'rounded-2xl px-4 py-4 text-left text-lg font-medium'
-                    } border-[3px] ${
-                      chosen === index
-                        ? 'border-[#2D5A4A] bg-[#EEF6F0] text-brand-dark'
-                        : 'border-[#E8D9B0] bg-white text-warm-ink hover:border-terracotta'
-                    }`}
-                  >
-                    {option}
-                  </button>
-                ))}
+                {item.options.map((option, index) => {
+                  const toy = optionToy(option);
+                  return (
+                    <button
+                      key={`${option}-${index}`}
+                      type="button"
+                      disabled={Boolean(result)}
+                      onClick={() => setChosen(index)}
+                      className={`min-h-20 rounded-[1.4rem] border-[3px] px-3 py-3 ${
+                        toy ? '' : 'text-2xl font-bold sm:text-3xl'
+                      } ${
+                        chosen === index
+                          ? 'border-[#2D5A4A] bg-[#EEF6F0] text-brand-dark'
+                          : 'border-[#E8D9B0] bg-white text-warm-ink hover:border-terracotta'
+                      }`}
+                    >
+                      {toy ? (
+                        <span className="flex flex-col items-center gap-1">
+                          <ToyIcon name={toy.icon} color={toy.color} />
+                          <span className="text-sm font-semibold">{option}</span>
+                        </span>
+                      ) : (
+                        option
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
             {!result ? (
@@ -264,7 +271,7 @@ function pictureChoices(stimulus?: MathStimulus) {
       color: undefined as string | undefined,
     }));
   }
-  if (stimulus.type === 'oddOneOut') {
+  if (stimulus.type === 'oddOneOut' || stimulus.type === 'tapPictures') {
     return stimulus.items.map((item) => ({
       icon: item.icon,
       count: item.count ?? 1,
@@ -274,23 +281,44 @@ function pictureChoices(stimulus?: MathStimulus) {
   return null;
 }
 
-function kidAsk(item: Item) {
-  const stimulus = item.stimulus;
-  if (!stimulus || !('type' in stimulus)) return item.stem;
-  if (stimulus.type === 'tenFrame' || stimulus.type === 'dots' || stimulus.type === 'fingers') {
-    return 'How many?';
-  }
-  if (stimulus.type === 'numberTrack' && stimulus.missing?.length) {
-    return 'What number is missing?';
-  }
-  if (stimulus.type === 'matchNumber') return `Which one is ${stimulus.target}?`;
-  if (stimulus.type === 'howManyMore') return 'How many more?';
-  if (stimulus.type === 'oddOneOut') return 'Which one is different?';
-  if (stimulus.type === 'pattern') return 'What comes next?';
-  if (stimulus.type === 'partWhole') return 'What is the missing part?';
-  if (stimulus.type === 'clock') return 'What time is it?';
-  if (stimulus.type === 'sharing') return 'How many for each?';
-  return item.stem;
+function optionToy(option: string): { icon: string; color?: string } | null {
+  const key = option.trim().toLowerCase();
+  const map: Record<string, { icon: string; color?: string }> = {
+    stamp: { icon: 'stamp' },
+    clap: { icon: 'clap' },
+    jump: { icon: 'jump' },
+    stop: { icon: 'stop' },
+    red: { icon: 'bead', color: 'red' },
+    blue: { icon: 'bead', color: 'blue' },
+    yellow: { icon: 'bead', color: 'gold' },
+    green: { icon: 'bead', color: 'green' },
+    sandpit: { icon: 'sand' },
+    blocks: { icon: 'block' },
+    bikes: { icon: 'bike' },
+    ball: { icon: 'ball' },
+    book: { icon: 'book' },
+    box: { icon: 'box' },
+    frame: { icon: 'frame' },
+    'a ball': { icon: 'ball' },
+    'a book': { icon: 'book' },
+    'a box': { icon: 'box' },
+    sleep: { icon: 'bed' },
+    night: { icon: 'moon' },
+    sun: { icon: 'sun' },
+    will: { icon: 'sun' },
+    might: { icon: 'moon' },
+    "won't": { icon: 'stop' },
+    mia: { icon: 'child' },
+    sam: { icon: 'child' },
+    ali: { icon: 'child' },
+    ben: { icon: 'child' },
+    under: { icon: 'bag' },
+    on: { icon: 'bag' },
+    feather: { icon: 'feather' },
+    'short wide': { icon: 'bowl' },
+    'tall thin': { icon: 'bowl', color: '#4A86B8' },
+  };
+  return map[key] ?? null;
 }
 
 function NumberPad({

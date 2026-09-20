@@ -81,6 +81,51 @@ export function ToyIcon({
           style={{ backgroundColor: color ?? '#E8B84A' }}
         />
       );
+    case 'rectangle':
+      return (
+        <span
+          className="inline-block h-8 w-12 rounded-md shadow-[inset_-2px_-2px_0_rgba(0,0,0,0.12)]"
+          style={{ backgroundColor: color ?? '#4A7A64' }}
+        />
+      );
+    case 'shoe':
+      return <ShoeIcon fill={color} />;
+    case 'hat':
+      return <HatIcon fill={color} />;
+    case 'bag':
+      return <BagIcon fill={color} />;
+    case 'ball':
+      return <BallIcon fill={color} />;
+    case 'book':
+      return <BookIcon fill={color} />;
+    case 'box':
+      return <BoxIcon fill={color} />;
+    case 'frame':
+      return <FrameIcon fill={color} />;
+    case 'feather':
+      return <FeatherIcon fill={color} />;
+    case 'sun':
+      return <SunIcon />;
+    case 'moon':
+      return <MoonIcon />;
+    case 'bed':
+      return <BedIcon />;
+    case 'peg':
+      return <PegIcon fill={color} />;
+    case 'sock':
+      return <SockIcon fill={color} />;
+    case 'clap':
+      return <ClapIcon />;
+    case 'stamp':
+      return <StampIcon />;
+    case 'jump':
+      return <JumpIcon />;
+    case 'stop':
+      return <StopIcon />;
+    case 'dice':
+      return <MiniDiceIcon />;
+    case 'pencil':
+      return <PencilIcon fill={color} />;
     default:
       return <Counter color={color ?? 'terracotta'} />;
   }
@@ -238,6 +283,176 @@ function PearIcon({ fill }: { fill?: string }) {
   );
 }
 
+function PencilIcon({ fill }: { fill?: string }) {
+  return (
+    <svg viewBox="0 0 28 32" className="h-9 w-7" aria-hidden>
+      <path d="M10 2h8l2 20H8z" fill={fill ?? '#E8B84A'} />
+      <path d="M8 22h12l-6 8z" fill="#E8A07A" />
+    </svg>
+  );
+}
+
+function ShoeIcon({ fill }: { fill?: string }) {
+  return (
+    <svg viewBox="0 0 32 20" className="h-7 w-10" aria-hidden>
+      <path d="M4 12h14c6 0 10 2 12 6H6c-3 0-4-3-2-6z" fill={fill ?? '#C45C26'} />
+      <path d="M6 8c4-4 10-4 12 0" fill="none" stroke="#3D352E" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function HatIcon({ fill }: { fill?: string }) {
+  return (
+    <svg viewBox="0 0 32 22" className="h-8 w-9" aria-hidden>
+      <path d="M6 14c2-8 18-8 20 0H6z" fill={fill ?? '#4A86B8'} />
+      <ellipse cx="16" cy="15" rx="13" ry="4" fill={fill ?? '#4A86B8'} />
+    </svg>
+  );
+}
+
+function BagIcon({ fill }: { fill?: string }) {
+  return (
+    <svg viewBox="0 0 28 30" className="h-9 w-8" aria-hidden>
+      <path d="M6 10h16l-1 16H7z" fill={fill ?? '#C45C26'} />
+      <path d="M10 10c0-6 8-6 8 0" fill="none" stroke="#3D352E" strokeWidth="2.2" />
+    </svg>
+  );
+}
+
+function BallIcon({ fill }: { fill?: string }) {
+  return (
+    <svg viewBox="0 0 28 28" className="h-9 w-9" aria-hidden>
+      <circle cx="14" cy="14" r="12" fill={fill ?? '#E15A4A'} />
+      <path d="M14 2c4 4 4 20 0 24M2 14h24" fill="none" stroke="#fff" strokeWidth="1.6" opacity="0.5" />
+    </svg>
+  );
+}
+
+function BookIcon({ fill }: { fill?: string }) {
+  return (
+    <svg viewBox="0 0 28 30" className="h-9 w-8" aria-hidden>
+      <path d="M5 4h16v22H5z" fill={fill ?? '#4A7A64'} />
+      <path d="M9 4v22" stroke="#fff" strokeWidth="2" />
+    </svg>
+  );
+}
+
+function BoxIcon({ fill }: { fill?: string }) {
+  return (
+    <svg viewBox="0 0 30 26" className="h-8 w-9" aria-hidden>
+      <path d="M4 8h22v14H4z" fill={fill ?? '#C49B7A'} />
+      <path d="M4 8l11-6 11 6" fill={fill ?? '#E8B84A'} />
+    </svg>
+  );
+}
+
+function FrameIcon({ fill }: { fill?: string }) {
+  return (
+    <svg viewBox="0 0 28 28" className="h-9 w-9" aria-hidden>
+      <rect x="3" y="3" width="22" height="22" rx="2" fill="none" stroke={fill ?? '#3D352E'} strokeWidth="4" />
+      <rect x="8" y="8" width="12" height="12" fill="#8FBF4A" />
+    </svg>
+  );
+}
+
+function FeatherIcon({ fill }: { fill?: string }) {
+  return (
+    <svg viewBox="0 0 28 32" className="h-9 w-7" aria-hidden>
+      <path d="M14 2c8 8 10 18 4 28-8-6-12-16-4-28z" fill={fill ?? '#F0D8C6'} />
+      <path d="M14 6v22" stroke="#C49B7A" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+function SunIcon() {
+  return (
+    <svg viewBox="0 0 32 32" className="h-9 w-9" aria-hidden>
+      <circle cx="16" cy="16" r="7" fill="#E8B84A" />
+      <path d="M16 2v4M16 26v4M2 16h4M26 16h4M6 6l3 3M23 23l3 3M6 26l3-3M23 9l3-3" stroke="#E8B84A" strokeWidth="2.2" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg viewBox="0 0 28 28" className="h-9 w-9" aria-hidden>
+      <path d="M20 4c-8 2-14 10-12 18 6 2 16-2 16-10-4-2-6-6-4-8z" fill="#4A86B8" />
+    </svg>
+  );
+}
+
+function BedIcon() {
+  return (
+    <svg viewBox="0 0 32 22" className="h-8 w-10" aria-hidden>
+      <path d="M2 14h28v6H2z" fill="#4A7A64" />
+      <path d="M8 8h16v6H8z" fill="#C45C26" />
+      <circle cx="10" cy="7" r="3" fill="#E8A07A" />
+    </svg>
+  );
+}
+
+function PegIcon({ fill }: { fill?: string }) {
+  return (
+    <svg viewBox="0 0 18 28" className="h-9 w-6" aria-hidden>
+      <path d="M5 2h8v10H5z" fill={fill ?? '#E8B84A'} />
+      <path d="M7 12h4v14H7z" fill={fill ?? '#C45C26'} />
+    </svg>
+  );
+}
+
+function SockIcon({ fill }: { fill?: string }) {
+  return (
+    <svg viewBox="0 0 24 32" className="h-9 w-7" aria-hidden>
+      <path d="M8 2h8v16c6 2 8 8 4 10s-12 0-10-6V2z" fill={fill ?? '#4A86B8'} />
+    </svg>
+  );
+}
+
+function ClapIcon() {
+  return (
+    <svg viewBox="0 0 32 28" className="h-8 w-9" aria-hidden>
+      <path d="M6 16c0-6 4-10 8-10l2 12c-6 2-10 2-10-2z" fill="#E8A07A" />
+      <path d="M18 6c4 0 8 4 8 10 0 4-4 4-10 2l2-12z" fill="#C45C26" />
+    </svg>
+  );
+}
+
+function StampIcon() {
+  return (
+    <svg viewBox="0 0 28 32" className="h-9 w-8" aria-hidden>
+      <ellipse cx="14" cy="26" rx="10" ry="4" fill="#3D352E" />
+      <path d="M10 4h8v18H10z" fill="#C45C26" />
+    </svg>
+  );
+}
+
+function JumpIcon() {
+  return (
+    <svg viewBox="0 0 28 32" className="h-9 w-8" aria-hidden>
+      <circle cx="14" cy="6" r="4" fill="#E8A07A" />
+      <path d="M14 11l-6 8h4l2 9 2-9h4z" fill="#4A7A64" />
+    </svg>
+  );
+}
+
+function StopIcon() {
+  return (
+    <svg viewBox="0 0 28 28" className="h-8 w-8" aria-hidden>
+      <rect x="4" y="4" width="20" height="20" rx="4" fill="#E15A4A" />
+    </svg>
+  );
+}
+
+function MiniDiceIcon() {
+  return (
+    <svg viewBox="0 0 28 28" className="h-8 w-8" aria-hidden>
+      <rect x="3" y="3" width="22" height="22" rx="5" fill="#C49B7A" />
+      <circle cx="10" cy="10" r="2" fill="#fff" />
+      <circle cx="18" cy="18" r="2" fill="#fff" />
+    </svg>
+  );
+}
+
 export function ColorBead({ name }: { name: string }) {
   const fill =
     name === 'red'
@@ -249,6 +464,14 @@ export function ColorBead({ name }: { name: string }) {
           : name === 'green'
             ? '#3E8B6A'
             : null;
-  if (!fill) return <span className="text-lg font-semibold text-warm-ink">{name}</span>;
-  return <span className="inline-block h-10 w-10 rounded-full shadow-sm" style={{ backgroundColor: fill }} />;
+  if (fill) {
+    return <span className="inline-block h-10 w-10 rounded-full shadow-sm" style={{ backgroundColor: fill }} />;
+  }
+  if (['clap', 'stamp', 'jump', 'stop'].includes(name)) {
+    return <ToyIcon name={name} />;
+  }
+  if (/^\d+$/.test(name)) {
+    return <span className="text-2xl font-bold text-warm-ink">{name}</span>;
+  }
+  return <span className="text-lg font-semibold text-warm-ink">{name}</span>;
 }

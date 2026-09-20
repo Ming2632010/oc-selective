@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   EARLY_MATH_SKILLS,
   EARLY_MATH_UNITS,
+  kidAskForItem,
   recommendedUnitOrder,
 } from './early-math';
 import { canonicalizeCount, markEarlyMathItem } from './mark-early-math';
@@ -104,6 +105,23 @@ describe('K–Y1 Maths items', () => {
     assert.equal(markEarlyMathItem(more, { text: '3' }).isCorrect, true);
     assert.equal(markEarlyMathItem(more, { text: '8' }).isCorrect, false);
     assert.equal(markEarlyMathItem(odd, { index: 2 }).isCorrect, true);
+  });
+
+  it('gives every K–Y1 question a picture and a short kid ask', () => {
+    for (const item of SEED_EARLY_MATH) {
+      assert.ok(item.stimulus?.type, `${item.slug} needs a picture`);
+      const ask = kidAskForItem(item);
+      assert.ok(ask.length <= 28, `${item.slug} ask is too long: ${ask}`);
+      assert.notEqual(ask, item.stem);
+      if (item.options) {
+        for (const option of item.options) {
+          assert.ok(option.length <= 18, `${item.slug} option too long: ${option}`);
+        }
+      }
+    }
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'see-match-four-shells')!), 'Which one is 4?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'story-join-change-library')!), 'How many joined?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'every-heavier-book')!), 'Which is heavier?');
   });
 
   it('keeps Kindy-friendly items and Year 1 stretch items', () => {
