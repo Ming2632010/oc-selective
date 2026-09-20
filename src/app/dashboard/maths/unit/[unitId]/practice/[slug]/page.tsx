@@ -181,7 +181,10 @@ function QuestionCard({
   }
 
   return (
-    <section className="space-y-5 rounded-[2rem] border-2 border-[#E8D9B0] bg-[#FFFCF3] p-5 shadow-[3px_5px_0_rgba(61,53,46,0.08)] sm:p-6">
+    <section
+      data-question-card
+      className="space-y-5 rounded-[2rem] border-2 border-[#E8D9B0] bg-[#FFFCF3] p-5 shadow-[3px_5px_0_rgba(61,53,46,0.08)] sm:p-6"
+    >
       {number ? (
         <p className="flex justify-center">
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-terracotta text-sm font-bold text-white">
