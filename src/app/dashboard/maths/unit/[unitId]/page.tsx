@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { apiFetch, getStudentId, getToken } from '@/lib/client-auth';
-import { EARLY_MATH_SKILL_LABELS, getEarlyMathUnit, type EarlyMathSkill } from '@/lib/early-math';
+import { getEarlyMathUnit, type EarlyMathSkill } from '@/lib/early-math';
+import { MathsUnitSticker } from '@/components/maths/unit-stickers';
 
 type ItemCard = {
   slug: string;
@@ -53,24 +54,22 @@ export default function MathsUnitPage() {
     void load();
   }, [router, unit, unitId]);
 
-  if (loading) return <main className="mx-auto max-w-3xl p-6">Loading Maths…</main>;
+  if (loading) return <main className="min-h-dvh bg-[#FFF8E8] p-6">Loading…</main>;
 
   const firstOpen = items.find((item) => !item.attempted) ?? items[0];
 
   return (
-    <main className="mx-auto max-w-3xl space-y-6 p-6">
-      <Link href="/dashboard" className="text-sm text-brand hover:underline">
-        ← Dashboard
+    <main className="min-h-dvh bg-[#FFF8E8] px-4 py-6">
+      <div className="mx-auto max-w-3xl space-y-6">
+      <Link href="/dashboard" className="text-sm text-warm-muted hover:text-warm-ink">
+        ← Back
       </Link>
-      <header>
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand">
-          K–Y1 Maths · Unit {unitId}
-        </p>
-        <h1 className="mt-1 text-3xl font-semibold text-warm-ink">{unit?.title}</h1>
+      <header className="flex flex-col items-center text-center">
+        <span className="flex h-20 w-20 items-center justify-center rounded-[1.6rem] border-[3px] border-[#2D5A4A] bg-white shadow-sm">
+          <MathsUnitSticker unitId={unitId} />
+        </span>
+        <h1 className="mt-3 text-3xl font-semibold text-warm-ink">{unit?.title}</h1>
         <p className="mt-2 text-warm-muted">{unit?.blurb}</p>
-        <p className="mt-1 text-sm text-warm-subtle">
-          Kindy: {unit?.kindyFocus} Year 1: {unit?.year1Focus}
-        </p>
       </header>
       {error ? (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
@@ -78,9 +77,9 @@ export default function MathsUnitPage() {
       {firstOpen ? (
         <Link
           href={`/dashboard/maths/unit/${unitId}/practice/${firstOpen.slug}`}
-          className="inline-flex rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover"
+          className="flex w-full items-center justify-center rounded-[1.6rem] bg-terracotta py-4 text-2xl font-semibold text-white hover:bg-terracotta-hover"
         >
-          {firstOpen.attempted ? 'Practise again' : 'Start this unit'}
+          Play
         </Link>
       ) : null}
       <ul className="space-y-2">
@@ -88,19 +87,12 @@ export default function MathsUnitPage() {
           <li key={item.slug}>
             <Link
               href={`/dashboard/maths/unit/${unitId}/practice/${item.slug}`}
-              className="flex items-center justify-between gap-3 rounded-lg border border-warm-border bg-warm-card px-4 py-3 hover:border-brand"
+              className="flex items-center justify-between gap-3 rounded-2xl border-2 border-[#E8D9B0] bg-[#FFFCF3] px-4 py-4 hover:border-terracotta"
             >
-              <div>
-                <p className="font-medium text-warm-ink">{item.title}</p>
-                <p className="text-xs text-warm-subtle">
-                  {EARLY_MATH_SKILL_LABELS[item.skill] ?? item.skill}
-                  {item.difficulty === 'stretch' ? ' · Year 1 stretch' : ''}
-                  {item.difficulty === 'kindy' ? ' · Kindy core' : ''}
-                </p>
-              </div>
+              <p className="font-medium text-warm-ink">{item.title}</p>
               <span
-                className={`rounded-full px-2 py-0.5 text-xs ${
-                  item.attempted ? 'bg-[#E3EFE6] text-brand-dark' : 'bg-[#F0EBE3] text-warm-muted'
+                className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                  item.attempted ? 'bg-[#E3EFE6] text-brand-dark' : 'bg-[#FFF1D6] text-warm-muted'
                 }`}
               >
                 {item.attempted ? 'Tried' : 'New'}
@@ -109,6 +101,7 @@ export default function MathsUnitPage() {
           </li>
         ))}
       </ul>
+      </div>
     </main>
   );
 }

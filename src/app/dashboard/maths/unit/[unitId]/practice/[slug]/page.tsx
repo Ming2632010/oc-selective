@@ -105,104 +105,154 @@ export default function MathsPracticePage() {
     }
   }
 
-  if (loading) return <main className="mx-auto max-w-2xl p-6">Loading question…</main>;
+  const tileAnswers = Boolean(
+    item && item.options.length > 0 && item.options.every((option) => option.length <= 8),
+  );
+
+  if (loading) {
+    return <main className="min-h-dvh bg-[#FFF8E8] p-6 text-warm-ink">Loading…</main>;
+  }
 
   return (
-    <main className="mx-auto max-w-2xl space-y-5 p-6">
-      <Link
-        href={`/dashboard/maths/unit/${unitId}`}
-        className="text-sm text-brand hover:underline"
-      >
-        ← {unit?.title ?? 'Maths unit'}
-      </Link>
-      {error ? (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-      ) : null}
-      {item ? (
-        <section className="space-y-4 rounded-lg border border-warm-border bg-warm-card p-6 shadow-card">
-          <p className="text-xs font-semibold uppercase tracking-wide text-brand">
-            Sit together · short and kind
-          </p>
-          <h1 className="text-2xl font-semibold text-warm-ink">{item.title}</h1>
-          <p className="text-lg leading-relaxed text-warm-ink">{item.stem}</p>
-          <MathsStimulus stimulus={item.stimulus} />
-          {item.kind === 'count' ? (
-            <input
-              value={answerText}
-              onChange={(event) => setAnswerText(event.target.value)}
-              inputMode="numeric"
-              placeholder="Type the number"
-              disabled={Boolean(result)}
-              className="w-full rounded-lg border border-warm-border px-3 py-3 text-lg"
-            />
-          ) : (
-            <div className="grid gap-2">
-              {item.options.map((option, index) => (
-                <button
-                  key={option}
-                  type="button"
-                  disabled={Boolean(result)}
-                  onClick={() => setChosen(index)}
-                  className={`rounded-lg border px-4 py-3 text-left ${
-                    chosen === index
-                      ? 'border-brand bg-[#EEF6F0] text-brand-dark'
-                      : 'border-warm-border bg-white hover:border-brand'
+    <main className="min-h-dvh bg-[#FFF8E8] px-4 py-6">
+      <div className="mx-auto max-w-2xl space-y-5">
+        <Link
+          href={`/dashboard/maths/unit/${unitId}`}
+          className="inline-flex text-sm text-warm-muted hover:text-warm-ink"
+        >
+          ← {unit?.title ?? 'Back'}
+        </Link>
+        {error ? (
+          <p className="rounded-2xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+        ) : null}
+        {item ? (
+          <section className="space-y-6 rounded-[2rem] border-2 border-[#E8D9B0] bg-[#FFFCF3] p-5 shadow-[3px_5px_0_rgba(61,53,46,0.08)] sm:p-8">
+            <h1 className="sr-only">{item.title}</h1>
+            <MathsStimulus stimulus={item.stimulus} />
+            <p className="text-center text-2xl leading-snug font-semibold text-warm-ink sm:text-3xl">
+              {item.stem}
+            </p>
+            {item.kind === 'count' ? (
+              <NumberPad
+                value={answerText}
+                disabled={Boolean(result)}
+                onChange={setAnswerText}
+              />
+            ) : (
+              <div
+                className={
+                  tileAnswers
+                    ? 'grid grid-cols-2 gap-3 sm:grid-cols-4'
+                    : 'grid gap-3'
+                }
+              >
+                {item.options.map((option, index) => (
+                  <button
+                    key={option}
+                    type="button"
+                    disabled={Boolean(result)}
+                    onClick={() => setChosen(index)}
+                    className={`${
+                      tileAnswers
+                        ? 'min-h-20 rounded-[1.4rem] text-3xl font-bold'
+                        : 'rounded-2xl px-4 py-4 text-left text-lg font-medium'
+                    } border-[3px] ${
+                      chosen === index
+                        ? 'border-[#2D5A4A] bg-[#EEF6F0] text-brand-dark'
+                        : 'border-[#E8D9B0] bg-white text-warm-ink hover:border-terracotta'
+                    }`}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            )}
+            {!result ? (
+              <button
+                type="button"
+                onClick={() => void onSubmit()}
+                disabled={
+                  submitting ||
+                  (item.kind === 'count' ? answerText.trim().length === 0 : chosen === null)
+                }
+                className="flex w-full items-center justify-center rounded-[1.6rem] bg-terracotta py-4 text-2xl font-semibold text-white hover:bg-terracotta-hover disabled:opacity-50"
+              >
+                {submitting ? '…' : 'Check'}
+              </button>
+            ) : (
+              <div className="space-y-4">
+                <p
+                  className={`rounded-2xl px-4 py-3 text-lg font-medium ${
+                    result.isCorrect
+                      ? 'bg-[#E3EFE6] text-brand-dark'
+                      : 'bg-[#FFF1D6] text-warm-ink'
                   }`}
                 >
-                  {option}
-                </button>
-              ))}
-            </div>
-          )}
-          {!result ? (
-            <button
-              type="button"
-              onClick={() => void onSubmit()}
-              disabled={
-                submitting ||
-                (item.kind === 'count' ? answerText.trim().length === 0 : chosen === null)
-              }
-              className="rounded-full bg-terracotta px-5 py-2.5 text-sm font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
-            >
-              {submitting ? 'Checking…' : 'Check'}
-            </button>
-          ) : (
-            <div className="space-y-3">
-              <p
-                className={`rounded-lg px-3 py-2 text-sm ${
-                  result.isCorrect
-                    ? 'bg-[#E3EFE6] text-brand-dark'
-                    : 'bg-amber-50 text-amber-950'
-                }`}
-              >
-                {result.isCorrect ? 'Yes.' : 'Not quite.'} {result.explanation}
-              </p>
-              <p className="text-sm text-warm-muted">
-                <span className="font-medium text-warm-ink">For the parent: </span>
-                {result.parentPrompt}
-              </p>
-              {award ? <SeedAwardBanner total={award.total} lines={award.lines} /> : null}
-              <div className="flex flex-wrap gap-2">
+                  {result.isCorrect ? 'Yes!' : 'Try again next time.'} {result.explanation}
+                </p>
+                <details className="rounded-2xl bg-white/70 px-4 py-3 text-sm text-warm-muted">
+                  <summary className="cursor-pointer font-medium text-warm-ink">Grown-ups</summary>
+                  <p className="mt-2">{result.parentPrompt}</p>
+                </details>
+                {award ? <SeedAwardBanner total={award.total} lines={award.lines} /> : null}
                 {nextSlug ? (
                   <Link
                     href={`/dashboard/maths/unit/${unitId}/practice/${nextSlug}`}
-                    className="rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover"
+                    className="flex w-full items-center justify-center rounded-[1.6rem] bg-terracotta py-4 text-2xl font-semibold text-white hover:bg-terracotta-hover"
                   >
-                    Next question
+                    Next
                   </Link>
                 ) : (
                   <Link
                     href={`/dashboard/maths/unit/${unitId}`}
-                    className="rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover"
+                    className="flex w-full items-center justify-center rounded-[1.6rem] bg-terracotta py-4 text-2xl font-semibold text-white hover:bg-terracotta-hover"
                   >
-                    Back to the unit
+                    Done
                   </Link>
                 )}
               </div>
-            </div>
-          )}
-        </section>
-      ) : null}
+            )}
+          </section>
+        ) : null}
+      </div>
     </main>
+  );
+}
+
+function NumberPad({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  disabled: boolean;
+}) {
+  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+  return (
+    <div className="space-y-4">
+      <p className="text-center text-6xl font-bold text-warm-ink">{value || '?'}</p>
+      <div className="mx-auto grid max-w-xs grid-cols-5 gap-2">
+        {keys.map((key) => (
+          <button
+            key={key}
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange(value.length >= 3 ? value : `${value}${key}`)}
+            className="flex h-14 items-center justify-center rounded-2xl border-[3px] border-[#E8D9B0] bg-white text-2xl font-bold text-warm-ink hover:border-terracotta disabled:opacity-60"
+          >
+            {key}
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        disabled={disabled || value.length === 0}
+        onClick={() => onChange(value.slice(0, -1))}
+        className="mx-auto block text-sm font-medium text-warm-muted hover:text-warm-ink disabled:opacity-40"
+      >
+        Clear last
+      </button>
+    </div>
   );
 }
