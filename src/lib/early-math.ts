@@ -130,7 +130,21 @@ export type MathStimulus =
   | { type: 'clock'; hour: number; minute: 0 | 30 }
   | { type: 'baseTen'; tens: number; ones: number }
   | { type: 'sharing'; total: number; people: number }
-  | { type: 'coins'; coins: { value: number; count: number }[] };
+  | { type: 'coins'; coins: { value: number; count: number }[] }
+  | {
+      type: 'matchNumber';
+      target: number;
+      choices: { count: number; icon: string }[];
+    }
+  | {
+      type: 'howManyMore';
+      left: { count: number; label: string; icon: string; color?: string };
+      right: { count: number; label: string; icon: string; color?: string };
+    }
+  | {
+      type: 'oddOneOut';
+      items: { icon: string; count?: number; color?: string }[];
+    };
 
 export type EarlyMathItem = {
   slug: string;

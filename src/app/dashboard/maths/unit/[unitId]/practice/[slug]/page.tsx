@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { apiFetch, getStudentId, getToken } from '@/lib/client-auth';
 import { MathsStimulus } from '@/components/maths/stimulus';
+import { PictureTray } from '@/components/maths/toys';
 import { SeedAwardBanner } from '@/components/writing/seed-patch';
 import { getEarlyMathUnit, type EarlyMathKind, type MathStimulus } from '@/lib/early-math';
 
@@ -105,8 +106,12 @@ export default function MathsPracticePage() {
     }
   }
 
+  const pictures = pictureChoices(item?.stimulus);
   const tileAnswers = Boolean(
-    item && item.options.length > 0 && item.options.every((option) => option.length <= 8),
+    !pictures &&
+      item &&
+      item.options.length > 0 &&
+      item.options.every((option) => option.length <= 8),
   );
 
   if (loading) {
@@ -129,11 +134,40 @@ export default function MathsPracticePage() {
           <section className="space-y-6 rounded-[2rem] border-2 border-[#E8D9B0] bg-[#FFFCF3] p-5 shadow-[3px_5px_0_rgba(61,53,46,0.08)] sm:p-8">
             <h1 className="sr-only">{item.title}</h1>
             <p className="sr-only">{item.stem}</p>
-            <MathsStimulus stimulus={item.stimulus} />
+            {item.stimulus?.type === 'oddOneOut' ? null : (
+              <MathsStimulus stimulus={item.stimulus} />
+            )}
             <p className="text-center text-3xl leading-snug font-semibold text-warm-ink sm:text-4xl">
               {kidAsk(item)}
             </p>
-            {item.kind === 'count' ? (
+            {pictures ? (
+              <div
+                className={`grid grid-cols-2 gap-3 ${
+                  pictures.length === 4 ? 'sm:grid-cols-4' : 'sm:grid-cols-3'
+                }`}
+              >
+                {pictures.map((picture, index) => (
+                  <button
+                    key={`${picture.icon}-${index}`}
+                    type="button"
+                    disabled={Boolean(result)}
+                    onClick={() => setChosen(index)}
+                    aria-label={item.options[index] ?? `Picture ${index + 1}`}
+                    className={`rounded-[1.4rem] border-[3px] px-3 py-3 ${
+                      chosen === index
+                        ? 'border-[#2D5A4A] bg-[#EEF6F0]'
+                        : 'border-[#E8D9B0] bg-white hover:border-terracotta'
+                    }`}
+                  >
+                    <PictureTray
+                      icon={picture.icon}
+                      count={picture.count}
+                      color={picture.color}
+                    />
+                  </button>
+                ))}
+              </div>
+            ) : item.kind === 'count' ? (
               <NumberPad
                 value={answerText}
                 disabled={Boolean(result)}
@@ -221,6 +255,25 @@ export default function MathsPracticePage() {
   );
 }
 
+function pictureChoices(stimulus?: MathStimulus) {
+  if (!stimulus || !('type' in stimulus)) return null;
+  if (stimulus.type === 'matchNumber') {
+    return stimulus.choices.map((choice) => ({
+      icon: choice.icon,
+      count: choice.count,
+      color: undefined as string | undefined,
+    }));
+  }
+  if (stimulus.type === 'oddOneOut') {
+    return stimulus.items.map((item) => ({
+      icon: item.icon,
+      count: item.count ?? 1,
+      color: item.color,
+    }));
+  }
+  return null;
+}
+
 function kidAsk(item: Item) {
   const stimulus = item.stimulus;
   if (!stimulus || !('type' in stimulus)) return item.stem;
@@ -230,6 +283,9 @@ function kidAsk(item: Item) {
   if (stimulus.type === 'numberTrack' && stimulus.missing?.length) {
     return 'What number is missing?';
   }
+  if (stimulus.type === 'matchNumber') return `Which one is ${stimulus.target}?`;
+  if (stimulus.type === 'howManyMore') return 'How many more?';
+  if (stimulus.type === 'oddOneOut') return 'Which one is different?';
   if (stimulus.type === 'pattern') return 'What comes next?';
   if (stimulus.type === 'partWhole') return 'What is the missing part?';
   if (stimulus.type === 'clock') return 'What time is it?';

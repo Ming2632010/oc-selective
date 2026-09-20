@@ -86,7 +86,24 @@ describe('K–Y1 Maths items', () => {
     assert.ok(types.has('clock'));
     assert.ok(types.has('baseTen'));
     assert.ok(types.has('sharing'));
-    assert.ok(types.size >= 10);
+    assert.ok(types.has('matchNumber'));
+    assert.ok(types.has('howManyMore'));
+    assert.ok(types.has('oddOneOut'));
+    assert.ok(types.size >= 13);
+  });
+
+  it('lets children tap a matching picture, a difference, or the odd one out', () => {
+    const match = SEED_EARLY_MATH.find((row) => row.slug === 'see-match-four-shells');
+    const more = SEED_EARLY_MATH.find((row) => row.slug === 'count-more-garden-leaves');
+    const odd = SEED_EARLY_MATH.find((row) => row.slug === 'every-odd-triangle-in-circles');
+    assert.ok(match);
+    assert.ok(more);
+    assert.ok(odd);
+    assert.equal(markEarlyMathItem(match, { index: 1 }).isCorrect, true);
+    assert.equal(markEarlyMathItem(match, { index: 0 }).isCorrect, false);
+    assert.equal(markEarlyMathItem(more, { text: '3' }).isCorrect, true);
+    assert.equal(markEarlyMathItem(more, { text: '8' }).isCorrect, false);
+    assert.equal(markEarlyMathItem(odd, { index: 2 }).isCorrect, true);
   });
 
   it('keeps Kindy-friendly items and Year 1 stretch items', () => {

@@ -1,5 +1,12 @@
 import type { MathStimulus } from '@/lib/early-math';
-import { ColorBead, Counter, ToyIcon, TrainEngine, counterColor } from '@/components/maths/toys';
+import {
+  ColorBead,
+  Counter,
+  PictureTray,
+  ToyIcon,
+  TrainEngine,
+  counterColor,
+} from '@/components/maths/toys';
 
 function positions(count: number, seed: number) {
   const spots: { x: number; y: number }[] = [];
@@ -436,6 +443,38 @@ export function MathsStimulus({ stimulus }: { stimulus?: MathStimulus | Record<s
             </span>
           ))}
         </div>
+      </div>
+    );
+  }
+  if (stimulus.type === 'matchNumber') {
+    return (
+      <div className="flex justify-center">
+        <span className="flex h-28 w-28 items-center justify-center rounded-[2rem] bg-[#2D5A4A] text-6xl font-bold text-white shadow-[3px_4px_0_rgba(61,53,46,0.16)]">
+          {stimulus.target}
+        </span>
+      </div>
+    );
+  }
+  if (stimulus.type === 'howManyMore') {
+    return (
+      <div className="space-y-4">
+        {[stimulus.left, stimulus.right].map((row) => (
+          <div key={row.label} className="rounded-[1.4rem] bg-[#FFF1D6] px-4 py-3">
+            <p className="mb-2 text-center text-sm font-medium text-warm-ink">{row.label}</p>
+            <PictureTray icon={row.icon} count={row.count} color={row.color} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (stimulus.type === 'oddOneOut') {
+    return (
+      <div className="flex flex-wrap justify-center gap-3">
+        {stimulus.items.map((item, i) => (
+          <div key={i} className="rounded-[1.4rem] bg-[#FFF1D6] px-4 py-3">
+            <PictureTray icon={item.icon} count={item.count ?? 1} color={item.color} />
+          </div>
+        ))}
       </div>
     );
   }
