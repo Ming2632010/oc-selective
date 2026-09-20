@@ -61,16 +61,26 @@ export function ToyIcon({
     case 'bead':
       return <Counter color={color ?? 'red'} />;
     case 'circle':
-      return <span className="inline-block h-8 w-8 rounded-full" style={{ backgroundColor: color ?? '#E15A4A' }} />;
+      return (
+        <span
+          className="inline-block h-10 w-10 rounded-full shadow-[inset_-2px_-2px_0_rgba(0,0,0,0.12)]"
+          style={{ backgroundColor: color ?? '#E15A4A' }}
+        />
+      );
     case 'triangle':
       return (
         <span
-          className="inline-block h-0 w-0 border-x-[16px] border-b-[28px] border-x-transparent"
+          className="inline-block h-0 w-0 border-x-[20px] border-b-[34px] border-x-transparent"
           style={{ borderBottomColor: color ?? '#4A86B8' }}
         />
       );
     case 'square':
-      return <span className="inline-block h-8 w-8 rounded-md" style={{ backgroundColor: color ?? '#E8B84A' }} />;
+      return (
+        <span
+          className="inline-block h-10 w-10 rounded-md shadow-[inset_-2px_-2px_0_rgba(0,0,0,0.12)]"
+          style={{ backgroundColor: color ?? '#E8B84A' }}
+        />
+      );
     default:
       return <Counter color={color ?? 'terracotta'} />;
   }
@@ -86,7 +96,7 @@ export function PictureTray({
   color?: string;
 }) {
   return (
-    <div className="flex min-h-[5.5rem] flex-wrap items-center justify-center gap-1.5">
+    <div className="flex min-h-[6.25rem] flex-wrap items-center justify-center gap-2 [&_svg]:h-10 [&_svg]:w-10">
       {Array.from({ length: Math.max(1, count) }, (_, i) => (
         <ToyIcon key={i} name={icon} color={color} />
       ))}
@@ -163,18 +173,27 @@ function AppleIcon({ fill }: { fill?: string }) {
 
 function LeafIcon({ fill }: { fill?: string }) {
   return (
-    <svg viewBox="0 0 28 32" className="h-8 w-7" aria-hidden>
-      <path d="M6 26c8-2 14-10 16-20C12 8 6 16 6 26z" fill={fill ?? '#3E8B6A'} />
-      <path d="M8 24c6-4 10-10 12-16" fill="none" stroke="#2D5A4A" strokeWidth="1.4" />
+    <svg viewBox="0 0 32 32" className="h-8 w-8" aria-hidden>
+      <path d="M16 3c9 4 13 12 13 18-1 6-6 9-13 9S4 27 3 21C3 15 7 7 16 3z" fill={fill ?? '#3E8B6A'} />
+      <path d="M16 7v20M16 14c-5 2-8 6-9 10M16 14c5 2 8 6 9 10" fill="none" stroke="#24543C" strokeWidth="1.6" />
     </svg>
   );
 }
 
 function ShellIcon({ fill }: { fill?: string }) {
   return (
-    <svg viewBox="0 0 30 24" className="h-7 w-8" aria-hidden>
-      <path d="M15 3c8 4 12 10 12 16H3C3 13 7 7 15 3z" fill={fill ?? '#E8A07A'} />
-      <path d="M15 5v14M8 10l7 9M22 10l-7 9" stroke="#fff" strokeWidth="1.2" opacity="0.5" />
+    <svg viewBox="0 0 32 28" className="h-8 w-9" aria-hidden>
+      <path
+        d="M4 20c1-9 6-16 12-18 6 2 11 9 12 18-3 5-8 7-12 7s-9-2-12-7z"
+        fill={fill ?? '#E8A07A'}
+      />
+      <path
+        d="M16 4v21M8 10c3 5 6 11 8 15M24 10c-3 5-6 11-8 15M6 18h20"
+        fill="none"
+        stroke="#fff"
+        strokeWidth="1.8"
+        opacity="0.5"
+      />
     </svg>
   );
 }
