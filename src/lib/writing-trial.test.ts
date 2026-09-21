@@ -4,13 +4,17 @@ import {
   WRITING_TRIAL_DAYS,
   WRITING_TRIAL_DRAFTS,
   WRITING_TRIAL_FULL_TASKS,
+  WRITING_TRIAL_MINI_QUESTIONS,
   canStartWritingTrial,
+  clipTrialMiniDrills,
   clipTrialRecommendation,
   hasWritingProductAccess,
   trialAllowsPracticeTask,
   trialDaysLeft,
   trialExpiresAt,
   trialFullTaskLimitMessage,
+  trialMiniLimitMessage,
+  trialOfferCopy,
 } from './writing-trial';
 
 describe('writing trial rules', () => {
@@ -18,6 +22,11 @@ describe('writing trial rules', () => {
     assert.equal(WRITING_TRIAL_DAYS, 7);
     assert.equal(WRITING_TRIAL_FULL_TASKS, 1);
     assert.equal(WRITING_TRIAL_DRAFTS, 3);
+    assert.equal(WRITING_TRIAL_MINI_QUESTIONS, 10);
+    assert.equal(
+      trialOfferCopy(),
+      '10 mini practice questions and one full writing task with three attempts',
+    );
     const start = new Date('2026-09-21T00:00:00Z');
     assert.equal(trialExpiresAt(start).toISOString(), '2026-09-28T00:00:00.000Z');
     assert.equal(trialDaysLeft(new Date('2026-09-28T00:00:00Z'), start), 7);
@@ -93,6 +102,23 @@ describe('writing trial rules', () => {
     assert.equal(hasWritingProductAccess('trial'), true);
     assert.equal(hasWritingProductAccess('granted'), true);
     assert.equal(hasWritingProductAccess('unlicensed'), false);
+  });
+
+  it('opens ten mini questions and keeps tried ones after the cap', () => {
+    const drills = Array.from({ length: 19 }, (_, index) => ({ id: `d${index + 1}` }));
+    assert.deepEqual(
+      clipTrialMiniDrills(drills, new Set(), 0).map((row) => row.id),
+      Array.from({ length: 10 }, (_, index) => `d${index + 1}`),
+    );
+    const withTried = clipTrialMiniDrills(drills, new Set(['d1', 'd2']), 2);
+    assert.equal(withTried.length, 10);
+    assert.ok(withTried.some((row) => row.id === 'd1'));
+    assert.ok(withTried.some((row) => row.id === 'd10'));
+    assert.equal(
+      clipTrialMiniDrills(drills, new Set(['d1']), 10).map((row) => row.id).join(','),
+      'd1',
+    );
+    assert.equal(trialMiniLimitMessage(), 'The trial includes 10 mini questions. Buy a year for mini practice in every unit.');
   });
 
   it('keeps the started trial paper in the next-task slot and hides a second start', () => {

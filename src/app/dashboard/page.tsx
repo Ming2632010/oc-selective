@@ -119,6 +119,8 @@ type WritingTrialInfo = {
   days_left: number | null;
   attempts_used: number;
   attempts_limit: number;
+  mini_used?: number;
+  mini_limit?: number;
   expires_at: string | null;
 };
 
@@ -151,7 +153,7 @@ function subscriptionBanner(
       : 0;
     return {
       tone: 'info',
-      message: `7-day trial · ${daysLeft} day${daysLeft === 1 ? '' : 's'} left. Mini practice and one full writing task with three attempts. Buy a year to keep this work.`,
+      message: `7-day trial · ${daysLeft} day${daysLeft === 1 ? '' : 's'} left. 10 mini practice questions and one full writing task with three attempts. Buy a year to keep this work.`,
     };
   }
 
@@ -507,7 +509,7 @@ export default function DashboardPage() {
               {writingTrial?.active
                 ? `7-day trial · ${writingTrial.days_left ?? 0} day${
                     writingTrial.days_left === 1 ? '' : 's'
-                  } left · ${writingTrial.attempts_used}/${writingTrial.attempts_limit} full writing task used. Mini practice is open. Buy a year to keep this work.`
+                  } left · ${writingTrial.attempts_used}/${writingTrial.attempts_limit} full writing task used · ${writingTrial.mini_used ?? 0}/${writingTrial.mini_limit ?? 10} mini questions used. Buy a year to keep this work.`
                 : banner.message}
             </p>
             <Link
@@ -635,10 +637,10 @@ export default function DashboardPage() {
             <section className="space-y-4 rounded-lg border border-warm-border bg-warm-card p-6 shadow-card">
               <h2 className="text-lg font-semibold text-warm-ink">Try Selective Writing</h2>
               <p className="text-sm text-warm-muted">
-                7 days to decide. The trial includes mini practice and one
-                full writing task with three attempts, with the same timer and
-                notes as the paid year. Term reviews, bonus papers, and custom
-                tasks stay in the full year.
+                7 days to decide. The trial includes 10 mini practice questions
+                and one full writing task with three attempts, with the same
+                timer and notes as the paid year. Term reviews, bonus papers,
+                and custom tasks stay in the full year.
               </p>
               <div className="flex flex-wrap gap-3">
                 {writingTrial?.eligible ? (
@@ -702,7 +704,7 @@ export default function DashboardPage() {
               <h2 className="text-lg font-medium text-warm-ink">Writing units</h2>
               <p className="mt-1 text-sm text-warm-muted">
                 {selectedWritingAccess.access_kind === 'trial'
-                  ? 'Trial: mini practice is open, and you can sit one full writing task with three attempts. Term reviews, bonus papers, and custom tasks are in the full year.'
+                  ? 'Trial: 10 mini questions, and one full writing task with three attempts. Term reviews, bonus papers, and custom tasks are in the full year.'
                   : 'Start any unit. Each one has mini practice and three full writing tasks. Term reviews stay locked until you have tried every full writing task in that unit at least once. One sitting, one attempt only.'}
               </p>
             </div>
@@ -811,7 +813,7 @@ export default function DashboardPage() {
                       </h4>
                       <p className="mt-1 text-sm text-warm-muted">
                         {selectedWritingAccess.access_kind === 'trial'
-                          ? 'Term reviews stay in the full year. The trial is mini practice and one full writing task with three attempts.'
+                          ? 'Term reviews stay in the full year. The trial is 10 mini questions and one full writing task with three attempts.'
                           : `${groupTests.length} test${
                               groupTests.length === 1 ? '' : 's'
                             } — one for each ${group.toLowerCase()} unit. Unlock a review by trying all three full writing tasks in that unit. Exam-style: one sitting, AI marking, no re-attempt.`}
@@ -992,7 +994,7 @@ export default function DashboardPage() {
                       </h3>
                       <p className="mt-2 max-w-2xl text-sm text-white/80">
                         {selectedWritingAccess.access_kind === 'trial'
-                          ? 'Bonus exam papers stay in the full year. The trial is mini practice and one full writing task with three attempts.'
+                          ? 'Bonus exam papers stay in the full year. The trial is 10 mini questions and one full writing task with three attempts.'
                           : 'Original TrialSeed papers in the forms used on recent Selective writing tests. One sitting, 30 minutes, no re-attempt. Unlock them by trying every full writing task and every term review at least once.'}
                       </p>
                     </div>

@@ -13,8 +13,12 @@ import {
   assertOwnedStudent,
   awardMiniSeeds,
   extraIsUnlocked,
+  getWritingLicence,
+  trialBlocksMini,
+  visibleTrialMiniDrills,
 } from '@/lib/writing-state';
 import { typeLabel } from '@/lib/units';
+import { clipTrialMiniDrills } from '@/lib/writing-trial';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -63,6 +67,20 @@ function publicDrill(row: DrillRow) {
 const DRILL_COLUMNS = `id, slug, module_id, prompt_type, skill, title, stem, options,
                 correct_index, explanation, sort_order, source, student_id,
                 item_kind, prompt`;
+
+function nextClippedSlug(drills: { slug: string }[], currentSlug: string) {
+  const index = drills.findIndex((row) => row.slug === currentSlug);
+  if (index < 0) return drills[0]?.slug ?? null;
+  return drills[index + 1]?.slug ?? null;
+}
+
+function seedMiniOnly<T extends { student_id: string | null; source: string | null }>(
+  rows: T[],
+) {
+  return rows.filter(
+    (row) => !row.student_id && (row.source === 'seed' || !row.source),
+  );
+}
 
 function seedBucket(source: string | null | undefined, studentId: string | null) {
   return !studentId && (source === 'seed' || !source) ? 0 : 1;
@@ -210,6 +228,12 @@ export async function GET(request: Request) {
           return NextResponse.json({ error: 'Drill not found' }, { status: 404 });
         }
       }
+      if (studentId) {
+        const trialBlock = await trialBlocksMini(userId, studentId, drill);
+        if (trialBlock) {
+          return NextResponse.json({ error: trialBlock.error }, { status: trialBlock.status });
+        }
+      }
 
       let history: AttemptRow[] = [];
       if (studentId) {
@@ -238,17 +262,30 @@ export async function GET(request: Request) {
           })
         : null;
 
+      let nextSlug = await nextDrillSlug(
+        drill.module_id,
+        drill.sort_order,
+        studentId,
+        drill.source,
+        drill.student_id,
+      );
+      if (studentId) {
+        const licence = await getWritingLicence(userId, studentId);
+        if (licence.state === 'trial') {
+          const visible = await visibleTrialMiniDrills(
+            studentId,
+            drill.module_id,
+            licence.miniUsed,
+          );
+          nextSlug = nextClippedSlug(visible, drill.slug);
+        }
+      }
+
       return NextResponse.json({
         drill: publicDrill(drill),
         last_attempt: last ? publicAttempt(last) : null,
         attempts: history.map(publicAttempt),
-        next_slug: await nextDrillSlug(
-          drill.module_id,
-          drill.sort_order,
-          studentId,
-          drill.source,
-          drill.student_id,
-        ),
+        next_slug: nextSlug,
         reveal: marked
           ? {
               correct_index: drill.correct_index,
@@ -298,6 +335,7 @@ export async function GET(request: Request) {
     );
 
     let done = new Set<string>();
+    const licence = studentId ? await getWritingLicence(userId, studentId) : null;
     if (studentId) {
       const attempts = await query<{ drill_id: string }>(
         `SELECT DISTINCT attempt.drill_id
@@ -309,16 +347,31 @@ export async function GET(request: Request) {
       done = new Set(attempts.rows.map((row) => row.drill_id));
     }
 
+    const visibleRows =
+      licence?.state === 'trial'
+        ? clipTrialMiniDrills(seedMiniOnly(drills.rows), done, licence.miniUsed)
+        : drills.rows;
+
     return NextResponse.json({
       module_id: moduleId,
-      drills: drills.rows.map((row) => ({
+      drills: visibleRows.map((row) => ({
         ...publicDrill(row),
         attempted: done.has(row.id),
       })),
-      // Generation capacity is computed only when the student asks for more
-      // practice, rather than adding several database round trips to every
-      // unit-page load.
-      extra: null,
+      extra:
+        licence?.state === 'trial'
+          ? {
+              can_generate: false,
+              remaining_today: 0,
+              remaining_unit: 0,
+              suggested_skills: [],
+              reason: '',
+            }
+          : null,
+      trial_mini:
+        licence?.state === 'trial'
+          ? { used: licence.miniUsed, limit: licence.miniLimit }
+          : null,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load drills';
@@ -393,6 +446,10 @@ export async function POST(request: Request) {
     if (drill.source === 'extra' && !(await extraIsUnlocked(studentId, drill.id))) {
       return NextResponse.json({ error: 'Drill not found' }, { status: 404 });
     }
+    const trialBlock = await trialBlocksMini(userId, studentId, drill);
+    if (trialBlock) {
+      return NextResponse.json({ error: trialBlock.error }, { status: trialBlock.status });
+    }
 
     const kind = drillKind(drill);
     if (kind === 'choice') {
@@ -458,19 +515,30 @@ export async function POST(request: Request) {
       alreadyTried: (prior.rowCount ?? prior.rows.length) > 0,
     });
 
+    let nextSlug = await nextDrillSlug(
+      drill.module_id,
+      drill.sort_order,
+      studentId,
+      drill.source,
+      drill.student_id,
+    );
+    const licence = await getWritingLicence(userId, studentId);
+    if (licence.state === 'trial') {
+      const visible = await visibleTrialMiniDrills(
+        studentId,
+        drill.module_id,
+        licence.miniUsed,
+      );
+      nextSlug = nextClippedSlug(visible, drill.slug);
+    }
+
     return NextResponse.json({
       is_correct: marked.isCorrect,
       correct_index: drill.correct_index,
       explanation: marked.explanation,
       sample: marked.sample ?? null,
       checks: marked.checks,
-      next_slug: await nextDrillSlug(
-        drill.module_id,
-        drill.sort_order,
-        studentId,
-        drill.source,
-        drill.student_id,
-      ),
+      next_slug: nextSlug,
       drill: publicDrill(drill),
       award,
       attempt: saved.rows[0] ? publicAttempt(saved.rows[0]) : null,

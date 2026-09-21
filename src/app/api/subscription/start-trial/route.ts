@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { isRateLimited } from '@/lib/rate-limit';
-import { getWritingLicence, startWritingTrial } from '@/lib/writing-state';
+import { getWritingLicence, startWritingTrial, trialClientFields } from '@/lib/writing-state';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,14 +20,7 @@ export async function GET(request: Request) {
     }
     return NextResponse.json({
       writing_access: licence.state,
-      trial: {
-        eligible: licence.trialEligible,
-        active: licence.state === 'trial',
-        days_left: licence.daysLeft,
-        attempts_used: licence.attemptsUsed,
-        attempts_limit: licence.attemptsLimit,
-        expires_at: licence.expiresAt ? new Date(licence.expiresAt).toISOString() : null,
-      },
+      trial: trialClientFields(licence),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load trial';
@@ -67,6 +60,8 @@ export async function POST(request: Request) {
         days_left: result.daysLeft,
         attempts_used: 0,
         attempts_limit: result.attemptsLimit,
+        mini_used: 0,
+        mini_limit: result.miniLimit,
         expires_at: result.expiresAt.toISOString(),
       },
     });

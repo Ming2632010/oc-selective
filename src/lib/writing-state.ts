@@ -34,13 +34,16 @@ import {
 } from '@/lib/writing-guidance';
 import {
   WRITING_TRIAL_FULL_TASKS,
+  WRITING_TRIAL_MINI_QUESTIONS,
   canStartWritingTrial,
+  clipTrialMiniDrills,
   clipTrialRecommendation,
   hasWritingProductAccess,
   trialAllowsPracticeTask,
   trialDaysLeft,
   trialExamLockMessage,
   trialExpiresAt,
+  trialMiniLimitMessage,
   usesWritingDashboard,
   type WritingAccessState,
 } from '@/lib/writing-trial';
@@ -936,8 +939,30 @@ export type WritingLicence = {
   daysLeft: number | null;
   attemptsUsed: number;
   attemptsLimit: number;
+  miniUsed: number;
+  miniLimit: number;
   trialEligible: boolean;
 };
+
+export function trialClientFields(licence: WritingLicence) {
+  return {
+    eligible: licence.trialEligible,
+    active: licence.state === 'trial',
+    days_left: licence.daysLeft,
+    attempts_used: licence.attemptsUsed,
+    attempts_limit: licence.attemptsLimit,
+    mini_used: licence.miniUsed,
+    mini_limit: licence.miniLimit,
+    expires_at: licence.expiresAt ? new Date(licence.expiresAt).toISOString() : null,
+  };
+}
+
+function trialMiniDefaults() {
+  return {
+    miniUsed: 0,
+    miniLimit: WRITING_TRIAL_MINI_QUESTIONS,
+  };
+}
 
 export async function countPracticeTasksTried(studentId: string) {
   const result = await query<{ n: string }>(
@@ -946,6 +971,16 @@ export async function countPracticeTasksTried(studentId: string) {
      JOIN prompts p ON p.id = a.prompt_id
      WHERE a.student_id = $1
        AND COALESCE(p.kind, 'practice') = 'practice'`,
+    [studentId],
+  );
+  return Number(result.rows[0]?.n ?? 0);
+}
+
+export async function countMiniQuestionsTried(studentId: string) {
+  const result = await query<{ n: string }>(
+    `SELECT COUNT(DISTINCT drill_id)::text AS n
+     FROM mini_drill_attempts
+     WHERE student_id = $1`,
     [studentId],
   );
   return Number(result.rows[0]?.n ?? 0);
@@ -967,6 +1002,7 @@ export async function getWritingLicence(userId: string, studentId: string): Prom
       attemptsUsed: 0,
       attemptsLimit: WRITING_TRIAL_FULL_TASKS,
       trialEligible: false,
+      ...trialMiniDefaults(),
     };
   }
 
@@ -1002,6 +1038,8 @@ export async function getWritingLicence(userId: string, studentId: string): Prom
       daysLeft: trialDaysLeft(new Date(live.expires_at)),
       attemptsUsed,
       attemptsLimit: WRITING_TRIAL_FULL_TASKS,
+      miniUsed: await countMiniQuestionsTried(studentId),
+      miniLimit: WRITING_TRIAL_MINI_QUESTIONS,
       trialEligible: false,
     };
   }
@@ -1014,6 +1052,7 @@ export async function getWritingLicence(userId: string, studentId: string): Prom
       attemptsUsed,
       attemptsLimit: WRITING_TRIAL_FULL_TASKS,
       trialEligible: false,
+      ...trialMiniDefaults(),
     };
   }
 
@@ -1030,6 +1069,7 @@ export async function getWritingLicence(userId: string, studentId: string): Prom
     attemptsUsed,
     attemptsLimit: WRITING_TRIAL_FULL_TASKS,
     trialEligible: eligible.ok,
+    ...trialMiniDefaults(),
   };
 }
 
@@ -1116,6 +1156,74 @@ export async function trialBlocksPrompt(
   return { error: allowed.message, status: 403 as const };
 }
 
+export async function visibleTrialMiniDrills(
+  studentId: string,
+  moduleId: number,
+  miniUsed: number,
+) {
+  const [unitRows, tried] = await Promise.all([
+    query<{ id: string; slug: string }>(
+      `SELECT id, slug FROM mini_drills
+       WHERE module_id = $1 AND is_active = TRUE
+         AND student_id IS NULL AND COALESCE(source, 'seed') = 'seed'
+       ORDER BY sort_order ASC`,
+      [moduleId],
+    ),
+    query<{ drill_id: string }>(
+      `SELECT DISTINCT attempt.drill_id
+       FROM mini_drill_attempts attempt
+       JOIN mini_drills drill ON drill.id = attempt.drill_id
+       WHERE attempt.student_id = $1 AND drill.module_id = $2`,
+      [studentId, moduleId],
+    ),
+  ]);
+  return clipTrialMiniDrills(
+    unitRows.rows,
+    new Set(tried.rows.map((row) => row.drill_id)),
+    miniUsed,
+  );
+}
+
+export async function trialBlocksMini(
+  userId: string,
+  studentId: string,
+  drill: {
+    id: string;
+    module_id: number;
+    source: string | null;
+    student_id: string | null;
+  },
+) {
+  const licence = await getWritingLicence(userId, studentId);
+  if (licence.state === 'not-found') {
+    return { error: 'Student not found', status: 404 as const };
+  }
+  if (licence.state === 'unlicensed') {
+    return {
+      error: 'Selective Writing access is required for this child.',
+      status: 403 as const,
+    };
+  }
+  if (licence.state !== 'trial') return null;
+
+  const tried = await query<{ n: string }>(
+    `SELECT COUNT(*)::text AS n FROM mini_drill_attempts
+     WHERE student_id = $1 AND drill_id = $2`,
+    [studentId, drill.id],
+  );
+  if (Number(tried.rows[0]?.n ?? 0) > 0) return null;
+
+  const visible = await visibleTrialMiniDrills(
+    studentId,
+    drill.module_id,
+    licence.miniUsed,
+  );
+  if (!visible.some((row) => row.id === drill.id)) {
+    return { error: trialMiniLimitMessage(), status: 403 as const };
+  }
+  return null;
+}
+
 export async function startWritingTrial(userId: string, studentId: string) {
   const student = await query<{ id: string; grade: string }>(
     `SELECT id, grade FROM students WHERE id = $1 AND user_id = $2 LIMIT 1`,
@@ -1176,6 +1284,7 @@ export async function startWritingTrial(userId: string, studentId: string) {
     expiresAt,
     daysLeft: trialDaysLeft(expiresAt),
     attemptsLimit: WRITING_TRIAL_FULL_TASKS,
+    miniLimit: WRITING_TRIAL_MINI_QUESTIONS,
   };
 }
 

@@ -52,6 +52,11 @@ type ExtraMeta = {
   reason: string;
 };
 
+type TrialMiniInfo = {
+  used: number;
+  limit: number;
+};
+
 function draftStatusLabel(maxDraft: number): string {
   switch (maxDraft) {
     case 0:
@@ -80,6 +85,7 @@ export default function UnitPage() {
   const [prompts, setPrompts] = useState<PromptWithStatus[]>([]);
   const [drills, setDrills] = useState<MiniDrillCard[]>([]);
   const [extra, setExtra] = useState<ExtraMeta | null>(null);
+  const [trialMini, setTrialMini] = useState<TrialMiniInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -114,6 +120,7 @@ export default function UnitPage() {
         const list = (promptRes.data.prompts as Prompt[]) || [];
         setDrills((drillRes.data.drills as MiniDrillCard[]) || []);
         setExtra((drillRes.data.extra as ExtraMeta | null) ?? null);
+        setTrialMini((drillRes.data.trial_mini as TrialMiniInfo | null) ?? null);
         setPrompts(
           list.map((prompt) => ({
             ...prompt,
@@ -206,13 +213,14 @@ export default function UnitPage() {
           <div>
             <h2 className="text-lg font-semibold text-stone-900">Mini practice</h2>
             <p className="mt-1 text-sm text-stone-600">
-              Multiple-choice plus short writing: spelling, rewrite, sentence
+              {trialMini
+                ? `The trial includes ${trialMini.limit} mini questions. Tried questions keep your answer so you can open them again. ${trialMini.used}/${trialMini.limit} used.`
+                : `Multiple-choice plus short writing: spelling, rewrite, sentence
               order, and 1–2 sentence practice — at Selective Year 5–6 level.
-              Tried questions keep your answer so you can open them again.{' '}
-              {miniDone}/{drills.length} tried.
+              Tried questions keep your answer so you can open them again. ${miniDone}/${drills.length} tried.`}
             </p>
           </div>
-          {!extra || extra.can_generate ? (
+          {trialMini ? null : !extra || extra.can_generate ? (
             <button
               type="button"
               onClick={() => void generateMore()}
@@ -238,6 +246,13 @@ export default function UnitPage() {
         ) : extra?.reason ? (
           <p className="text-sm text-stone-600">{extra.reason}</p>
         ) : null}
+        {drills.length === 0 ? (
+          <p className="text-sm text-stone-600">
+            {trialMini
+              ? 'The trial includes 10 mini questions. Buy a year for mini practice in every unit.'
+              : 'No mini practice in this unit yet.'}
+          </p>
+        ) : (
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {drills.map((drill) => (
             <li key={drill.slug}>
@@ -269,6 +284,7 @@ export default function UnitPage() {
             </li>
           ))}
         </ul>
+        )}
       </section>
 
       <section className="space-y-3">

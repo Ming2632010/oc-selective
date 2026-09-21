@@ -34,6 +34,8 @@ type TrialInfo = {
   days_left: number | null;
   attempts_used: number;
   attempts_limit: number;
+  mini_used?: number;
+  mini_limit?: number;
   expires_at: string | null;
 };
 type Student = { id: string; name: string; grade: string };
@@ -217,8 +219,8 @@ export default function SubscriptionPage() {
           <h1 className="text-3xl font-semibold text-warm-ink">Choose your subjects</h1>
           <p className="mt-1 text-sm text-warm-muted">
             Selective Writing is ${SUBJECT_PRICE_AUD} AUD for one year. You can
-            try 7 days first: mini practice and one full writing task with
-            three attempts. The paid year starts from the day you buy.
+            try 7 days first: 10 mini practice questions and one full writing
+            task with three attempts. The paid year starts from the day you buy.
           </p>
         </div>
         <Link
@@ -353,7 +355,7 @@ export default function SubscriptionPage() {
                           ? new Date(active.expires_at).toLocaleDateString()
                           : 'the end of 7 days'}
                         {trial
-                          ? ` · ${trial.attempts_used}/${trial.attempts_limit} full writing task used`
+                          ? ` · ${trial.attempts_used}/${trial.attempts_limit} full writing task used · ${trial.mini_used ?? 0}/${trial.mini_limit ?? 10} mini questions used`
                           : ''}
                         . Buy a year to keep this work.
                       </p>

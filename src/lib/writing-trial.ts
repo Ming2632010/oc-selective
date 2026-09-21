@@ -1,6 +1,7 @@
 export const WRITING_TRIAL_DAYS = 7;
 export const WRITING_TRIAL_FULL_TASKS = 1;
 export const WRITING_TRIAL_DRAFTS = 3;
+export const WRITING_TRIAL_MINI_QUESTIONS = 10;
 /** Distinct full writing papers allowed on the trial. Drafts 1–3 on that paper do not use extra quota. */
 export const WRITING_TRIAL_FULL_ATTEMPTS = WRITING_TRIAL_FULL_TASKS;
 
@@ -25,7 +26,34 @@ export function trialExpiresAt(from = new Date(), days = WRITING_TRIAL_DAYS) {
 }
 
 export function trialOfferCopy() {
-  return 'mini practice and one full writing task with three attempts';
+  return '10 mini practice questions and one full writing task with three attempts';
+}
+
+export function trialMiniLimitMessage(
+  _limit = WRITING_TRIAL_MINI_QUESTIONS,
+) {
+  return 'The trial includes 10 mini questions. Buy a year for mini practice in every unit.';
+}
+
+export function clipTrialMiniDrills<T extends { id: string }>(
+  drills: T[],
+  triedIds: Set<string>,
+  distinctTried: number,
+  limit = WRITING_TRIAL_MINI_QUESTIONS,
+): T[] {
+  let remaining = Math.max(0, limit - distinctTried);
+  const kept: T[] = [];
+  for (const drill of drills) {
+    if (triedIds.has(drill.id)) {
+      kept.push(drill);
+      continue;
+    }
+    if (remaining > 0) {
+      kept.push(drill);
+      remaining -= 1;
+    }
+  }
+  return kept;
 }
 
 export function trialExamLockMessage() {

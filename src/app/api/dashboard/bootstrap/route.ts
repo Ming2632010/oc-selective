@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { isSubscriptionActive } from '@/lib/subscription';
-import { getDashboardOverview, getWritingLicence, applyWritingTrialLimits } from '@/lib/writing-state';
+import { getDashboardOverview, getWritingLicence, applyWritingTrialLimits, trialClientFields } from '@/lib/writing-state';
 import { hasWritingProductAccess } from '@/lib/writing-trial';
 
 export const runtime = 'nodejs';
@@ -67,14 +67,7 @@ export async function GET(request: Request) {
         selected_student_id: selectedStudentId,
         writing_access: writingAccess,
         trial: licence && writingAccess !== 'not-found'
-          ? {
-              eligible: licence.trialEligible,
-              active: licence.state === 'trial',
-              days_left: licence.daysLeft,
-              attempts_used: licence.attemptsUsed,
-              attempts_limit: licence.attemptsLimit,
-              expires_at: licence.expiresAt ? new Date(licence.expiresAt).toISOString() : null,
-            }
+          ? trialClientFields(licence)
           : null,
         guidance,
       },
