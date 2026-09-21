@@ -33,7 +33,7 @@ import {
   type UnitProgressRow,
 } from '@/lib/writing-guidance';
 import {
-  WRITING_TRIAL_FULL_ATTEMPTS,
+  WRITING_TRIAL_FULL_TASKS,
   canStartWritingTrial,
   clipTrialRecommendation,
   hasWritingProductAccess,
@@ -965,7 +965,7 @@ export async function getWritingLicence(userId: string, studentId: string): Prom
       expiresAt: null,
       daysLeft: null,
       attemptsUsed: 0,
-      attemptsLimit: WRITING_TRIAL_FULL_ATTEMPTS,
+      attemptsLimit: WRITING_TRIAL_FULL_TASKS,
       trialEligible: false,
     };
   }
@@ -1001,7 +1001,7 @@ export async function getWritingLicence(userId: string, studentId: string): Prom
       expiresAt: live.expires_at,
       daysLeft: trialDaysLeft(new Date(live.expires_at)),
       attemptsUsed,
-      attemptsLimit: WRITING_TRIAL_FULL_ATTEMPTS,
+      attemptsLimit: WRITING_TRIAL_FULL_TASKS,
       trialEligible: false,
     };
   }
@@ -1012,7 +1012,7 @@ export async function getWritingLicence(userId: string, studentId: string): Prom
       expiresAt: live.expires_at,
       daysLeft: live.expires_at ? trialDaysLeft(new Date(live.expires_at)) : null,
       attemptsUsed,
-      attemptsLimit: WRITING_TRIAL_FULL_ATTEMPTS,
+      attemptsLimit: WRITING_TRIAL_FULL_TASKS,
       trialEligible: false,
     };
   }
@@ -1028,7 +1028,7 @@ export async function getWritingLicence(userId: string, studentId: string): Prom
     expiresAt: null,
     daysLeft: null,
     attemptsUsed,
-    attemptsLimit: WRITING_TRIAL_FULL_ATTEMPTS,
+    attemptsLimit: WRITING_TRIAL_FULL_TASKS,
     trialEligible: eligible.ok,
   };
 }
@@ -1175,7 +1175,7 @@ export async function startWritingTrial(userId: string, studentId: string) {
     ok: true as const,
     expiresAt,
     daysLeft: trialDaysLeft(expiresAt),
-    attemptsLimit: WRITING_TRIAL_FULL_ATTEMPTS,
+    attemptsLimit: WRITING_TRIAL_FULL_TASKS,
   };
 }
 

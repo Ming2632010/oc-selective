@@ -1,5 +1,8 @@
 export const WRITING_TRIAL_DAYS = 7;
-export const WRITING_TRIAL_FULL_ATTEMPTS = 3;
+export const WRITING_TRIAL_FULL_TASKS = 1;
+export const WRITING_TRIAL_DRAFTS = 3;
+/** Distinct full writing papers allowed on the trial. Drafts 1–3 on that paper do not use extra quota. */
+export const WRITING_TRIAL_FULL_ATTEMPTS = WRITING_TRIAL_FULL_TASKS;
 
 const WRITING_DASHBOARD_GRADES = new Set(['Year 4', 'Year 5', 'Year 6', 'Year 7']);
 
@@ -21,18 +24,22 @@ export function trialExpiresAt(from = new Date(), days = WRITING_TRIAL_DAYS) {
   return new Date(from.getTime() + days * 24 * 60 * 60 * 1000);
 }
 
+export function trialOfferCopy() {
+  return 'mini practice and one full writing task with three attempts';
+}
+
 export function trialExamLockMessage() {
-  return 'The 7-day trial includes mini practice and three full writing tasks. Term reviews and exam papers are in the full year.';
+  return `The 7-day trial includes ${trialOfferCopy()}. Term reviews and exam papers are in the full year.`;
 }
 
 export function trialCustomLockMessage() {
-  return 'Custom tasks are in the full year. The trial is mini practice and three full writing tasks.';
+  return `Custom tasks are in the full year. The trial is ${trialOfferCopy()}.`;
 }
 
 export function trialFullTaskLimitMessage(
-  limit = WRITING_TRIAL_FULL_ATTEMPTS,
+  _limit = WRITING_TRIAL_FULL_TASKS,
 ) {
-  return `The trial allows ${limit} full writing tasks. Buy a year to keep writing.`;
+  return 'The trial includes one full writing task with three attempts. Buy a year to keep writing.';
 }
 
 export function canStartWritingTrial(input: {
@@ -65,7 +72,7 @@ export function trialAllowsPracticeTask(input: {
   if (kind !== 'practice') {
     return { ok: false, message: trialExamLockMessage() };
   }
-  const limit = input.attemptLimit ?? WRITING_TRIAL_FULL_ATTEMPTS;
+  const limit = input.attemptLimit ?? WRITING_TRIAL_FULL_TASKS;
   if (!input.alreadyTried && input.distinctTried >= limit) {
     return { ok: false, message: trialFullTaskLimitMessage(limit) };
   }

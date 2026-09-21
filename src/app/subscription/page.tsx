@@ -217,8 +217,8 @@ export default function SubscriptionPage() {
           <h1 className="text-3xl font-semibold text-warm-ink">Choose your subjects</h1>
           <p className="mt-1 text-sm text-warm-muted">
             Selective Writing is ${SUBJECT_PRICE_AUD} AUD for one year. You can
-            try 7 days first: mini practice and three full writing tasks. The
-            paid year starts from the day you buy.
+            try 7 days first: mini practice and one full writing task with
+            three attempts. The paid year starts from the day you buy.
           </p>
         </div>
         <Link
@@ -353,7 +353,7 @@ export default function SubscriptionPage() {
                           ? new Date(active.expires_at).toLocaleDateString()
                           : 'the end of 7 days'}
                         {trial
-                          ? ` · ${trial.attempts_used}/${trial.attempts_limit} full writing tasks used`
+                          ? ` · ${trial.attempts_used}/${trial.attempts_limit} full writing task used`
                           : ''}
                         . Buy a year to keep this work.
                       </p>

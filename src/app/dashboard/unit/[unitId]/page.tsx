@@ -315,7 +315,7 @@ export default function UnitPage() {
                   <div className="mt-3 flex flex-wrap gap-3 text-sm">
                     {prompt.is_locked ? (
                       <p className="mt-3 text-sm text-stone-600">
-                        The trial includes three full writing tasks. Buy a year to start this one.
+                        The trial includes one full writing task with three attempts. Buy a year to start this one.
                       </p>
                     ) : prompt.maxDraft >= 3 ? (
                       <Link

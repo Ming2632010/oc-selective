@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   WRITING_TRIAL_DAYS,
-  WRITING_TRIAL_FULL_ATTEMPTS,
+  WRITING_TRIAL_DRAFTS,
+  WRITING_TRIAL_FULL_TASKS,
   canStartWritingTrial,
   clipTrialRecommendation,
   hasWritingProductAccess,
@@ -13,9 +14,10 @@ import {
 } from './writing-trial';
 
 describe('writing trial rules', () => {
-  it('lasts seven days and allows three full writing tasks', () => {
+  it('lasts seven days and allows one full writing task with three attempts', () => {
     assert.equal(WRITING_TRIAL_DAYS, 7);
-    assert.equal(WRITING_TRIAL_FULL_ATTEMPTS, 3);
+    assert.equal(WRITING_TRIAL_FULL_TASKS, 1);
+    assert.equal(WRITING_TRIAL_DRAFTS, 3);
     const start = new Date('2026-09-21T00:00:00Z');
     assert.equal(trialExpiresAt(start).toISOString(), '2026-09-28T00:00:00.000Z');
     assert.equal(trialDaysLeft(new Date('2026-09-28T00:00:00Z'), start), 7);
@@ -49,7 +51,7 @@ describe('writing trial rules', () => {
     if (!paid.ok) assert.match(paid.reason, /already has/);
   });
 
-  it('allows mini-style full writing tasks up to three attempts, and blocks exams', () => {
+  it('allows one full writing paper, keeps its three drafts, and blocks a second paper', () => {
     assert.equal(
       trialAllowsPracticeTask({
         promptKind: 'practice',
@@ -62,17 +64,17 @@ describe('writing trial rules', () => {
       trialAllowsPracticeTask({
         promptKind: 'practice',
         alreadyTried: true,
-        distinctTried: 3,
+        distinctTried: 1,
       }).ok,
       true,
     );
-    const fourth = trialAllowsPracticeTask({
+    const second = trialAllowsPracticeTask({
       promptKind: 'practice',
       alreadyTried: false,
-      distinctTried: 3,
+      distinctTried: 1,
     });
-    assert.equal(fourth.ok, false);
-    if (!fourth.ok) assert.equal(fourth.message, trialFullTaskLimitMessage());
+    assert.equal(second.ok, false);
+    if (!second.ok) assert.equal(second.message, trialFullTaskLimitMessage());
     const exam = trialAllowsPracticeTask({
       promptKind: 'test',
       alreadyTried: false,
@@ -93,18 +95,18 @@ describe('writing trial rules', () => {
     assert.equal(hasWritingProductAccess('unlicensed'), false);
   });
 
-  it('keeps in-progress trial tasks in the next-task slot and hides a fourth start', () => {
+  it('keeps the started trial paper in the next-task slot and hides a second start', () => {
     assert.equal(
       clipTrialRecommendation(
         { prompt_id: 'started', next_draft: 2 },
-        3,
+        1,
       )?.prompt_id,
       'started',
     );
     assert.equal(
       clipTrialRecommendation(
         { prompt_id: 'fresh', next_draft: 1 },
-        3,
+        1,
       ),
       null,
     );

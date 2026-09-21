@@ -200,7 +200,7 @@ export default function WritingPracticePage() {
                 ? 'Unlock these exam papers by trying every full writing task and every term review at least once.'
                 : p.kind === 'test'
                   ? 'Try every full writing task in this unit at least once before the term review.'
-                  : 'The trial allows three full writing tasks. Buy a year to keep writing.',
+                  : 'The trial includes one full writing task with three attempts. Buy a year to keep writing.',
           );
           return;
         }
