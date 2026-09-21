@@ -3,6 +3,7 @@ import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { WRITING_TYPES, type WritingType } from '@/lib/units';
 import { getWritingAccessState } from '@/lib/writing-state';
+import { hasWritingProductAccess, trialCustomLockMessage } from '@/lib/writing-trial';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,8 +17,11 @@ function isWritingType(value: unknown): value is WritingType {
 async function assertAccess(userId: string, studentId: string) {
   const access = await getWritingAccessState(userId, studentId);
   if (access === 'not-found') return { error: 'Student not found', status: 404 };
-  if (access === 'unlicensed') {
+  if (!hasWritingProductAccess(access)) {
     return { error: 'Selective Writing access is required for this child.', status: 403 };
+  }
+  if (access === 'trial') {
+    return { error: trialCustomLockMessage(), status: 403 };
   }
   return null;
 }

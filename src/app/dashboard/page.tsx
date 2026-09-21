@@ -41,6 +41,7 @@ type SubscriptionItem = {
   student_id: string | null;
   status: string;
   expires_at: string | null;
+  access_kind?: 'paid' | 'trial';
   active: boolean;
 };
 
@@ -112,6 +113,15 @@ const GROUP_BLURBS: Record<UnitGroup, string> = {
   Persuasive: 'Convince and influence',
 };
 
+type WritingTrialInfo = {
+  eligible: boolean;
+  active: boolean;
+  days_left: number | null;
+  attempts_used: number;
+  attempts_limit: number;
+  expires_at: string | null;
+};
+
 function subscriptionBanner(
   sub: SubscriptionState | null,
   studentId: string | null,
@@ -129,6 +139,19 @@ function subscriptionBanner(
       tone: 'warn',
       message:
         'This child does not have Selective Writing access yet.',
+    };
+  }
+
+  if (writingAccess.access_kind === 'trial') {
+    const daysLeft = writingAccess.expires_at
+      ? Math.max(
+          0,
+          Math.ceil((new Date(writingAccess.expires_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000)),
+        )
+      : 0;
+    return {
+      tone: 'info',
+      message: `7-day trial · ${daysLeft} day${daysLeft === 1 ? '' : 's'} left. Mini practice and three full writing tasks. Buy a year to keep this work.`,
     };
   }
 
@@ -197,6 +220,8 @@ export default function DashboardPage() {
   const [customQuestion, setCustomQuestion] = useState('');
   const [customType, setCustomType] = useState('narrative');
   const [customCreating, setCustomCreating] = useState(false);
+  const [writingTrial, setWritingTrial] = useState<WritingTrialInfo | null>(null);
+  const [startingTrial, setStartingTrial] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -219,6 +244,7 @@ export default function DashboardPage() {
       setWeekNote(null);
       setHistory([]);
       setRecommendation(null);
+      setWritingTrial(null);
       setExpandedGroups([]);
       setLoadedGroups({});
       setCustomOpen(false);
@@ -260,6 +286,7 @@ export default function DashboardPage() {
       setWeekNote(guidance?.week_note ?? null);
       setHistory(guidance?.history ?? []);
       setRecommendation(guidance?.recommendation ?? null);
+      setWritingTrial((res.data.trial as WritingTrialInfo | null) ?? null);
       const suggestedGroup =
         UNIT_GROUPS.find((group) =>
           unitsByGroup(group).some((unit) => unit.id === guidance?.recommendation?.module_id),
@@ -364,6 +391,26 @@ export default function DashboardPage() {
     }
   }
 
+  async function startWritingTrial() {
+    if (!selectedStudentId || startingTrial) return;
+    setStartingTrial(true);
+    setError(null);
+    try {
+      const res = await apiFetch('/api/subscription/start-trial', {
+        method: 'POST',
+        body: JSON.stringify({ student_id: selectedStudentId }),
+      });
+      if (!res.response.ok) {
+        throw new Error(res.data.error || 'Could not start the trial');
+      }
+      await loadDashboard(selectedStudentId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not start the trial');
+    } finally {
+      setStartingTrial(false);
+    }
+  }
+
   async function onCreateStudent(event: FormEvent) {
     event.preventDefault();
     setCreating(true);
@@ -456,7 +503,13 @@ export default function DashboardPage() {
           <div
             className={`flex flex-wrap items-center justify-between gap-3 rounded-md border px-4 py-3 ${classes}`}
           >
-            <p className="text-sm">{banner.message}</p>
+            <p className="text-sm">
+              {writingTrial?.active
+                ? `7-day trial · ${writingTrial.days_left ?? 0} day${
+                    writingTrial.days_left === 1 ? '' : 's'
+                  } left · ${writingTrial.attempts_used}/${writingTrial.attempts_limit} full writing tasks used. Mini practice is open. Buy a year to keep this work.`
+                : banner.message}
+            </p>
             <Link
               href="/subscription"
               className="rounded-full bg-terracotta px-3 py-1.5 text-sm font-medium text-white hover:bg-terracotta-hover"
@@ -578,7 +631,41 @@ export default function DashboardPage() {
             </form>
           </section>
 
-          {selectedWritingAccess ? (
+          {!selectedWritingAccess ? (
+            <section className="space-y-4 rounded-lg border border-warm-border bg-warm-card p-6 shadow-card">
+              <h2 className="text-lg font-semibold text-warm-ink">Try Selective Writing</h2>
+              <p className="text-sm text-warm-muted">
+                7 days to decide. The trial includes mini practice and three
+                full writing tasks, with the same timer and notes as the paid
+                year. Term reviews, bonus papers, and custom tasks stay in the
+                full year.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                {writingTrial?.eligible ? (
+                  <button
+                    type="button"
+                    onClick={() => void startWritingTrial()}
+                    disabled={startingTrial || !selectedStudentId}
+                    className="rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
+                  >
+                    {startingTrial ? 'Starting…' : 'Start 7-day trial'}
+                  </button>
+                ) : (
+                  <p className="text-sm text-warm-muted">
+                    {writingTrial && !writingTrial.eligible
+                      ? 'This child has already used a 7-day trial.'
+                      : 'Add a Year 4–7 profile to start a trial.'}
+                  </p>
+                )}
+                <Link
+                  href="/subscription"
+                  className="rounded-full border border-brand px-4 py-2 text-sm font-medium text-brand hover:bg-[#EDF3ED]"
+                >
+                  Buy a year · $99
+                </Link>
+              </div>
+            </section>
+          ) : (
             <>
           {recommendation ? (
             <section className="rounded-lg border border-[#D6E3D8] bg-[#EEF6F0] p-5 shadow-card">
@@ -614,10 +701,9 @@ export default function DashboardPage() {
             <div>
               <h2 className="text-lg font-medium text-warm-ink">Writing units</h2>
               <p className="mt-1 text-sm text-warm-muted">
-                Start any unit. Each one has mini practice and three full
-                writing tasks. Term reviews stay locked until you have tried
-                every full writing task in that unit at least once. One
-                sitting, one attempt only.
+                {selectedWritingAccess.access_kind === 'trial'
+                  ? 'Trial: mini practice is open, and you can sit three full writing tasks. Term reviews, bonus papers, and custom tasks are in the full year.'
+                  : 'Start any unit. Each one has mini practice and three full writing tasks. Term reviews stay locked until you have tried every full writing task in that unit at least once. One sitting, one attempt only.'}
               </p>
             </div>
             {UNIT_GROUPS.map((group) => {
@@ -724,11 +810,11 @@ export default function DashboardPage() {
                         Term review
                       </h4>
                       <p className="mt-1 text-sm text-warm-muted">
-                        {groupTests.length} test
-                        {groupTests.length === 1 ? '' : 's'} — one for each{' '}
-                        {group.toLowerCase()} unit. Unlock a review by trying
-                        all three full writing tasks in that unit. Exam-style:
-                        one sitting, AI marking, no re-attempt.
+                        {selectedWritingAccess.access_kind === 'trial'
+                          ? 'Term reviews stay in the full year. The trial is mini practice and three full writing tasks.'
+                          : `${groupTests.length} test${
+                              groupTests.length === 1 ? '' : 's'
+                            } — one for each ${group.toLowerCase()} unit. Unlock a review by trying all three full writing tasks in that unit. Exam-style: one sitting, AI marking, no re-attempt.`}
                       </p>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -757,7 +843,9 @@ export default function DashboardPage() {
                                   ? `Sat · ${test.overall_score}/25`
                                   : 'Sat · marked'
                                 : test.locked
-                                  ? total > 0
+                                  ? selectedWritingAccess.access_kind === 'trial'
+                                    ? 'Locked · in the full year'
+                                    : total > 0
                                     ? `Locked · ${tried}/${total} writing tasks tried`
                                     : 'Locked · try the unit writing tasks first'
                                   : 'Ready · not started'}
@@ -793,6 +881,7 @@ export default function DashboardPage() {
               );
             })}
 
+            {selectedWritingAccess.access_kind === 'trial' ? null : (
             <div className="space-y-4">
               <button
                 type="button"
@@ -873,6 +962,7 @@ export default function DashboardPage() {
                 </section>
               ) : null}
             </div>
+            )}
 
             {bonusPapers ? (
               <section
@@ -901,10 +991,9 @@ export default function DashboardPage() {
                         Exam-style writing, after the course
                       </h3>
                       <p className="mt-2 max-w-2xl text-sm text-white/80">
-                        Original TrialSeed papers in the forms used on recent
-                        Selective writing tests. One sitting, 30 minutes, no
-                        re-attempt. Unlock them by trying every full writing
-                        task and every term review at least once.
+                        {selectedWritingAccess.access_kind === 'trial'
+                          ? 'Bonus exam papers stay in the full year. The trial is mini practice and three full writing tasks.'
+                          : 'Original TrialSeed papers in the forms used on recent Selective writing tests. One sitting, 30 minutes, no re-attempt. Unlock them by trying every full writing task and every term review at least once.'}
                       </p>
                     </div>
                     <span className="rounded-full border border-[#E5B993] bg-[#C49B7A] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
@@ -975,21 +1064,6 @@ export default function DashboardPage() {
             ) : null}
           </section>
             </>
-          ) : (
-            <section className="rounded-lg border border-amber-300 bg-amber-50 p-5 text-amber-900">
-              <h2 className="font-serif text-xl font-semibold">Writing access needed</h2>
-              <p className="mt-1 text-sm">
-                {activeStudent?.name ?? 'This child'} has a separate profile, so their
-                work stays private and is never mixed with another child’s work. Choose
-                a yearly Selective Writing access for this child to start.
-              </p>
-              <Link
-                href="/subscription"
-                className="mt-4 inline-flex rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover"
-              >
-                Manage this child&apos;s access
-              </Link>
-            </section>
           )}
         </>
       )}

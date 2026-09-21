@@ -12,8 +12,10 @@ import {
   assertOwnedStudent,
   getBonusExamAccess,
   getTermReviewAccess,
+  getWritingAccessState,
   hasCompletedWarmup,
 } from '@/lib/writing-state';
+import { trialExamLockMessage } from '@/lib/writing-trial';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -58,6 +60,9 @@ export async function GET(request: Request) {
     const owned = await assertOwnedStudent(userId, studentId);
     if (!owned) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    }
+    if ((await getWritingAccessState(userId, studentId)) === 'trial') {
+      return NextResponse.json({ error: trialExamLockMessage() }, { status: 403 });
     }
 
     const prompt = await query<{ kind: string; module_id: number }>(
@@ -126,6 +131,9 @@ export async function POST(request: Request) {
     const owned = await assertOwnedStudent(userId, studentId);
     if (!owned) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    }
+    if ((await getWritingAccessState(userId, studentId)) === 'trial') {
+      return NextResponse.json({ error: trialExamLockMessage() }, { status: 403 });
     }
 
     const prompt = await query<{ kind: string; module_id: number }>(

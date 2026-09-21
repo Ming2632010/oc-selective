@@ -32,6 +32,21 @@ import {
   type PromptSummary,
   type UnitProgressRow,
 } from '@/lib/writing-guidance';
+import {
+  WRITING_TRIAL_FULL_ATTEMPTS,
+  canStartWritingTrial,
+  clipTrialRecommendation,
+  hasWritingProductAccess,
+  trialAllowsPracticeTask,
+  trialDaysLeft,
+  trialExamLockMessage,
+  trialExpiresAt,
+  usesWritingDashboard,
+  type WritingAccessState,
+} from '@/lib/writing-trial';
+
+export type { WritingAccessState } from '@/lib/writing-trial';
+export { hasWritingProductAccess } from '@/lib/writing-trial';
 
 const SEEDED_DRILL_COUNT =
   SEED_MINI_DRILLS.length +
@@ -914,36 +929,330 @@ export async function unlockExtraPack(studentId: string, moduleId: number) {
   };
 }
 
-export type WritingAccessState = 'granted' | 'unlicensed' | 'not-found';
+export type WritingLicence = {
+  state: WritingAccessState;
+  accessKind: 'paid' | 'trial' | null;
+  expiresAt: Date | null;
+  daysLeft: number | null;
+  attemptsUsed: number;
+  attemptsLimit: number;
+  trialEligible: boolean;
+};
+
+export async function countPracticeTasksTried(studentId: string) {
+  const result = await query<{ n: string }>(
+    `SELECT COUNT(DISTINCT a.prompt_id)::text AS n
+     FROM writing_attempts a
+     JOIN prompts p ON p.id = a.prompt_id
+     WHERE a.student_id = $1
+       AND COALESCE(p.kind, 'practice') = 'practice'`,
+    [studentId],
+  );
+  return Number(result.rows[0]?.n ?? 0);
+}
+
+export async function getWritingLicence(userId: string, studentId: string): Promise<WritingLicence> {
+  const student = await query<{ id: string; grade: string }>(
+    `SELECT id, grade FROM students
+     WHERE id = $1 AND user_id = $2
+     LIMIT 1`,
+    [studentId, userId],
+  );
+  if (!student.rows[0]) {
+    return {
+      state: 'not-found',
+      accessKind: null,
+      expiresAt: null,
+      daysLeft: null,
+      attemptsUsed: 0,
+      attemptsLimit: WRITING_TRIAL_FULL_ATTEMPTS,
+      trialEligible: false,
+    };
+  }
+
+  const rows = await query<{
+    access_kind: string | null;
+    status: string;
+    expires_at: Date | null;
+    trial_started_at: Date | null;
+  }>(
+    `SELECT COALESCE(access_kind, 'paid') AS access_kind, status, expires_at, trial_started_at
+     FROM user_subscriptions
+     WHERE student_id = $1 AND user_id = $2 AND subject = 'writing'
+     ORDER BY created_at DESC`,
+    [studentId, userId],
+  );
+
+  const now = Date.now();
+  const live = rows.rows.find((row) => {
+    if (row.status !== 'active') return false;
+    if (!row.expires_at) return row.access_kind !== 'trial';
+    return new Date(row.expires_at).getTime() > now;
+  });
+  const attemptsUsed = await countPracticeTasksTried(studentId);
+  const hadTrial = rows.rows.some(
+    (row) => row.access_kind === 'trial' || Boolean(row.trial_started_at),
+  );
+
+  if (live?.access_kind === 'trial' && live.expires_at) {
+    return {
+      state: 'trial',
+      accessKind: 'trial',
+      expiresAt: live.expires_at,
+      daysLeft: trialDaysLeft(new Date(live.expires_at)),
+      attemptsUsed,
+      attemptsLimit: WRITING_TRIAL_FULL_ATTEMPTS,
+      trialEligible: false,
+    };
+  }
+  if (live) {
+    return {
+      state: 'granted',
+      accessKind: 'paid',
+      expiresAt: live.expires_at,
+      daysLeft: live.expires_at ? trialDaysLeft(new Date(live.expires_at)) : null,
+      attemptsUsed,
+      attemptsLimit: WRITING_TRIAL_FULL_ATTEMPTS,
+      trialEligible: false,
+    };
+  }
+
+  const eligible = canStartWritingTrial({
+    grade: student.rows[0].grade,
+    hadTrial,
+    hasPaidAccess: false,
+  });
+  return {
+    state: 'unlicensed',
+    accessKind: null,
+    expiresAt: null,
+    daysLeft: null,
+    attemptsUsed,
+    attemptsLimit: WRITING_TRIAL_FULL_ATTEMPTS,
+    trialEligible: eligible.ok,
+  };
+}
 
 export async function getWritingAccessState(
   userId: string,
   studentId: string,
 ): Promise<WritingAccessState> {
-  const result = await query<{ id: string; granted: boolean }>(
-    `SELECT student.id,
-            EXISTS (
-              SELECT 1 FROM user_subscriptions subscription
-              WHERE subscription.student_id = student.id
-                AND subscription.user_id = student.user_id
-                AND subscription.subject = 'writing'
-                AND subscription.status = 'active'
-                AND (subscription.expires_at IS NULL OR subscription.expires_at > NOW())
-            ) AS granted
-     FROM students student
-     WHERE student.id = $1
-       AND student.user_id = $2
-     LIMIT 1`,
-    [studentId, userId],
-  );
-  if (!result.rows[0]) return 'not-found';
-  return result.rows[0].granted ? 'granted' : 'unlicensed';
+  return (await getWritingLicence(userId, studentId)).state;
+}
+
+export function applyWritingTrialLimits<
+  T extends {
+    recommendation?: NextTaskRecommendation | null;
+    bonus_papers?: Awaited<ReturnType<typeof getBonusPapers>>;
+    term_tests?: TermTestRow[];
+  },
+>(guidance: T, licence: WritingLicence): T {
+  if (licence.state !== 'trial') return guidance;
+  return {
+    ...guidance,
+    recommendation: clipTrialRecommendation(
+      guidance.recommendation ?? null,
+      licence.attemptsUsed,
+      licence.attemptsLimit,
+    ),
+    ...(guidance.bonus_papers
+      ? {
+          bonus_papers: {
+            ...guidance.bonus_papers,
+            access: { ...guidance.bonus_papers.access, locked: true },
+            lock_reason: trialExamLockMessage(),
+            papers: guidance.bonus_papers.papers.map((paper) => ({
+              ...paper,
+              locked: !paper.sat,
+            })),
+          },
+        }
+      : {}),
+    ...(guidance.term_tests
+      ? {
+          term_tests: guidance.term_tests.map((test) => ({
+            ...test,
+            locked: !test.sat,
+          })),
+        }
+      : {}),
+  };
 }
 
 export async function assertOwnedStudent(userId: string, studentId: string) {
-  return (await getWritingAccessState(userId, studentId)) === 'granted'
-    ? { id: studentId }
-    : null;
+  const access = await getWritingAccessState(userId, studentId);
+  return hasWritingProductAccess(access) ? { id: studentId } : null;
+}
+
+export async function trialBlocksPrompt(
+  userId: string,
+  studentId: string,
+  promptId: string,
+  promptKind: string,
+) {
+  const licence = await getWritingLicence(userId, studentId);
+  if (licence.state === 'not-found') {
+    return { error: 'Student not found', status: 404 as const };
+  }
+  if (licence.state === 'unlicensed') {
+    return {
+      error: 'Selective Writing access is required for this child.',
+      status: 403 as const,
+    };
+  }
+  if (licence.state !== 'trial') return null;
+  const tried = await query<{ n: string }>(
+    `SELECT COUNT(*)::text AS n FROM writing_attempts
+     WHERE student_id = $1 AND prompt_id = $2`,
+    [studentId, promptId],
+  );
+  const allowed = trialAllowsPracticeTask({
+    promptKind,
+    alreadyTried: Number(tried.rows[0]?.n ?? 0) > 0,
+    distinctTried: licence.attemptsUsed,
+    attemptLimit: licence.attemptsLimit,
+  });
+  if (allowed.ok) return null;
+  return { error: allowed.message, status: 403 as const };
+}
+
+export async function startWritingTrial(userId: string, studentId: string) {
+  const student = await query<{ id: string; grade: string }>(
+    `SELECT id, grade FROM students WHERE id = $1 AND user_id = $2 LIMIT 1`,
+    [studentId, userId],
+  );
+  if (!student.rows[0]) {
+    return { ok: false as const, status: 404 as const, error: 'Student not found' };
+  }
+  const licence = await getWritingLicence(userId, studentId);
+  if (licence.state === 'granted') {
+    return {
+      ok: false as const,
+      status: 409 as const,
+      error: 'This child already has Selective Writing access.',
+    };
+  }
+  if (licence.state === 'trial') {
+    return {
+      ok: false as const,
+      status: 409 as const,
+      error: 'A 7-day trial is already running for this child.',
+    };
+  }
+  if (!licence.trialEligible) {
+    return {
+      ok: false as const,
+      status: 409 as const,
+      error: usesWritingDashboard(student.rows[0].grade)
+        ? 'This child has already used a 7-day trial.'
+        : 'Selective Writing is for Year 4–7 profiles.',
+    };
+  }
+
+  const expiresAt = trialExpiresAt();
+  try {
+    await query(
+      `INSERT INTO user_subscriptions (
+         user_id, student_id, subject, status, access_kind, expires_at, trial_started_at
+       ) VALUES ($1, $2, 'writing', 'active', 'trial', $3, NOW())`,
+      [userId, studentId, expiresAt.toISOString()],
+    );
+  } catch (error) {
+    const code =
+      error && typeof error === 'object' && 'code' in error
+        ? String((error as { code?: unknown }).code)
+        : '';
+    if (code === '23505') {
+      return {
+        ok: false as const,
+        status: 409 as const,
+        error: 'This child has already used a 7-day trial.',
+      };
+    }
+    throw error;
+  }
+  return {
+    ok: true as const,
+    expiresAt,
+    daysLeft: trialDaysLeft(expiresAt),
+    attemptsLimit: WRITING_TRIAL_FULL_ATTEMPTS,
+  };
+}
+
+export async function grantPaidWritingAccess(input: {
+  userId: string;
+  studentId: string;
+  subject: string;
+  paymentRef: string;
+  priceId: string | null;
+  promotionCodeId: string | null;
+  couponId: string | null;
+  amountPaid: number | null;
+  currency: string | null;
+  expiresAt: string;
+}) {
+  const converted = await query<{ id: string }>(
+    `UPDATE user_subscriptions
+     SET status = 'active',
+         access_kind = 'paid',
+         stripe_subscription_id = $4,
+         stripe_price_id = $5,
+         stripe_promotion_code_id = $6,
+         stripe_coupon_id = $7,
+         amount_paid = $8,
+         currency = $9,
+         expires_at = $10::timestamptz,
+         updated_at = NOW()
+     WHERE id = (
+       SELECT id FROM user_subscriptions
+       WHERE user_id = $1 AND student_id = $2 AND subject = $3 AND access_kind = 'trial'
+       ORDER BY created_at DESC
+       LIMIT 1
+     )
+     RETURNING id`,
+    [
+      input.userId,
+      input.studentId,
+      input.subject,
+      input.paymentRef,
+      input.priceId,
+      input.promotionCodeId,
+      input.couponId,
+      input.amountPaid,
+      input.currency,
+      input.expiresAt,
+    ],
+  );
+  if (converted.rows[0]) return;
+
+  await query(
+    `INSERT INTO user_subscriptions
+       (user_id, student_id, subject, status, access_kind, stripe_subscription_id, stripe_price_id,
+        stripe_promotion_code_id, stripe_coupon_id, amount_paid, currency, expires_at)
+     VALUES ($1, $2, $3, 'active', 'paid', $4, $5, $6, $7, $8, $9, $10)
+     ON CONFLICT (stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL
+     DO UPDATE SET status = 'active',
+                   access_kind = 'paid',
+                   stripe_price_id = EXCLUDED.stripe_price_id,
+                   expires_at = EXCLUDED.expires_at,
+                   stripe_promotion_code_id = EXCLUDED.stripe_promotion_code_id,
+                   stripe_coupon_id = EXCLUDED.stripe_coupon_id,
+                   amount_paid = EXCLUDED.amount_paid,
+                   currency = EXCLUDED.currency,
+                   updated_at = NOW()`,
+    [
+      input.userId,
+      input.studentId,
+      input.subject,
+      input.paymentRef,
+      input.priceId,
+      input.promotionCodeId,
+      input.couponId,
+      input.amountPaid,
+      input.currency,
+      input.expiresAt,
+    ],
+  );
 }
 
 export type WritingExamSession = {

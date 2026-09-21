@@ -4,8 +4,10 @@ import {
   getMiniProgress,
   getTermTests,
   getUnitProgress,
-  getWritingAccessState,
+  getWritingLicence,
+  applyWritingTrialLimits,
 } from '@/lib/writing-state';
+import { hasWritingProductAccess } from '@/lib/writing-trial';
 import { UNIT_GROUPS, unitsByGroup, type UnitGroup } from '@/lib/units';
 
 export const runtime = 'nodejs';
@@ -25,9 +27,9 @@ export async function GET(request: Request) {
     if (!studentId || !isUnitGroup(group)) {
       return NextResponse.json({ error: 'student_id and a valid group are required' }, { status: 400 });
     }
-    const access = await getWritingAccessState(userId, studentId);
-    if (access === 'not-found') return NextResponse.json({ error: 'Student not found' }, { status: 404 });
-    if (access === 'unlicensed') {
+    const licence = await getWritingLicence(userId, studentId);
+    if (licence.state === 'not-found') return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    if (!hasWritingProductAccess(licence.state)) {
       return NextResponse.json({ error: 'Selective Writing access is required for this child.' }, { status: 403 });
     }
 
@@ -37,12 +39,13 @@ export async function GET(request: Request) {
     ]);
     const tests = await getTermTests(studentId, allProgress);
     const unitIds = unitsByGroup(group).map((unit) => unit.id);
+    const limited = applyWritingTrialLimits({ term_tests: tests }, licence);
     return NextResponse.json(
       {
         group,
         progress: allProgress.filter((row) => unitIds.includes(row.module_id)),
         mini_progress: allMini.filter((row) => unitIds.includes(row.module_id)),
-        term_tests: tests.filter((row) => unitIds.includes(row.module_id)),
+        term_tests: (limited.term_tests ?? tests).filter((row) => unitIds.includes(row.module_id)),
       },
       { headers: { 'Cache-Control': 'private, no-store' } },
     );

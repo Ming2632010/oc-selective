@@ -14,6 +14,7 @@ type SubscriptionRow = {
   stripe_subscription_id: string | null;
   stripe_price_id: string | null;
   expires_at: Date | null;
+  access_kind: string | null;
 };
 
 export async function GET(request: Request) {
@@ -24,7 +25,8 @@ export async function GET(request: Request) {
     }
 
     const result = await query<SubscriptionRow>(
-      `SELECT id, subject, student_id, status, stripe_subscription_id, stripe_price_id, expires_at
+      `SELECT id, subject, student_id, status, stripe_subscription_id, stripe_price_id, expires_at,
+              COALESCE(access_kind, 'paid') AS access_kind
        FROM user_subscriptions
        WHERE user_id = $1
        ORDER BY subject ASC, created_at DESC`,
@@ -38,6 +40,7 @@ export async function GET(request: Request) {
       status: row.status,
       expires_at: row.expires_at ? new Date(row.expires_at).toISOString() : null,
       stripe_subscription_id: row.stripe_subscription_id,
+      access_kind: row.access_kind === 'trial' ? 'trial' : 'paid',
       active: isSubscriptionActive(row.status, row.expires_at),
     }));
 

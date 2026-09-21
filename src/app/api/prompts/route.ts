@@ -6,9 +6,12 @@ import { isExamStyleKind } from '@/lib/seed-prompts';
 import {
   getBonusExamAccess,
   getWritingAccessState,
+  getWritingLicence,
   getTermReviewAccess,
   hasCompletedWarmup,
+  trialBlocksPrompt,
 } from '@/lib/writing-state';
+import { hasWritingProductAccess, trialAllowsPracticeTask } from '@/lib/writing-trial';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -93,7 +96,7 @@ export async function GET(request: Request) {
         if (access === 'not-found') {
           return NextResponse.json({ error: 'Student not found' }, { status: 404 });
         }
-        if (access === 'unlicensed') {
+        if (!hasWritingProductAccess(access)) {
           return NextResponse.json(
             { error: 'Selective Writing access is required for this child.' },
             { status: 403 },
@@ -112,15 +115,19 @@ export async function GET(request: Request) {
         warmupCompleted = isExam
           ? await hasCompletedWarmup(studentId, promptId)
           : true;
-        if (isExam && maxDraft < 1) {
+        const trialBlock = await trialBlocksPrompt(userId, studentId, promptId, prompt.kind);
+        if (trialBlock && access === 'trial') {
+          reviewLocked = true;
+          lockReason = trialBlock.error;
+        } else if (isExam && maxDraft < 1) {
           if (prompt.kind === 'bonus') {
-            const access = await getBonusExamAccess(studentId);
-            reviewLocked = access.locked;
-            lockReason = bonusExamLockMessage(access);
+            const examAccess = await getBonusExamAccess(studentId);
+            reviewLocked = examAccess.locked;
+            lockReason = bonusExamLockMessage(examAccess);
           } else {
-            const access = await getTermReviewAccess(studentId, prompt.module_id);
-            reviewLocked = access.locked;
-            lockReason = termReviewLockMessage(access);
+            const examAccess = await getTermReviewAccess(studentId, prompt.module_id);
+            reviewLocked = examAccess.locked;
+            lockReason = termReviewLockMessage(examAccess);
           }
         }
       }
@@ -159,7 +166,7 @@ export async function GET(request: Request) {
       if (access === 'not-found') {
         return NextResponse.json({ error: 'Student not found' }, { status: 404 });
       }
-      if (access === 'unlicensed') {
+      if (!hasWritingProductAccess(access)) {
         return NextResponse.json(
           { error: 'Selective Writing access is required for this child.' },
           { status: 403 },
@@ -201,15 +208,29 @@ export async function GET(request: Request) {
       params,
     );
 
+    const licence = studentId ? await getWritingLicence(userId, studentId) : null;
     return NextResponse.json({
       module_id: moduleId,
       unit_locked: false,
       kind,
-      prompts: result.rows.map((row) => ({
-        ...stripSamples(row),
-        is_locked: false,
-        max_draft: Number(row.max_draft ?? 0),
-      })),
+      prompts: result.rows.map((row) => {
+        const maxDraft = Number(row.max_draft ?? 0);
+        let isLocked = false;
+        if (licence?.state === 'trial') {
+          const allowed = trialAllowsPracticeTask({
+            promptKind: row.kind,
+            alreadyTried: maxDraft > 0,
+            distinctTried: licence.attemptsUsed,
+            attemptLimit: licence.attemptsLimit,
+          });
+          isLocked = !allowed.ok;
+        }
+        return {
+          ...stripSamples(row),
+          is_locked: isLocked,
+          max_draft: maxDraft,
+        };
+      }),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load prompts';

@@ -21,7 +21,9 @@ import {
   getWritingAccessState,
   getNextRecommendation,
   getTermReviewAccess,
+  trialBlocksPrompt,
 } from '@/lib/writing-state';
+import { hasWritingProductAccess } from '@/lib/writing-trial';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -59,7 +61,7 @@ export async function GET(request: Request) {
     if (access === 'not-found') {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
-    if (access === 'unlicensed') {
+    if (!hasWritingProductAccess(access)) {
       return NextResponse.json(
         { error: 'Selective Writing access is required for this child.' },
         { status: 403 },
@@ -161,15 +163,19 @@ export async function GET(request: Request) {
     const samplesUnlocked = !examStyle && maxDraft >= 3;
     let reviewLocked = false;
     let lockReason = '';
-    if (examStyle && maxDraft < 1) {
+    const trialBlock = await trialBlocksPrompt(userId, studentId, promptId, prompt.kind);
+    if (trialBlock && access === 'trial') {
+      reviewLocked = true;
+      lockReason = trialBlock.error;
+    } else if (examStyle && maxDraft < 1) {
       if (prompt.kind === 'bonus') {
-        const access = await getBonusExamAccess(studentId);
-        reviewLocked = access.locked;
-        lockReason = bonusExamLockMessage(access);
+        const examAccess = await getBonusExamAccess(studentId);
+        reviewLocked = examAccess.locked;
+        lockReason = bonusExamLockMessage(examAccess);
       } else {
-        const access = await getTermReviewAccess(studentId, prompt.module_id);
-        reviewLocked = access.locked;
-        lockReason = termReviewLockMessage(access);
+        const examAccess = await getTermReviewAccess(studentId, prompt.module_id);
+        reviewLocked = examAccess.locked;
+        lockReason = termReviewLockMessage(examAccess);
       }
     }
 
@@ -262,7 +268,7 @@ export async function POST(request: Request) {
     if (access === 'not-found') {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
-    if (access === 'unlicensed') {
+    if (!hasWritingProductAccess(access)) {
       return NextResponse.json(
         { error: 'Selective Writing access is required for this child.' },
         { status: 403 },
@@ -298,6 +304,11 @@ export async function POST(request: Request) {
     }
     if (prompt.kind === 'custom' && prompt.student_id !== studentId) {
       return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
+    }
+
+    const trialBlock = await trialBlocksPrompt(userId, studentId, promptId, prompt.kind);
+    if (trialBlock) {
+      return NextResponse.json({ error: trialBlock.error }, { status: trialBlock.status });
     }
 
     const isExam = isExamStyleKind(prompt.kind);

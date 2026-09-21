@@ -1,0 +1,86 @@
+export const WRITING_TRIAL_DAYS = 7;
+export const WRITING_TRIAL_FULL_ATTEMPTS = 3;
+
+const WRITING_DASHBOARD_GRADES = new Set(['Year 4', 'Year 5', 'Year 6', 'Year 7']);
+
+export function usesWritingDashboard(grade: string) {
+  return WRITING_DASHBOARD_GRADES.has(grade);
+}
+
+export type WritingAccessState = 'granted' | 'trial' | 'unlicensed' | 'not-found';
+
+export function hasWritingProductAccess(state: WritingAccessState) {
+  return state === 'granted' || state === 'trial';
+}
+
+export function trialDaysLeft(expiresAt: Date, now = new Date()) {
+  return Math.max(0, Math.ceil((expiresAt.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)));
+}
+
+export function trialExpiresAt(from = new Date(), days = WRITING_TRIAL_DAYS) {
+  return new Date(from.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+export function trialExamLockMessage() {
+  return 'The 7-day trial includes mini practice and three full writing tasks. Term reviews and exam papers are in the full year.';
+}
+
+export function trialCustomLockMessage() {
+  return 'Custom tasks are in the full year. The trial is mini practice and three full writing tasks.';
+}
+
+export function trialFullTaskLimitMessage(
+  limit = WRITING_TRIAL_FULL_ATTEMPTS,
+) {
+  return `The trial allows ${limit} full writing tasks. Buy a year to keep writing.`;
+}
+
+export function canStartWritingTrial(input: {
+  grade: string;
+  hadTrial: boolean;
+  hasPaidAccess: boolean;
+}): { ok: true } | { ok: false; reason: string } {
+  if (!usesWritingDashboard(input.grade)) {
+    return { ok: false, reason: 'Selective Writing is for Year 4–7 profiles.' };
+  }
+  if (input.hasPaidAccess) {
+    return { ok: false, reason: 'This child already has Selective Writing access.' };
+  }
+  if (input.hadTrial) {
+    return { ok: false, reason: 'This child has already used a 7-day trial.' };
+  }
+  return { ok: true };
+}
+
+export function trialAllowsPracticeTask(input: {
+  promptKind: string;
+  alreadyTried: boolean;
+  distinctTried: number;
+  attemptLimit?: number;
+}): { ok: true } | { ok: false; message: string } {
+  const kind = input.promptKind || 'practice';
+  if (kind === 'custom') {
+    return { ok: false, message: trialCustomLockMessage() };
+  }
+  if (kind !== 'practice') {
+    return { ok: false, message: trialExamLockMessage() };
+  }
+  const limit = input.attemptLimit ?? WRITING_TRIAL_FULL_ATTEMPTS;
+  if (!input.alreadyTried && input.distinctTried >= limit) {
+    return { ok: false, message: trialFullTaskLimitMessage(limit) };
+  }
+  return { ok: true };
+}
+
+export function clipTrialRecommendation<
+  T extends { prompt_id: string; next_draft: number },
+>(recommendation: T | null, distinctTried: number, attemptLimit?: number): T | null {
+  if (!recommendation) return null;
+  const allowed = trialAllowsPracticeTask({
+    promptKind: 'practice',
+    alreadyTried: recommendation.next_draft > 1,
+    distinctTried,
+    attemptLimit,
+  });
+  return allowed.ok ? recommendation : null;
+}

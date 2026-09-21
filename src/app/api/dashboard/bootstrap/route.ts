@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { isSubscriptionActive } from '@/lib/subscription';
-import { getDashboardOverview, getWritingAccessState } from '@/lib/writing-state';
+import { getDashboardOverview, getWritingLicence, applyWritingTrialLimits } from '@/lib/writing-state';
+import { hasWritingProductAccess } from '@/lib/writing-trial';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,8 +25,10 @@ export async function GET(request: Request) {
       ),
       query<{
         id: string; subject: string; student_id: string | null; status: string; expires_at: Date | null;
+        access_kind: string | null;
       }>(
-        `SELECT id, subject, student_id, status, expires_at FROM user_subscriptions
+        `SELECT id, subject, student_id, status, expires_at, COALESCE(access_kind, 'paid') AS access_kind
+         FROM user_subscriptions
          WHERE user_id = $1 ORDER BY subject ASC, created_at DESC`,
         [userId],
       ),
@@ -42,15 +45,17 @@ export async function GET(request: Request) {
     const subscriptions = subscriptionResult.rows.map((row) => ({
       ...row,
       expires_at: row.expires_at ? new Date(row.expires_at).toISOString() : null,
+      access_kind: row.access_kind === 'trial' ? 'trial' : 'paid',
       active: isSubscriptionActive(row.status, row.expires_at),
     }));
 
-    const writingAccess = selectedStudentId
-      ? await getWritingAccessState(userId, selectedStudentId)
-      : 'not-found';
+    const licence = selectedStudentId
+      ? await getWritingLicence(userId, selectedStudentId)
+      : null;
+    const writingAccess = licence?.state ?? 'not-found';
     const guidance =
-      selectedStudentId && writingAccess === 'granted'
-        ? await getDashboardOverview(selectedStudentId)
+      selectedStudentId && licence && hasWritingProductAccess(licence.state)
+        ? applyWritingTrialLimits(await getDashboardOverview(selectedStudentId), licence)
         : null;
 
     return NextResponse.json(
@@ -61,6 +66,16 @@ export async function GET(request: Request) {
         has_active: subscriptions.some((subscription) => subscription.active),
         selected_student_id: selectedStudentId,
         writing_access: writingAccess,
+        trial: licence && writingAccess !== 'not-found'
+          ? {
+              eligible: licence.trialEligible,
+              active: licence.state === 'trial',
+              days_left: licence.daysLeft,
+              attempts_used: licence.attemptsUsed,
+              attempts_limit: licence.attemptsLimit,
+              expires_at: licence.expiresAt ? new Date(licence.expiresAt).toISOString() : null,
+            }
+          : null,
         guidance,
       },
       { headers: { 'Cache-Control': 'private, no-store' } },

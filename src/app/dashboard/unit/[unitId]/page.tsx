@@ -290,11 +290,14 @@ export default function UnitPage() {
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <Link
                       href={
-                        prompt.maxDraft >= 3
+                        prompt.is_locked
+                          ? '#'
+                          : prompt.maxDraft >= 3
                           ? `/dashboard/writing/${prompt.id}/results`
                           : `/dashboard/writing/${prompt.id}`
                       }
-                      className="space-y-1.5 hover:underline"
+                      onClick={prompt.is_locked ? (event) => event.preventDefault() : undefined}
+                      className={`space-y-1.5 ${prompt.is_locked ? 'cursor-not-allowed opacity-70' : 'hover:underline'}`}
                     >
                       <span className="rounded-md bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-700">
                         {typeLabel(prompt.prompt_type)}
@@ -310,7 +313,11 @@ export default function UnitPage() {
                     </span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-3 text-sm">
-                    {prompt.maxDraft >= 3 ? (
+                    {prompt.is_locked ? (
+                      <p className="mt-3 text-sm text-stone-600">
+                        The trial includes three full writing tasks. Buy a year to start this one.
+                      </p>
+                    ) : prompt.maxDraft >= 3 ? (
                       <Link
                         href={`/dashboard/writing/${prompt.id}/results`}
                         className="font-medium text-indigo-700 hover:underline"

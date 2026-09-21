@@ -1,0 +1,112 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+import {
+  WRITING_TRIAL_DAYS,
+  WRITING_TRIAL_FULL_ATTEMPTS,
+  canStartWritingTrial,
+  clipTrialRecommendation,
+  hasWritingProductAccess,
+  trialAllowsPracticeTask,
+  trialDaysLeft,
+  trialExpiresAt,
+  trialFullTaskLimitMessage,
+} from './writing-trial';
+
+describe('writing trial rules', () => {
+  it('lasts seven days and allows three full writing tasks', () => {
+    assert.equal(WRITING_TRIAL_DAYS, 7);
+    assert.equal(WRITING_TRIAL_FULL_ATTEMPTS, 3);
+    const start = new Date('2026-09-21T00:00:00Z');
+    assert.equal(trialExpiresAt(start).toISOString(), '2026-09-28T00:00:00.000Z');
+    assert.equal(trialDaysLeft(new Date('2026-09-28T00:00:00Z'), start), 7);
+  });
+
+  it('lets Year 4–7 start a trial once', () => {
+    assert.deepEqual(
+      canStartWritingTrial({ grade: 'Year 5', hadTrial: false, hasPaidAccess: false }),
+      { ok: true },
+    );
+    const kindergarten = canStartWritingTrial({
+      grade: 'Kindergarten',
+      hadTrial: false,
+      hasPaidAccess: false,
+    });
+    assert.equal(kindergarten.ok, false);
+    if (!kindergarten.ok) assert.match(kindergarten.reason, /Year 4–7/);
+    const used = canStartWritingTrial({
+      grade: 'Year 5',
+      hadTrial: true,
+      hasPaidAccess: false,
+    });
+    assert.equal(used.ok, false);
+    if (!used.ok) assert.match(used.reason, /already used/);
+    const paid = canStartWritingTrial({
+      grade: 'Year 5',
+      hadTrial: false,
+      hasPaidAccess: true,
+    });
+    assert.equal(paid.ok, false);
+    if (!paid.ok) assert.match(paid.reason, /already has/);
+  });
+
+  it('allows mini-style full writing tasks up to three attempts, and blocks exams', () => {
+    assert.equal(
+      trialAllowsPracticeTask({
+        promptKind: 'practice',
+        alreadyTried: false,
+        distinctTried: 0,
+      }).ok,
+      true,
+    );
+    assert.equal(
+      trialAllowsPracticeTask({
+        promptKind: 'practice',
+        alreadyTried: true,
+        distinctTried: 3,
+      }).ok,
+      true,
+    );
+    const fourth = trialAllowsPracticeTask({
+      promptKind: 'practice',
+      alreadyTried: false,
+      distinctTried: 3,
+    });
+    assert.equal(fourth.ok, false);
+    if (!fourth.ok) assert.equal(fourth.message, trialFullTaskLimitMessage());
+    const exam = trialAllowsPracticeTask({
+      promptKind: 'test',
+      alreadyTried: false,
+      distinctTried: 0,
+    });
+    assert.equal(exam.ok, false);
+    const custom = trialAllowsPracticeTask({
+      promptKind: 'custom',
+      alreadyTried: false,
+      distinctTried: 0,
+    });
+    assert.equal(custom.ok, false);
+  });
+
+  it('treats a live trial as product access', () => {
+    assert.equal(hasWritingProductAccess('trial'), true);
+    assert.equal(hasWritingProductAccess('granted'), true);
+    assert.equal(hasWritingProductAccess('unlicensed'), false);
+  });
+
+  it('keeps in-progress trial tasks in the next-task slot and hides a fourth start', () => {
+    assert.equal(
+      clipTrialRecommendation(
+        { prompt_id: 'started', next_draft: 2 },
+        3,
+      )?.prompt_id,
+      'started',
+    );
+    assert.equal(
+      clipTrialRecommendation(
+        { prompt_id: 'fresh', next_draft: 1 },
+        3,
+      ),
+      null,
+    );
+  });
+});

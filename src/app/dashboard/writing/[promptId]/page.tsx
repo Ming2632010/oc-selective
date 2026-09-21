@@ -191,14 +191,16 @@ export default function WritingPracticePage() {
           attemptsData.kind === 'bonus';
         setIsTest(testTask);
         setPrompt({ ...p, hint_points: hints });
-        if (testTask && p.is_locked) {
+        if (p.is_locked) {
           setReviewLocked(true);
           setLockReason(
             typeof attemptsData.lock_reason === 'string' && attemptsData.lock_reason
               ? attemptsData.lock_reason
               : p.kind === 'bonus'
                 ? 'Unlock these exam papers by trying every full writing task and every term review at least once.'
-                : 'Try every full writing task in this unit at least once before the term review.',
+                : p.kind === 'test'
+                  ? 'Try every full writing task in this unit at least once before the term review.'
+                  : 'The trial allows three full writing tasks. Buy a year to keep writing.',
           );
           return;
         }
@@ -328,10 +330,14 @@ export default function WritingPracticePage() {
     return (
       <main className="mx-auto max-w-4xl space-y-4 p-6">
         <p className="text-sm uppercase tracking-wide text-indigo-700">
-          {prompt?.kind === 'bonus' ? 'Bonus exam paper' : 'Term review'}
+          {prompt?.kind === 'bonus'
+            ? 'Bonus exam paper'
+            : prompt?.kind === 'test'
+              ? 'Term review'
+              : 'Full writing task'}
         </p>
         <h1 className="text-2xl font-semibold text-stone-900">
-          {prompt?.title ?? 'Term review locked'}
+          {prompt?.title ?? 'This task is locked'}
         </h1>
         <p className="text-stone-700">
           {lockReason ||

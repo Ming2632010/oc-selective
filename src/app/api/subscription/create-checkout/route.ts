@@ -64,6 +64,7 @@ export async function POST(request: Request) {
       `SELECT id FROM user_subscriptions
        WHERE user_id = $1 AND student_id = $2 AND subject = $3
          AND status = 'active' AND (expires_at IS NULL OR expires_at > NOW())
+         AND COALESCE(access_kind, 'paid') <> 'trial'
        LIMIT 1`,
       [userId, studentId, subject],
     );

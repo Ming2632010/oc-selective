@@ -7,6 +7,7 @@ const files = [
   'sql/units_migration.sql',
   'sql/subscriptions_schema.sql',
   'sql/release_migration.sql',
+  'sql/writing_trial.sql',
 ];
 
 async function main() {
