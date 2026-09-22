@@ -221,7 +221,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       awards,
       attempts: hydrated,
-      recommendation,
+      recommendation: licence.state === 'trial' ? null : recommendation,
       prompt: publicPrompt,
       samples_unlocked: samplesUnlocked,
       max_draft: maxDraft,

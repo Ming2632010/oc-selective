@@ -54,6 +54,12 @@ CREATE INDEX IF NOT EXISTS idx_user_subscriptions_user_subject_status
 CREATE INDEX IF NOT EXISTS idx_user_subscriptions_student_subject_status
   ON user_subscriptions (student_id, subject, status);
 
+CREATE UNIQUE INDEX IF NOT EXISTS uq_writing_one_trial_per_student
+  ON user_subscriptions (student_id)
+  WHERE subject = 'writing'
+    AND student_id IS NOT NULL
+    AND trial_started_at IS NOT NULL;
+
 DROP TRIGGER IF EXISTS user_subscriptions_set_updated_at ON user_subscriptions;
 CREATE TRIGGER user_subscriptions_set_updated_at
   BEFORE UPDATE ON user_subscriptions

@@ -12,6 +12,10 @@ import {
   setStudentId,
 } from '@/lib/client-auth';
 import { typeLabel, UNIT_GROUPS, unitsByGroup, WRITING_TYPES, type UnitGroup } from '@/lib/units';
+import {
+  trialEndedKeepWorkMessage,
+  trialInProgressMessage,
+} from '@/lib/writing-trial';
 import { MINI_SKILL_LABELS, type MiniSkill } from '@/lib/seed-mini-drills';
 import { WritingProgressLine, type HistoryPoint } from '@/components/writing/progress-line';
 import { SeedPatch, type SeedPatchData } from '@/components/writing/seed-patch';
@@ -96,6 +100,7 @@ type Recommendation = {
   module_id: number;
   next_draft: number;
   reason: string;
+  completed?: boolean;
 };
 
 type CustomTask = {
@@ -209,7 +214,7 @@ function subscriptionBanner(
     if (trial?.had_trial) {
       return {
         tone: 'warn',
-        message: 'The 7-day trial has ended. Buy a year to keep this work.',
+        message: trialEndedKeepWorkMessage(),
       };
     }
     return {
@@ -219,15 +224,25 @@ function subscriptionBanner(
   }
 
   if (writingAccess.access_kind === 'trial') {
-    const daysLeft = writingAccess.expires_at
-      ? Math.max(
-          0,
-          Math.ceil((new Date(writingAccess.expires_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000)),
-        )
-      : 0;
+    const daysLeft =
+      trial?.days_left ??
+      (writingAccess.expires_at
+        ? Math.max(
+            0,
+            Math.ceil(
+              (new Date(writingAccess.expires_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000),
+            ),
+          )
+        : 0);
     return {
       tone: 'info',
-      message: `7-day trial · ${daysLeft} day${daysLeft === 1 ? '' : 's'} left. 10 mini practice questions and one full writing task with three attempts. Buy a year to keep this work.`,
+      message: trialInProgressMessage({
+        daysLeft,
+        draftsUsed: trial?.drafts_used ?? 0,
+        draftsLimit: trial?.drafts_limit ?? 3,
+        miniUsed: trial?.mini_used ?? 0,
+        miniLimit: trial?.mini_limit ?? 10,
+      }),
     };
   }
 
@@ -587,13 +602,7 @@ export default function DashboardPage() {
           <div
             className={`flex flex-wrap items-center justify-between gap-3 rounded-md border px-4 py-3 ${classes}`}
           >
-            <p className="text-sm">
-              {writingTrial?.active
-                ? `Trial in progress · ${writingTrial.days_left ?? 0} day${
-                    writingTrial.days_left === 1 ? '' : 's'
-                  } left · writing drafts ${writingTrial.drafts_used ?? 0}/${writingTrial.drafts_limit ?? 3} · ${writingTrial.mini_used ?? 0}/${writingTrial.mini_limit ?? 10} mini questions used. Buy a year to keep this work.`
-                : banner.message}
-            </p>
+            <p className="text-sm">{banner.message}</p>
             <div className="flex flex-wrap items-center gap-2">
               {canStartTrial ? (
                 <button
@@ -694,14 +703,29 @@ export default function DashboardPage() {
 
           {!selectedWritingAccess ? (
             <section className="space-y-4 rounded-lg border border-warm-border bg-warm-card p-6 shadow-card">
-              <h2 className="text-lg font-semibold text-warm-ink">Try Selective Writing</h2>
-              <p className="text-sm text-warm-muted">
-                7 days to decide. The 10 mini questions and one full writing task
-                stay closed until you start the trial. After you start, you get
-                three attempts on that task, with the same timer and notes as the
-                paid year. Term reviews, bonus papers, and custom tasks stay in
-                the full year.
-              </p>
+              {writingTrial?.had_trial && !writingTrial.eligible ? (
+                <>
+                  <h2 className="text-lg font-semibold text-warm-ink">
+                    The 7-day trial has ended
+                  </h2>
+                  <p className="text-sm text-warm-muted">
+                    This child has already used a 7-day trial. Buy a year to keep
+                    that writing and open the 11 writing units. Term reviews,
+                    bonus papers, and custom tasks stay in the full year.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-lg font-semibold text-warm-ink">Try Selective Writing</h2>
+                  <p className="text-sm text-warm-muted">
+                    7 days to decide. The 10 mini questions and one full writing task
+                    stay closed until you start the trial. After you start, you get
+                    three attempts on that task, with the same timer and notes as the
+                    paid year. Term reviews, bonus papers, and custom tasks stay in
+                    the full year.
+                  </p>
+                </>
+              )}
               <div className="flex flex-wrap gap-3">
                 {writingTrial?.eligible ? (
                   <button
@@ -712,11 +736,9 @@ export default function DashboardPage() {
                   >
                     {startingTrial ? 'Starting…' : 'Start 7-day trial'}
                   </button>
-                ) : (
+                ) : writingTrial?.had_trial ? null : (
                   <p className="text-sm text-warm-muted">
-                    {writingTrial && !writingTrial.eligible
-                      ? 'This child has already used a 7-day trial.'
-                      : 'Add a Year 4–7 profile to start a trial.'}
+                    Add a Year 4–7 profile to start a trial.
                   </p>
                 )}
                 <Link
@@ -739,12 +761,18 @@ export default function DashboardPage() {
               </h2>
               <p className="mt-2 text-sm text-warm-muted">{recommendation.reason}</p>
               <Link
-                href={`/dashboard/writing/${recommendation.prompt_id}`}
+                href={
+                  recommendation.completed
+                    ? `/dashboard/writing/${recommendation.prompt_id}/results`
+                    : `/dashboard/writing/${recommendation.prompt_id}`
+                }
                 className="mt-4 inline-flex rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover"
               >
-                {recommendation.next_draft === 1
-                  ? 'Start this task'
-                  : `Continue draft ${recommendation.next_draft}`}
+                {recommendation.completed
+                  ? 'View results'
+                  : recommendation.next_draft === 1
+                    ? 'Start this task'
+                    : `Continue draft ${recommendation.next_draft}`}
               </Link>
             </section>
           ) : null}

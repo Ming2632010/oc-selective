@@ -17,6 +17,9 @@ import {
   trialMiniLimitMessage,
   trialOfferCopy,
   trialEndedMessage,
+  trialEndedKeepWorkMessage,
+  trialInProgressMessage,
+  trialPackRecommendation,
   trialStartRequiredMessage,
   unlicensedAccessMessage,
   writingAccessRequiredMessage,
@@ -141,6 +144,49 @@ describe('writing trial rules', () => {
       'd1',
     );
     assert.equal(trialMiniLimitMessage(), 'The trial includes 10 mini questions. Buy a year for mini practice in every unit.');
+  });
+
+  it('shows drafts used on a live trial and results after the third draft', () => {
+    assert.equal(
+      trialInProgressMessage({
+        daysLeft: 6,
+        draftsUsed: 1,
+        miniUsed: 2,
+      }),
+      'Trial in progress · 6 days left · writing drafts 1/3 · 2/10 mini questions used. Buy a year to keep this work.',
+    );
+    assert.equal(
+      trialEndedKeepWorkMessage(),
+      'The 7-day trial has ended. Buy a year to keep this work.',
+    );
+    const first = trialPackRecommendation({
+      promptId: 'raincoat',
+      title: 'The yellow raincoat',
+      promptType: 'narrative',
+      moduleId: 1,
+      maxDraft: 0,
+    });
+    assert.equal(first.completed, false);
+    assert.equal(first.next_draft, 1);
+    const mid = trialPackRecommendation({
+      promptId: 'raincoat',
+      title: 'The yellow raincoat',
+      promptType: 'narrative',
+      moduleId: 1,
+      maxDraft: 1,
+    });
+    assert.equal(mid.next_draft, 2);
+    assert.match(mid.reason, /draft 2 of 3/);
+    const done = trialPackRecommendation({
+      promptId: 'raincoat',
+      title: 'The yellow raincoat',
+      promptType: 'narrative',
+      moduleId: 1,
+      maxDraft: 3,
+    });
+    assert.equal(done.completed, true);
+    assert.equal(done.next_draft, 3);
+    assert.match(done.reason, /three trial attempts/);
   });
 
   it('keeps the started trial paper in the next-task slot and hides a second start', () => {

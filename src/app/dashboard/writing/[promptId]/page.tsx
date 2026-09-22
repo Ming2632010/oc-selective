@@ -92,6 +92,7 @@ export default function WritingPracticePage() {
   const [needsAccess, setNeedsAccess] = useState(false);
   const [needsTrialStart, setNeedsTrialStart] = useState(false);
   const [needsTrialEnded, setNeedsTrialEnded] = useState(false);
+  const [needsFullYear, setNeedsFullYear] = useState(false);
   const [lockReason, setLockReason] = useState('');
   const [isTest, setIsTest] = useState(false);
   const [uiPhase, setUiPhase] = useState<UiPhase>('paper');
@@ -237,6 +238,11 @@ export default function WritingPracticePage() {
         setNeedsTrialStart(message.includes('Start the 7-day trial'));
         setNeedsTrialEnded(message.includes('7-day trial has ended'));
         setNeedsAccess(message.includes('Selective Writing access is required'));
+        setNeedsFullYear(
+          message.includes('in the full year') ||
+            message.includes('stays with the 7-day trial') ||
+            message.includes('Buy a year to keep writing'),
+        );
         setError(message);
       } finally {
         setLoading(false);
@@ -412,6 +418,21 @@ export default function WritingPracticePage() {
             <Link href="/subscription" className="text-sm text-indigo-700 underline">
               Manage Selective Writing access
             </Link>
+          </>
+        ) : needsFullYear ? (
+          <>
+            <h1 className="text-2xl font-semibold text-stone-900">
+              This paper is in the full year
+            </h1>
+            <p className="text-stone-700">{error}</p>
+            <div className="flex flex-wrap gap-4">
+              <Link href="/dashboard" className="text-sm text-indigo-700 underline">
+                Back to dashboard
+              </Link>
+              <Link href="/subscription" className="text-sm text-indigo-700 underline">
+                Buy a year
+              </Link>
+            </div>
           </>
         ) : (
           <p className="text-red-700">{error || 'Prompt unavailable'}</p>

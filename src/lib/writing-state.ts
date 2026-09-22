@@ -765,6 +765,7 @@ export async function getUnitMiniQuestionRefs(studentId: string, moduleId: numbe
     `SELECT title, stem, options
      FROM mini_drills
      WHERE module_id = $1 AND is_active = TRUE
+       AND COALESCE(source, 'seed') <> 'trial'
        AND (student_id IS NULL OR student_id = $2)`,
     [moduleId, studentId],
   );

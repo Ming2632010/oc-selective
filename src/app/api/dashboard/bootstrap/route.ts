@@ -5,7 +5,7 @@ import { isSubscriptionActive } from '@/lib/subscription';
 import { getDashboardOverview, getWritingLicence, applyWritingTrialLimits, trialClientFields } from '@/lib/writing-state';
 import { ensureWritingTrialColumns } from '@/lib/writing-trial-schema';
 import { getTrialPackView } from '@/lib/writing-trial-pack';
-import { hasWritingProductAccess } from '@/lib/writing-trial';
+import { hasWritingProductAccess, trialPackRecommendation } from '@/lib/writing-trial';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -65,21 +65,13 @@ export async function GET(request: Request) {
         ? applyWritingTrialLimits(await getDashboardOverview(selectedStudentId), licence)
         : null;
     if (guidance && trialPack) {
-      const nextDraft = Math.min(3, trialPack.prompt.max_draft + 1);
-      guidance.recommendation = {
-        prompt_id: trialPack.prompt.id,
+      guidance.recommendation = trialPackRecommendation({
+        promptId: trialPack.prompt.id,
         title: trialPack.prompt.title,
-        prompt_type: trialPack.prompt.prompt_type,
-        module_id: trialPack.prompt.module_id,
-        next_draft: trialPack.prompt.max_draft >= 3 ? 3 : nextDraft,
-        reason:
-          trialPack.prompt.max_draft >= 3
-            ? 'You have used the three trial attempts on this paper. Buy a year to keep writing.'
-            : trialPack.prompt.max_draft > 0
-              ? `Continue the trial writing task (draft ${nextDraft} of 3).`
-              : 'Your trial writing task. Same 30-minute timer and three attempts as the year.',
-        weakest_dimension: null,
-      };
+        promptType: trialPack.prompt.prompt_type,
+        moduleId: trialPack.prompt.module_id,
+        maxDraft: trialPack.prompt.max_draft,
+      });
       if (guidance.week_note) {
         guidance.week_note = {
           ...guidance.week_note,

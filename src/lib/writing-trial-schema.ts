@@ -50,4 +50,11 @@ async function applyWritingTrialColumns() {
       END IF;
     END $$;
   `);
+  await runSql(`
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_writing_one_trial_per_student
+      ON user_subscriptions (student_id)
+      WHERE subject = 'writing'
+        AND student_id IS NOT NULL
+        AND trial_started_at IS NOT NULL
+  `);
 }

@@ -250,6 +250,11 @@ export default function MiniPracticePage() {
   if (!drill) {
     const needsTrialStart = Boolean(error?.includes('Start the 7-day trial'));
     const needsTrialEnded = Boolean(error?.includes('7-day trial has ended'));
+    const needsFullYear = Boolean(
+      error?.includes('in the full year') ||
+        error?.includes('stays with the 7-day trial') ||
+        error?.includes('Buy a year for mini practice'),
+    );
     return (
       <main className="mx-auto max-w-3xl space-y-4 p-6">
         {needsTrialStart ? (
@@ -269,6 +274,13 @@ export default function MiniPracticePage() {
             <p className="text-stone-700">
               Buy a year to keep this work and open the full writing units.
             </p>
+          </>
+        ) : needsFullYear ? (
+          <>
+            <h1 className="text-2xl font-semibold text-stone-900">
+              This question is in the full year
+            </h1>
+            <p className="text-stone-700">{error}</p>
           </>
         ) : (
           <p className="text-red-700">{error || 'Question not found.'}</p>
