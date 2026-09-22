@@ -289,8 +289,7 @@ export default function DashboardPage() {
   const [customCreating, setCustomCreating] = useState(false);
   const [writingTrial, setWritingTrial] = useState<WritingTrialInfo | null>(null);
   const [trialPack, setTrialPack] = useState<TrialPackInfo | null>(null);
-  const [trialMiniOpen, setTrialMiniOpen] = useState(false);
-  const [trialWritingOpen, setTrialWritingOpen] = useState(false);
+  const [trialGroupOpen, setTrialGroupOpen] = useState(false);
   const [startingTrial, setStartingTrial] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -316,8 +315,7 @@ export default function DashboardPage() {
       setRecommendation(null);
       setWritingTrial(null);
       setTrialPack(null);
-      setTrialMiniOpen(false);
-      setTrialWritingOpen(false);
+      setTrialGroupOpen(false);
       setExpandedGroups([]);
       setLoadedGroups({});
       setCustomOpen(false);
@@ -362,6 +360,7 @@ export default function DashboardPage() {
       setWritingTrial((res.data.trial as WritingTrialInfo | null) ?? null);
       setTrialPack((res.data.trial_pack as TrialPackInfo | null) ?? null);
       const isTrial = (res.data.writing_access as string | undefined) === 'trial';
+      setTrialGroupOpen(isTrial);
       const suggestedGroup =
         UNIT_GROUPS.find((group) =>
           unitsByGroup(group).some((unit) => unit.id === guidance?.recommendation?.module_id),
@@ -741,36 +740,44 @@ export default function DashboardPage() {
             </section>
           ) : null}
 
-          <SeedPatch patch={rewards} />
-          <WeekNote note={weekNote} />
-
-          <div className="grid w-full gap-4 lg:grid-cols-2">
-            <WritingProgressLine history={history} />
-            {selectedStudentId ? (
-              <SubjectChat studentId={selectedStudentId} subject="writing" />
-            ) : null}
-          </div>
+          {selectedWritingAccess.access_kind === 'trial' ? null : (
+            <>
+              <SeedPatch patch={rewards} />
+              <WeekNote note={weekNote} />
+              <div className="grid w-full gap-4 lg:grid-cols-2">
+                <WritingProgressLine history={history} />
+                {selectedStudentId ? (
+                  <SubjectChat studentId={selectedStudentId} subject="writing" />
+                ) : null}
+              </div>
+            </>
+          )}
 
           <section className="space-y-8">
             {selectedWritingAccess.access_kind === 'trial' ? (
               trialPack ? (
               <div id="trial-pack" className="space-y-4">
                 <div>
-                  <h2 className="text-lg font-medium text-warm-ink">Trial pack</h2>
+                  <h2 className="text-lg font-medium text-warm-ink">Writing</h2>
                   <p className="mt-1 text-sm text-warm-muted">
-                    Open a group to practise. 10 mini questions and one full writing
-                    task with three attempts. The 11 writing units stay in the paid year.
+                    Open Free Trial to see the seed patch, growth chat, 10 mini
+                    questions, and one full writing task. The 11 writing units stay
+                    in the paid year.
                   </p>
                 </div>
-                <div className="space-y-4">
-                  <DashboardGroupRow
-                    title="Mini practice"
-                    blurb={`${trialPack.drills.filter((row) => row.attempted).length}/${trialPack.drills.length} tried`}
-                    action={trialMiniOpen ? 'Close' : 'View questions'}
-                    expanded={trialMiniOpen}
-                    onClick={() => setTrialMiniOpen((open) => !open)}
-                  />
-                  {trialMiniOpen ? (
+                <DashboardGroupRow
+                  title="Free Trial"
+                  blurb="10 minis and one writing task"
+                  action={trialGroupOpen ? 'Close' : 'View pack'}
+                  expanded={trialGroupOpen}
+                  onClick={() => setTrialGroupOpen((open) => !open)}
+                />
+                {trialGroupOpen ? (
+                  <div className="space-y-4">
+                    <SeedPatch patch={rewards} />
+                    {selectedStudentId ? (
+                      <SubjectChat studentId={selectedStudentId} subject="writing" />
+                    ) : null}
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       {trialPack.drills.map((drill, index) => (
                         <Link
@@ -802,44 +809,46 @@ export default function DashboardPage() {
                           </div>
                         </Link>
                       ))}
-                    </div>
-                  ) : null}
-                </div>
-                <div className="space-y-4">
-                  <DashboardGroupRow
-                    title="Writing task"
-                    blurb={trialPack.prompt.title}
-                    action={trialWritingOpen ? 'Close' : 'View task'}
-                    expanded={trialWritingOpen}
-                    onClick={() => setTrialWritingOpen((open) => !open)}
-                  />
-                  {trialWritingOpen ? (
-                    <section className="rounded-lg border border-warm-border bg-warm-card p-5 shadow-card">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-brand">
-                        Full writing task
-                      </p>
-                      <h3 className="mt-2 text-lg font-semibold text-warm-ink">
-                        {trialPack.prompt.title}
-                      </h3>
-                      <p className="mt-2 text-sm text-warm-muted">
-                        Narrative · 30 minutes · {trialPack.prompt.max_draft}/3 drafts
-                      </p>
-                      <p className="mt-3 line-clamp-4 text-sm text-warm-muted">
-                        {trialPack.prompt.description}
-                      </p>
                       <Link
-                        href={`/dashboard/writing/${trialPack.prompt.id}`}
-                        className="mt-4 inline-flex rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover"
+                        href={
+                          trialPack.prompt.max_draft >= 3
+                            ? `/dashboard/writing/${trialPack.prompt.id}/results`
+                            : `/dashboard/writing/${trialPack.prompt.id}`
+                        }
+                        className="group flex flex-col justify-between rounded-lg border border-warm-border bg-warm-card p-5 shadow-card transition hover:border-brand"
                       >
-                        {trialPack.prompt.max_draft === 0
-                          ? 'Start this task'
-                          : trialPack.prompt.max_draft >= 3
-                            ? 'View your drafts'
-                            : `Continue draft ${trialPack.prompt.max_draft + 1}`}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold uppercase tracking-wide text-warm-subtle">
+                              Writing task
+                            </span>
+                            <span
+                              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                trialPack.prompt.max_draft >= 3
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : trialPack.prompt.max_draft > 0
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-stone-100 text-stone-600'
+                              }`}
+                            >
+                              {trialPack.prompt.max_draft >= 3
+                                ? 'Completed'
+                                : trialPack.prompt.max_draft > 0
+                                  ? `Draft ${trialPack.prompt.max_draft}/3`
+                                  : 'Not started'}
+                            </span>
+                          </div>
+                          <h4 className="text-lg font-semibold text-warm-ink">
+                            {trialPack.prompt.title}
+                          </h4>
+                          <p className="text-sm text-warm-muted">
+                            Narrative · 30 minutes · {trialPack.prompt.max_draft}/3 drafts
+                          </p>
+                        </div>
                       </Link>
-                    </section>
-                  ) : null}
-                </div>
+                    </div>
+                  </div>
+                ) : null}
               </div>
               ) : (
                 <p className="text-sm text-warm-muted">
