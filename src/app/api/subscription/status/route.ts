@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { isSubscriptionActive } from '@/lib/subscription';
+import { ensureWritingTrialColumns } from '@/lib/writing-trial-schema';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,6 +24,7 @@ export async function GET(request: Request) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    await ensureWritingTrialColumns();
 
     const result = await query<SubscriptionRow>(
       `SELECT id, subject, student_id, status, stripe_subscription_id, stripe_price_id, expires_at,

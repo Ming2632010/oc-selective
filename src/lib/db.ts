@@ -29,16 +29,32 @@ function getPool(): Pool {
   return globalForDb.__ocSelectivePgPool;
 }
 
+export async function runSql<T extends QueryResultRow = QueryResultRow>(
+  sql: string,
+  params: unknown[] = [],
+): Promise<QueryResult<T>> {
+  return getPool().query<T>(sql, params);
+}
+
 /**
  * Execute a parameterized SQL query against Neon PostgreSQL.
+ * If the writing-trial columns are missing (code shipped before migrate),
+ * add them once and retry so the dashboard does not stay broken.
  */
 export async function query<T extends QueryResultRow = QueryResultRow>(
   sql: string,
   params: unknown[] = [],
 ): Promise<QueryResult<T>> {
   try {
-    return await getPool().query<T>(sql, params);
+    return await runSql<T>(sql, params);
   } catch (error) {
+    const { isMissingTrialColumn, ensureWritingTrialColumns } = await import(
+      '@/lib/writing-trial-schema'
+    );
+    if (isMissingTrialColumn(error)) {
+      await ensureWritingTrialColumns();
+      return runSql<T>(sql, params);
+    }
     const message = error instanceof Error ? error.message : 'Unknown database error';
     console.error('[db] Query failed:', message);
     throw new Error(`Database query failed: ${message}`);

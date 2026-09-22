@@ -5,6 +5,7 @@ import { getAppUrl, getStripeClient } from '@/lib/stripe';
 import { isAvailableSubject, isSubject, priceIdForSubject } from '@/lib/subjects';
 import { isRateLimited } from '@/lib/rate-limit';
 import { isMissingStripeCustomer } from '@/lib/stripe-customer';
+import { ensureWritingTrialColumns } from '@/lib/writing-trial-schema';
 import type Stripe from 'stripe';
 
 export const runtime = 'nodejs';
@@ -25,6 +26,7 @@ export async function POST(request: Request) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    await ensureWritingTrialColumns();
     if (isRateLimited(`checkout:${userId}`, 5, 10 * 60 * 1000)) {
       return NextResponse.json({ error: 'Too many checkout attempts. Try again shortly.' }, { status: 429 });
     }

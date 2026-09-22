@@ -34,6 +34,10 @@ ALTER TABLE user_subscriptions
   ADD COLUMN IF NOT EXISTS amount_paid INTEGER;
 ALTER TABLE user_subscriptions
   ADD COLUMN IF NOT EXISTS currency TEXT;
+ALTER TABLE user_subscriptions
+  ADD COLUMN IF NOT EXISTS access_kind TEXT NOT NULL DEFAULT 'paid';
+ALTER TABLE user_subscriptions
+  ADD COLUMN IF NOT EXISTS trial_started_at TIMESTAMPTZ;
 
 -- One row per Stripe subscription. NULL allowed (migrated rows have no Stripe id),
 -- and Postgres permits multiple NULLs under a UNIQUE constraint. This lets the

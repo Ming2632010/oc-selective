@@ -1,4 +1,5 @@
 import { query } from '@/lib/db';
+import { ensureWritingTrialColumns } from '@/lib/writing-trial-schema';
 import { extraCapacity, pickMiniFocus, selectExtraPack, type SkillStat } from '@/lib/mini-weakness';
 import {
   calendarDateInSydney,
@@ -987,6 +988,7 @@ export async function countMiniQuestionsTried(studentId: string) {
 }
 
 export async function getWritingLicence(userId: string, studentId: string): Promise<WritingLicence> {
+  await ensureWritingTrialColumns();
   const student = await query<{ id: string; grade: string }>(
     `SELECT id, grade FROM students
      WHERE id = $1 AND user_id = $2
@@ -1225,6 +1227,7 @@ export async function trialBlocksMini(
 }
 
 export async function startWritingTrial(userId: string, studentId: string) {
+  await ensureWritingTrialColumns();
   const student = await query<{ id: string; grade: string }>(
     `SELECT id, grade FROM students WHERE id = $1 AND user_id = $2 LIMIT 1`,
     [studentId, userId],
@@ -1300,6 +1303,7 @@ export async function grantPaidWritingAccess(input: {
   currency: string | null;
   expiresAt: string;
 }) {
+  await ensureWritingTrialColumns();
   const converted = await query<{ id: string }>(
     `UPDATE user_subscriptions
      SET status = 'active',
