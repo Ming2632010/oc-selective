@@ -90,6 +90,7 @@ export default function WritingPracticePage() {
   const [alreadyFinished, setAlreadyFinished] = useState(false);
   const [reviewLocked, setReviewLocked] = useState(false);
   const [needsAccess, setNeedsAccess] = useState(false);
+  const [needsTrialStart, setNeedsTrialStart] = useState(false);
   const [lockReason, setLockReason] = useState('');
   const [isTest, setIsTest] = useState(false);
   const [uiPhase, setUiPhase] = useState<UiPhase>('paper');
@@ -232,6 +233,7 @@ export default function WritingPracticePage() {
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load writing task';
+        setNeedsTrialStart(message.includes('Start the 7-day trial'));
         setNeedsAccess(message.includes('Selective Writing access is required'));
         setError(message);
       } finally {
@@ -373,7 +375,19 @@ export default function WritingPracticePage() {
   if (!prompt) {
     return (
       <main className="mx-auto max-w-4xl space-y-4 p-6">
-        {needsAccess ? (
+        {needsTrialStart ? (
+          <>
+            <h1 className="text-2xl font-semibold text-stone-900">
+              Start the 7-day trial first
+            </h1>
+            <p className="text-stone-700">
+              This writing task opens after you start the trial on the dashboard.
+            </p>
+            <Link href="/dashboard" className="text-sm text-indigo-700 underline">
+              Back to dashboard
+            </Link>
+          </>
+        ) : needsAccess ? (
           <>
             <h1 className="text-2xl font-semibold text-stone-900">
               Selective Writing access is needed

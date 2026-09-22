@@ -4,7 +4,7 @@ import { query } from '@/lib/db';
 import { isSubscriptionActive } from '@/lib/subscription';
 import { getDashboardOverview, getWritingLicence, applyWritingTrialLimits, trialClientFields } from '@/lib/writing-state';
 import { ensureWritingTrialColumns } from '@/lib/writing-trial-schema';
-import { ensureWritingTrialPack, getTrialPackView } from '@/lib/writing-trial-pack';
+import { getTrialPackView } from '@/lib/writing-trial-pack';
 import { hasWritingProductAccess } from '@/lib/writing-trial';
 
 export const runtime = 'nodejs';
@@ -15,7 +15,6 @@ export async function GET(request: Request) {
     const userId = await getAuthUserId(request);
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     await ensureWritingTrialColumns();
-    await ensureWritingTrialPack();
 
     const [userResult, studentResult, subscriptionResult] = await Promise.all([
       query<{ id: string; email: string; full_name: string }>(

@@ -29,6 +29,16 @@ export function trialOfferCopy() {
   return '10 mini practice questions and one full writing task with three attempts';
 }
 
+export function trialStartRequiredMessage() {
+  return 'Start the 7-day trial on the dashboard first.';
+}
+
+export function writingAccessRequiredMessage(trialPack = false) {
+  return trialPack
+    ? trialStartRequiredMessage()
+    : 'Selective Writing access is required for this child.';
+}
+
 export function trialMiniLimitMessage(
   _limit = WRITING_TRIAL_MINI_QUESTIONS,
 ) {

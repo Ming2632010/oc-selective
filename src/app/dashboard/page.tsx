@@ -160,7 +160,7 @@ function subscriptionBanner(
       return {
         tone: 'info',
         message:
-          'Start a 7-day trial: 10 mini questions and one full writing task with three attempts. No card needed.',
+          'Press Start 7-day trial to begin. No card needed: 10 mini questions and one full writing task with three attempts.',
       };
     }
     return {
@@ -530,44 +530,33 @@ export default function DashboardPage() {
           banner.tone === 'warn'
             ? 'border-amber-300 bg-amber-50 text-amber-900'
             : 'border-[#C9DDD0] bg-[#EEF6F0] text-brand-dark';
-        const trialHref = trialPack
-          ? `/dashboard/writing/${trialPack.prompt.id}`
-          : recommendation
-            ? `/dashboard/writing/${recommendation.prompt_id}`
-            : '#trial-pack';
+        const canStartTrial = Boolean(writingTrial?.eligible && !selectedWritingAccess);
         return (
           <div
             className={`flex flex-wrap items-center justify-between gap-3 rounded-md border px-4 py-3 ${classes}`}
           >
             <p className="text-sm">
               {writingTrial?.active
-                ? `7-day trial · ${writingTrial.days_left ?? 0} day${
+                ? `Trial in progress · ${writingTrial.days_left ?? 0} day${
                     writingTrial.days_left === 1 ? '' : 's'
-                  } left · ${writingTrial.attempts_used}/${writingTrial.attempts_limit} full writing task used · ${writingTrial.mini_used ?? 0}/${writingTrial.mini_limit ?? 10} mini questions used. Buy a year to keep this work.`
+                  } left · ${writingTrial.attempts_used}/${writingTrial.attempts_limit} writing task used · ${writingTrial.mini_used ?? 0}/${writingTrial.mini_limit ?? 10} mini questions used. Buy a year to keep this work.`
                 : banner.message}
             </p>
             <div className="flex flex-wrap items-center gap-2">
-              {writingTrial?.eligible && !selectedWritingAccess ? (
+              {canStartTrial ? (
                 <button
                   type="button"
                   onClick={() => void startWritingTrial()}
                   disabled={startingTrial || !selectedStudentId}
                   className="rounded-full bg-terracotta px-3 py-1.5 text-sm font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
                 >
-                  {startingTrial ? 'Starting…' : 'Start the trial'}
+                  {startingTrial ? 'Starting…' : 'Start 7-day trial'}
                 </button>
-              ) : writingTrial?.active ? (
-                <Link
-                  href={trialHref}
-                  className="rounded-full bg-terracotta px-3 py-1.5 text-sm font-medium text-white hover:bg-terracotta-hover"
-                >
-                  Start the trial
-                </Link>
               ) : null}
               <Link
                 href="/subscription"
                 className={
-                  writingTrial?.eligible || writingTrial?.active
+                  canStartTrial
                     ? 'rounded-full border border-brand px-3 py-1.5 text-sm font-medium text-brand hover:bg-[#EDF3ED]'
                     : 'rounded-full bg-terracotta px-3 py-1.5 text-sm font-medium text-white hover:bg-terracotta-hover'
                 }
@@ -655,10 +644,11 @@ export default function DashboardPage() {
             <section className="space-y-4 rounded-lg border border-warm-border bg-warm-card p-6 shadow-card">
               <h2 className="text-lg font-semibold text-warm-ink">Try Selective Writing</h2>
               <p className="text-sm text-warm-muted">
-                7 days to decide. The trial includes 10 mini practice questions
-                and one full writing task with three attempts, with the same
-                timer and notes as the paid year. Term reviews, bonus papers,
-                and custom tasks stay in the full year.
+                7 days to decide. The 10 mini questions and one full writing task
+                stay closed until you start the trial. After you start, you get
+                three attempts on that task, with the same timer and notes as the
+                paid year. Term reviews, bonus papers, and custom tasks stay in
+                the full year.
               </p>
               <div className="flex flex-wrap gap-3">
                 {writingTrial?.eligible ? (
@@ -668,7 +658,7 @@ export default function DashboardPage() {
                     disabled={startingTrial || !selectedStudentId}
                     className="rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
                   >
-                    {startingTrial ? 'Starting…' : 'Start the trial'}
+                    {startingTrial ? 'Starting…' : 'Start 7-day trial'}
                   </button>
                 ) : (
                   <p className="text-sm text-warm-muted">

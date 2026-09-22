@@ -16,6 +16,8 @@ import {
   trialFullTaskLimitMessage,
   trialMiniLimitMessage,
   trialOfferCopy,
+  trialStartRequiredMessage,
+  writingAccessRequiredMessage,
 } from './writing-trial';
 
 describe('writing trial rules', () => {
@@ -103,6 +105,15 @@ describe('writing trial rules', () => {
     assert.equal(hasWritingProductAccess('trial'), true);
     assert.equal(hasWritingProductAccess('granted'), true);
     assert.equal(hasWritingProductAccess('unlicensed'), false);
+    assert.equal(
+      trialStartRequiredMessage(),
+      'Start the 7-day trial on the dashboard first.',
+    );
+    assert.equal(writingAccessRequiredMessage(true), trialStartRequiredMessage());
+    assert.equal(
+      writingAccessRequiredMessage(false),
+      'Selective Writing access is required for this child.',
+    );
   });
 
   it('opens ten mini questions and keeps tried ones after the cap', () => {

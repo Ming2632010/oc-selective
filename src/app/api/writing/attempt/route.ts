@@ -23,7 +23,8 @@ import {
   getTermReviewAccess,
   trialBlocksPrompt,
 } from '@/lib/writing-state';
-import { hasWritingProductAccess } from '@/lib/writing-trial';
+import { hasWritingProductAccess, writingAccessRequiredMessage } from '@/lib/writing-trial';
+import { isTrialPackPromptKind } from '@/lib/writing-trial-pack';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -62,8 +63,16 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
     if (!hasWritingProductAccess(access)) {
+      let trialPack = false;
+      if (promptId) {
+        const kindRow = await query<{ kind: string }>(
+          `SELECT COALESCE(kind, 'practice') AS kind FROM prompts WHERE id = $1 LIMIT 1`,
+          [promptId],
+        );
+        trialPack = isTrialPackPromptKind(kindRow.rows[0]?.kind);
+      }
       return NextResponse.json(
-        { error: 'Selective Writing access is required for this child.' },
+        { error: writingAccessRequiredMessage(trialPack) },
         { status: 403 },
       );
     }
@@ -270,18 +279,6 @@ export async function POST(request: Request) {
     if (access === 'not-found') {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
-    if (!hasWritingProductAccess(access)) {
-      return NextResponse.json(
-        { error: 'Selective Writing access is required for this child.' },
-        { status: 403 },
-      );
-    }
-    if (isRateLimited(`writing-score:${studentId}`, 10, 60 * 60 * 1000)) {
-      return NextResponse.json(
-        { error: 'Too many submissions. Please wait before submitting another response.' },
-        { status: 429 },
-      );
-    }
 
     const promptResult = await query<{
       id: string;
@@ -311,6 +308,12 @@ export async function POST(request: Request) {
     const trialBlock = await trialBlocksPrompt(userId, studentId, promptId, prompt.kind);
     if (trialBlock) {
       return NextResponse.json({ error: trialBlock.error }, { status: trialBlock.status });
+    }
+    if (isRateLimited(`writing-score:${studentId}`, 10, 60 * 60 * 1000)) {
+      return NextResponse.json(
+        { error: 'Too many submissions. Please wait before submitting another response.' },
+        { status: 429 },
+      );
     }
 
     const isExam = isExamStyleKind(prompt.kind);

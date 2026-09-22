@@ -248,10 +248,22 @@ export default function MiniPracticePage() {
   }
 
   if (!drill) {
+    const needsTrialStart = Boolean(error?.includes('Start the 7-day trial'));
     return (
-      <main className="mx-auto max-w-3xl p-6">
-        <p className="text-red-700">{error || 'Question not found.'}</p>
-        <Link href="/dashboard" className="mt-4 inline-block underline">
+      <main className="mx-auto max-w-3xl space-y-4 p-6">
+        {needsTrialStart ? (
+          <>
+            <h1 className="text-2xl font-semibold text-stone-900">
+              Start the 7-day trial first
+            </h1>
+            <p className="text-stone-700">
+              Mini trial questions open after you start the trial on the dashboard.
+            </p>
+          </>
+        ) : (
+          <p className="text-red-700">{error || 'Question not found.'}</p>
+        )}
+        <Link href="/dashboard" className="inline-block underline">
           Back to dashboard
         </Link>
       </main>

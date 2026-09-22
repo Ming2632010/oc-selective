@@ -44,11 +44,13 @@ import {
   trialExpiresAt,
   trialMiniLimitMessage,
   usesWritingDashboard,
+  writingAccessRequiredMessage,
   type WritingAccessState,
 } from '@/lib/writing-trial';
 import {
   ensureWritingTrialPack,
   isTrialPackDrillSource,
+  isTrialPackPromptKind,
 } from '@/lib/writing-trial-pack';
 
 export type { WritingAccessState } from '@/lib/writing-trial';
@@ -1151,7 +1153,7 @@ export async function trialBlocksPrompt(
   }
   if (licence.state === 'unlicensed') {
     return {
-      error: 'Selective Writing access is required for this child.',
+      error: writingAccessRequiredMessage(isTrialPackPromptKind(promptKind)),
       status: 403 as const,
     };
   }
@@ -1198,7 +1200,7 @@ export async function trialBlocksMini(
   }
   if (licence.state === 'unlicensed') {
     return {
-      error: 'Selective Writing access is required for this child.',
+      error: writingAccessRequiredMessage(isTrialPackDrillSource(drill.source)),
       status: 403 as const,
     };
   }

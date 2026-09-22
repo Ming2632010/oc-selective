@@ -11,7 +11,12 @@ import {
   hasCompletedWarmup,
   trialBlocksPrompt,
 } from '@/lib/writing-state';
-import { hasWritingProductAccess, trialAllowsPracticeTask } from '@/lib/writing-trial';
+import {
+  hasWritingProductAccess,
+  trialAllowsPracticeTask,
+  writingAccessRequiredMessage,
+} from '@/lib/writing-trial';
+import { isTrialPackPromptKind } from '@/lib/writing-trial-pack';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -83,6 +88,12 @@ export async function GET(request: Request) {
       if (prompt.kind === 'custom' && (!studentId || prompt.student_id !== studentId)) {
         return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
       }
+      if (isTrialPackPromptKind(prompt.kind) && !studentId) {
+        return NextResponse.json(
+          { error: writingAccessRequiredMessage(true) },
+          { status: 403 },
+        );
+      }
 
       const isExam = isExamKind(prompt.kind);
       let includeSamples = false;
@@ -98,7 +109,7 @@ export async function GET(request: Request) {
         }
         if (!hasWritingProductAccess(access)) {
           return NextResponse.json(
-            { error: 'Selective Writing access is required for this child.' },
+            { error: writingAccessRequiredMessage(isTrialPackPromptKind(prompt.kind)) },
             { status: 403 },
           );
         }
@@ -116,7 +127,7 @@ export async function GET(request: Request) {
           ? await hasCompletedWarmup(studentId, promptId)
           : true;
         const trialBlock = await trialBlocksPrompt(userId, studentId, promptId, prompt.kind);
-        if (trialBlock && access === 'trial') {
+        if (trialBlock) {
           return NextResponse.json(
             { error: trialBlock.error, trial_only: true },
             { status: trialBlock.status },
@@ -175,7 +186,7 @@ export async function GET(request: Request) {
       }
       if (!hasWritingProductAccess(access)) {
         return NextResponse.json(
-          { error: 'Selective Writing access is required for this child.' },
+          { error: writingAccessRequiredMessage() },
           { status: 403 },
         );
       }
