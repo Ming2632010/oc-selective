@@ -16,7 +16,7 @@ import {
   trialBlocksMini,
   visibleTrialMiniDrills,
 } from '@/lib/writing-state';
-import { writingAccessRequiredMessage } from '@/lib/writing-trial';
+import { unlicensedAccessMessage, writingAccessRequiredMessage } from '@/lib/writing-trial';
 import { isTrialPackDrillSource } from '@/lib/writing-trial-pack';
 import { typeLabel } from '@/lib/units';
 

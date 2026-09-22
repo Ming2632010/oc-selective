@@ -156,9 +156,12 @@ function miniSkillLabel(skill: string) {
 type WritingTrialInfo = {
   eligible: boolean;
   active: boolean;
+  had_trial?: boolean;
   days_left: number | null;
   attempts_used: number;
   attempts_limit: number;
+  drafts_used?: number;
+  drafts_limit?: number;
   mini_used?: number;
   mini_limit?: number;
   expires_at: string | null;
@@ -201,6 +204,12 @@ function subscriptionBanner(
         tone: 'info',
         message:
           'Press Start 7-day trial to begin. No card needed: 10 mini questions and one full writing task with three attempts.',
+      };
+    }
+    if (trial?.had_trial) {
+      return {
+        tone: 'warn',
+        message: 'The 7-day trial has ended. Buy a year to keep this work.',
       };
     }
     return {
@@ -582,7 +591,7 @@ export default function DashboardPage() {
               {writingTrial?.active
                 ? `Trial in progress · ${writingTrial.days_left ?? 0} day${
                     writingTrial.days_left === 1 ? '' : 's'
-                  } left · ${writingTrial.attempts_used}/${writingTrial.attempts_limit} writing task used · ${writingTrial.mini_used ?? 0}/${writingTrial.mini_limit ?? 10} mini questions used. Buy a year to keep this work.`
+                  } left · writing drafts ${writingTrial.drafts_used ?? 0}/${writingTrial.drafts_limit ?? 3} · ${writingTrial.mini_used ?? 0}/${writingTrial.mini_limit ?? 10} mini questions used. Buy a year to keep this work.`
                 : banner.message}
             </p>
             <div className="flex flex-wrap items-center gap-2">

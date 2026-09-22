@@ -14,6 +14,7 @@ import {
 import {
   hasWritingProductAccess,
   trialAllowsPracticeTask,
+  unlicensedAccessMessage,
   writingAccessRequiredMessage,
 } from '@/lib/writing-trial';
 import { isTrialPackPromptKind } from '@/lib/writing-trial-pack';
@@ -108,8 +109,14 @@ export async function GET(request: Request) {
           return NextResponse.json({ error: 'Student not found' }, { status: 404 });
         }
         if (!hasWritingProductAccess(access)) {
+          const licence = await getWritingLicence(userId, studentId);
           return NextResponse.json(
-            { error: writingAccessRequiredMessage(isTrialPackPromptKind(prompt.kind)) },
+            {
+              error: unlicensedAccessMessage({
+                trialPack: isTrialPackPromptKind(prompt.kind),
+                hadTrial: licence.hadTrial,
+              }),
+            },
             { status: 403 },
           );
         }
@@ -152,7 +159,12 @@ export async function GET(request: Request) {
         samples_unlocked: includeSamples,
         max_draft: maxDraft,
         max_attempts: isExam || prompt.kind === 'custom' ? 1 : 3,
-        kind: isExam || prompt.kind === 'custom' ? prompt.kind : 'practice',
+        kind:
+          prompt.kind === 'trial'
+            ? 'trial'
+            : isExam || prompt.kind === 'custom'
+              ? prompt.kind
+              : 'practice',
         unit_locked: false,
         warmup_completed: warmupCompleted,
         lock_reason: reviewLocked ? lockReason : '',

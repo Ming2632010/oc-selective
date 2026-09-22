@@ -39,6 +39,22 @@ export function writingAccessRequiredMessage(trialPack = false) {
     : 'Selective Writing access is required for this child.';
 }
 
+export function trialEndedMessage() {
+  return 'The 7-day trial has ended. Buy a year to keep writing.';
+}
+
+export function unlicensedAccessMessage(input: {
+  trialPack?: boolean;
+  hadTrial?: boolean;
+}) {
+  if (input.trialPack && input.hadTrial) return trialEndedMessage();
+  return writingAccessRequiredMessage(Boolean(input.trialPack));
+}
+
+export function trialPackPaidLockMessage() {
+  return 'The extra trial pack stays with the 7-day trial. Open the writing units for this year’s practice.';
+}
+
 export function trialMiniLimitMessage(
   _limit = WRITING_TRIAL_MINI_QUESTIONS,
 ) {

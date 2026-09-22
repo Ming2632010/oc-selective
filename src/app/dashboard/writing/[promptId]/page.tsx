@@ -91,6 +91,7 @@ export default function WritingPracticePage() {
   const [reviewLocked, setReviewLocked] = useState(false);
   const [needsAccess, setNeedsAccess] = useState(false);
   const [needsTrialStart, setNeedsTrialStart] = useState(false);
+  const [needsTrialEnded, setNeedsTrialEnded] = useState(false);
   const [lockReason, setLockReason] = useState('');
   const [isTest, setIsTest] = useState(false);
   const [uiPhase, setUiPhase] = useState<UiPhase>('paper');
@@ -234,6 +235,7 @@ export default function WritingPracticePage() {
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load writing task';
         setNeedsTrialStart(message.includes('Start the 7-day trial'));
+        setNeedsTrialEnded(message.includes('7-day trial has ended'));
         setNeedsAccess(message.includes('Selective Writing access is required'));
         setError(message);
       } finally {
@@ -385,6 +387,18 @@ export default function WritingPracticePage() {
             </p>
             <Link href="/dashboard" className="text-sm text-indigo-700 underline">
               Back to dashboard
+            </Link>
+          </>
+        ) : needsTrialEnded ? (
+          <>
+            <h1 className="text-2xl font-semibold text-stone-900">
+              The 7-day trial has ended
+            </h1>
+            <p className="text-stone-700">
+              Buy a year to keep this writing and keep practising.
+            </p>
+            <Link href="/subscription" className="text-sm text-indigo-700 underline">
+              Buy a year
             </Link>
           </>
         ) : needsAccess ? (

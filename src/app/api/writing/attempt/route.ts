@@ -17,13 +17,15 @@ import {
   getBonusExamAccess,
   getGuidanceForStudent,
   hasCompletedWarmup,
+  applyWritingTrialLimits,
   getWritingExamSession,
   getWritingAccessState,
+  getWritingLicence,
   getNextRecommendation,
   getTermReviewAccess,
   trialBlocksPrompt,
 } from '@/lib/writing-state';
-import { hasWritingProductAccess, writingAccessRequiredMessage } from '@/lib/writing-trial';
+import { hasWritingProductAccess, unlicensedAccessMessage } from '@/lib/writing-trial';
 import { isTrialPackPromptKind } from '@/lib/writing-trial-pack';
 
 export const runtime = 'nodejs';
@@ -58,11 +60,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'student_id is required' }, { status: 400 });
     }
 
-    const access = await getWritingAccessState(userId, studentId);
-    if (access === 'not-found') {
+    const licence = await getWritingLicence(userId, studentId);
+    if (licence.state === 'not-found') {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
-    if (!hasWritingProductAccess(access)) {
+    if (!hasWritingProductAccess(licence.state)) {
       let trialPack = false;
       if (promptId) {
         const kindRow = await query<{ kind: string }>(
@@ -72,13 +74,21 @@ export async function GET(request: Request) {
         trialPack = isTrialPackPromptKind(kindRow.rows[0]?.kind);
       }
       return NextResponse.json(
-        { error: writingAccessRequiredMessage(trialPack) },
+        {
+          error: unlicensedAccessMessage({
+            trialPack,
+            hadTrial: licence.hadTrial,
+          }),
+        },
         { status: 403 },
       );
     }
 
     if (!promptId) {
-      const guidance = await getGuidanceForStudent(studentId);
+      const guidance = applyWritingTrialLimits(
+        await getGuidanceForStudent(studentId),
+        licence,
+      );
       return NextResponse.json({
         progress: guidance.progress,
         unlocked_unit: guidance.unlocked_unit,
@@ -173,7 +183,7 @@ export async function GET(request: Request) {
     let reviewLocked = false;
     let lockReason = '';
     const trialBlock = await trialBlocksPrompt(userId, studentId, promptId, prompt.kind);
-    if (trialBlock && access === 'trial') {
+    if (trialBlock) {
       return NextResponse.json(
         { error: trialBlock.error, trial_only: true },
         { status: trialBlock.status },
@@ -452,7 +462,10 @@ export async function POST(request: Request) {
       wordCount: scored.word_count,
       timeSpentSeconds: timeSpent,
     });
-    const guidance = await getGuidanceForStudent(studentId);
+    const guidance = applyWritingTrialLimits(
+      await getGuidanceForStudent(studentId),
+      await getWritingLicence(userId, studentId),
+    );
 
     return NextResponse.json(
       {

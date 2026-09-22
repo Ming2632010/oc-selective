@@ -16,7 +16,9 @@ import {
   trialFullTaskLimitMessage,
   trialMiniLimitMessage,
   trialOfferCopy,
+  trialEndedMessage,
   trialStartRequiredMessage,
+  unlicensedAccessMessage,
   writingAccessRequiredMessage,
 } from './writing-trial';
 
@@ -113,6 +115,14 @@ describe('writing trial rules', () => {
     assert.equal(
       writingAccessRequiredMessage(false),
       'Selective Writing access is required for this child.',
+    );
+    assert.equal(
+      unlicensedAccessMessage({ trialPack: true, hadTrial: true }),
+      trialEndedMessage(),
+    );
+    assert.equal(
+      unlicensedAccessMessage({ trialPack: true, hadTrial: false }),
+      trialStartRequiredMessage(),
     );
   });
 

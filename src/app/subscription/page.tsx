@@ -298,6 +298,15 @@ export default function SubscriptionPage() {
                   </div>
                 ) : available ? (
                   <div className="mt-6 space-y-3">
+                    {active?.access_kind === 'trial' ? (
+                      <p className="text-sm text-warm-muted">
+                        Trial in progress
+                        {active.expires_at
+                          ? ` until ${new Date(active.expires_at).toLocaleDateString()}`
+                          : ''}
+                        . Buy a year to keep this work.
+                      </p>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => subscribe(subject)}
