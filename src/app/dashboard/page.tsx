@@ -145,20 +145,27 @@ type TrialPackInfo = {
 function subscriptionBanner(
   sub: SubscriptionState | null,
   studentId: string | null,
+  trial: WritingTrialInfo | null,
 ): {
   tone: 'warn' | 'info';
   message: string;
 } | null {
-  if (!sub) return null;
+  if (!studentId) return null;
 
-  const writingAccess = sub.subscriptions.find(
+  const writingAccess = sub?.subscriptions.find(
     (item) => item.subject === 'writing' && item.student_id === studentId && item.active,
   );
   if (!writingAccess) {
+    if (trial?.eligible) {
+      return {
+        tone: 'info',
+        message:
+          'Start a 7-day trial: 10 mini questions and one full writing task with three attempts. No card needed.',
+      };
+    }
     return {
       tone: 'warn',
-      message:
-        'This child does not have Selective Writing access yet.',
+      message: 'This child does not have Selective Writing access yet.',
     };
   }
 
@@ -517,12 +524,17 @@ export default function DashboardPage() {
       ) : null}
 
       {(() => {
-        const banner = subscriptionBanner(subscription, selectedStudentId);
+        const banner = subscriptionBanner(subscription, selectedStudentId, writingTrial);
         if (!banner) return null;
         const classes =
           banner.tone === 'warn'
             ? 'border-amber-300 bg-amber-50 text-amber-900'
             : 'border-[#C9DDD0] bg-[#EEF6F0] text-brand-dark';
+        const trialHref = trialPack
+          ? `/dashboard/writing/${trialPack.prompt.id}`
+          : recommendation
+            ? `/dashboard/writing/${recommendation.prompt_id}`
+            : '#trial-pack';
         return (
           <div
             className={`flex flex-wrap items-center justify-between gap-3 rounded-md border px-4 py-3 ${classes}`}
@@ -534,12 +546,35 @@ export default function DashboardPage() {
                   } left · ${writingTrial.attempts_used}/${writingTrial.attempts_limit} full writing task used · ${writingTrial.mini_used ?? 0}/${writingTrial.mini_limit ?? 10} mini questions used. Buy a year to keep this work.`
                 : banner.message}
             </p>
-            <Link
-              href="/subscription"
-              className="rounded-full bg-terracotta px-3 py-1.5 text-sm font-medium text-white hover:bg-terracotta-hover"
-            >
-              Manage subscription
-            </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              {writingTrial?.eligible && !selectedWritingAccess ? (
+                <button
+                  type="button"
+                  onClick={() => void startWritingTrial()}
+                  disabled={startingTrial || !selectedStudentId}
+                  className="rounded-full bg-terracotta px-3 py-1.5 text-sm font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
+                >
+                  {startingTrial ? 'Starting…' : 'Start the trial'}
+                </button>
+              ) : writingTrial?.active ? (
+                <Link
+                  href={trialHref}
+                  className="rounded-full bg-terracotta px-3 py-1.5 text-sm font-medium text-white hover:bg-terracotta-hover"
+                >
+                  Start the trial
+                </Link>
+              ) : null}
+              <Link
+                href="/subscription"
+                className={
+                  writingTrial?.eligible || writingTrial?.active
+                    ? 'rounded-full border border-brand px-3 py-1.5 text-sm font-medium text-brand hover:bg-[#EDF3ED]'
+                    : 'rounded-full bg-terracotta px-3 py-1.5 text-sm font-medium text-white hover:bg-terracotta-hover'
+                }
+              >
+                Manage subscription
+              </Link>
+            </div>
           </div>
         );
       })()}
@@ -616,45 +651,6 @@ export default function DashboardPage() {
             ) : null}
           </section>
 
-          <section className="space-y-3 rounded-lg border border-warm-border bg-warm-card p-4 shadow-card">
-            <div>
-              <h2 className="text-lg font-semibold text-warm-ink">Add another child</h2>
-              <p className="text-sm text-warm-muted">
-                Each child has their own progress and needs their own Selective Writing access.
-              </p>
-            </div>
-            <form
-              onSubmit={onCreateStudent}
-              className="grid gap-3 sm:grid-cols-[1fr_10rem_auto]"
-            >
-              <input
-                required
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="Child name"
-                className="rounded-lg border border-warm-border bg-warm-card px-3 py-2"
-              />
-              <select
-                value={newGrade}
-                onChange={(e) => setNewGrade(e.target.value)}
-                className="rounded-lg border border-warm-border bg-warm-card px-3 py-2"
-              >
-                {['Year 4', 'Year 5', 'Year 6', 'Year 7'].map((g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="submit"
-                disabled={creating}
-                className="rounded-full bg-terracotta px-4 py-2 font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
-              >
-                {creating ? 'Adding…' : 'Add child'}
-              </button>
-            </form>
-          </section>
-
           {!selectedWritingAccess ? (
             <section className="space-y-4 rounded-lg border border-warm-border bg-warm-card p-6 shadow-card">
               <h2 className="text-lg font-semibold text-warm-ink">Try Selective Writing</h2>
@@ -672,7 +668,7 @@ export default function DashboardPage() {
                     disabled={startingTrial || !selectedStudentId}
                     className="rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
                   >
-                    {startingTrial ? 'Starting…' : 'Start 7-day trial'}
+                    {startingTrial ? 'Starting…' : 'Start the trial'}
                   </button>
                 ) : (
                   <p className="text-sm text-warm-muted">
@@ -724,7 +720,7 @@ export default function DashboardPage() {
           <section className="space-y-8">
             {selectedWritingAccess.access_kind === 'trial' ? (
               trialPack ? (
-              <div className="space-y-6">
+              <div id="trial-pack" className="space-y-6">
                 <div>
                   <h2 className="text-lg font-medium text-warm-ink">Your 7-day trial pack</h2>
                   <p className="mt-1 text-sm text-warm-muted">
@@ -1156,6 +1152,45 @@ export default function DashboardPage() {
           </section>
             </>
           )}
+
+          <section className="space-y-3 rounded-lg border border-warm-border bg-warm-card p-4 shadow-card">
+            <div>
+              <h2 className="text-lg font-semibold text-warm-ink">Add another child</h2>
+              <p className="text-sm text-warm-muted">
+                Each child has their own progress and needs their own Selective Writing access.
+              </p>
+            </div>
+            <form
+              onSubmit={onCreateStudent}
+              className="grid gap-3 sm:grid-cols-[1fr_10rem_auto]"
+            >
+              <input
+                required
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Child name"
+                className="rounded-lg border border-warm-border bg-warm-card px-3 py-2"
+              />
+              <select
+                value={newGrade}
+                onChange={(e) => setNewGrade(e.target.value)}
+                className="rounded-lg border border-warm-border bg-warm-card px-3 py-2"
+              >
+                {['Year 4', 'Year 5', 'Year 6', 'Year 7'].map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="submit"
+                disabled={creating}
+                className="rounded-full bg-terracotta px-4 py-2 font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
+              >
+                {creating ? 'Adding…' : 'Add child'}
+              </button>
+            </form>
+          </section>
         </>
       )}
     </main>
