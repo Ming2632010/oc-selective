@@ -138,8 +138,10 @@ function DashboardGroupRow({
           'linear-gradient(145deg, #1E3F33 0%, #2D5A4A 58%, #4A7A64 100%)',
       }}
     >
-      <span className="flex items-baseline gap-3">
-        <span className="text-sm font-bold uppercase tracking-wide">{title}</span>
+      <span className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="text-sm font-bold uppercase tracking-wide whitespace-nowrap">
+          {title}
+        </span>
         <span className="text-sm text-white/80">{blurb}</span>
       </span>
       <span className="shrink-0 text-sm font-semibold text-[#F0C9A8]">{action}</span>
