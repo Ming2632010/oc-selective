@@ -81,6 +81,13 @@ export async function GET(request: Request) {
               : 'Your trial writing task. Same 30-minute timer and three attempts as the year.',
         weakest_dimension: null,
       };
+      if (guidance.week_note) {
+        guidance.week_note = {
+          ...guidance.week_note,
+          next_form_label: 'Narrative',
+          next_title: trialPack.prompt.title,
+        };
+      }
     }
 
     return NextResponse.json(
