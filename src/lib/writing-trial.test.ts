@@ -12,6 +12,7 @@ import {
   trialAllowsPracticeTask,
   trialDaysLeft,
   trialExpiresAt,
+  trialExamLockMessage,
   trialFullTaskLimitMessage,
   trialMiniLimitMessage,
   trialOfferCopy,
@@ -60,10 +61,10 @@ describe('writing trial rules', () => {
     if (!paid.ok) assert.match(paid.reason, /already has/);
   });
 
-  it('allows one full writing paper, keeps its three drafts, and blocks a second paper', () => {
+  it('allows only the extra trial paper, keeps its three drafts, and blocks paid unit papers', () => {
     assert.equal(
       trialAllowsPracticeTask({
-        promptKind: 'practice',
+        promptKind: 'trial',
         alreadyTried: false,
         distinctTried: 0,
       }).ok,
@@ -71,19 +72,19 @@ describe('writing trial rules', () => {
     );
     assert.equal(
       trialAllowsPracticeTask({
-        promptKind: 'practice',
+        promptKind: 'trial',
         alreadyTried: true,
         distinctTried: 1,
       }).ok,
       true,
     );
-    const second = trialAllowsPracticeTask({
+    const paidUnit = trialAllowsPracticeTask({
       promptKind: 'practice',
       alreadyTried: false,
-      distinctTried: 1,
+      distinctTried: 0,
     });
-    assert.equal(second.ok, false);
-    if (!second.ok) assert.equal(second.message, trialFullTaskLimitMessage());
+    assert.equal(paidUnit.ok, false);
+    if (!paidUnit.ok) assert.equal(paidUnit.message, trialExamLockMessage());
     const exam = trialAllowsPracticeTask({
       promptKind: 'test',
       alreadyTried: false,

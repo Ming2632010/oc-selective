@@ -20,7 +20,7 @@ type Drill = {
   title: string;
   stem: string;
   options: string[];
-  source?: 'seed' | 'ai';
+  source?: 'seed' | 'ai' | 'trial';
   item_kind?: MiniItemKind;
   prompt?: {
     sentence?: string;
@@ -251,14 +251,16 @@ export default function MiniPracticePage() {
     return (
       <main className="mx-auto max-w-3xl p-6">
         <p className="text-red-700">{error || 'Question not found.'}</p>
-        <Link href={`/dashboard/unit/${unitId}`} className="mt-4 inline-block underline">
-          Back to unit
+        <Link href="/dashboard" className="mt-4 inline-block underline">
+          Back to dashboard
         </Link>
       </main>
     );
   }
 
   const kindLabel = MINI_ITEM_KIND_LABELS[kind] ?? 'Practice';
+  const trialPack = drill.source === 'trial' || slug.startsWith('trial-pack-');
+  const backHref = trialPack ? '/dashboard' : `/dashboard/unit/${unitId}`;
   const locked = Boolean(result) || submitting;
   const helpText =
     kind === 'spelling'
@@ -277,13 +279,13 @@ export default function MiniPracticePage() {
     <main className="mx-auto max-w-3xl space-y-6 p-6">
       <header className="border-b border-stone-300 pb-4">
         <Link
-          href={`/dashboard/unit/${unitId}`}
+          href={backHref}
           className="text-sm text-stone-500 hover:underline"
         >
-          ← Back to {unitInfo.title}
+          {trialPack ? '← Back to trial pack' : `← Back to ${unitInfo.title}`}
         </Link>
         <p className="mt-2 text-sm uppercase tracking-wide text-indigo-700">
-          Mini practice
+          {trialPack ? 'Trial pack' : 'Mini practice'}
           {drill.source === 'ai' ? ' · Extra' : ''}
           {kind !== 'choice' ? ` · ${kindLabel}` : ''} ·{' '}
           {MINI_SKILL_LABELS[drill.skill] ?? drill.skill}
@@ -603,10 +605,10 @@ export default function MiniPracticePage() {
           </Link>
         ) : null}
         <Link
-          href={`/dashboard/unit/${unitId}`}
+          href={backHref}
           className="inline-flex rounded-md border border-stone-300 px-4 py-2 text-sm"
         >
-          Back to unit
+          {trialPack ? 'Back to trial pack' : 'Back to unit'}
         </Link>
       </div>
     </main>

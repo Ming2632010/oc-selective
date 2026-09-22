@@ -31,7 +31,7 @@ type MiniDrillCard = {
   skill: MiniSkill;
   title: string;
   attempted: boolean;
-  source?: 'seed' | 'ai';
+  source?: 'seed' | 'ai' | 'trial';
   item_kind?: MiniItemKind;
 };
 
@@ -114,6 +114,10 @@ export default function UnitPage() {
           apiFetch(`/api/prompts?module_id=${unitId}&kind=practice&student_id=${studentId}`),
           apiFetch(`/api/writing/drills?module_id=${unitId}&student_id=${studentId}`),
         ]);
+        if (promptRes.data.trial_only || drillRes.data.trial_only) {
+          router.replace('/dashboard');
+          return;
+        }
         if (!promptRes.response.ok) {
           throw new Error(promptRes.data.error || 'Failed to load prompts');
         }

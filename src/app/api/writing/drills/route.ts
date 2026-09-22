@@ -18,7 +18,6 @@ import {
   visibleTrialMiniDrills,
 } from '@/lib/writing-state';
 import { typeLabel } from '@/lib/units';
-import { clipTrialMiniDrills } from '@/lib/writing-trial';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -58,7 +57,12 @@ function publicDrill(row: DrillRow) {
     stem: row.stem,
     options: Array.isArray(row.options) ? row.options : [],
     sort_order: row.sort_order,
-    source: row.source === 'seed' || !row.source ? 'seed' : 'ai',
+    source:
+      row.source === 'trial'
+        ? 'trial'
+        : row.source === 'seed' || !row.source
+          ? 'seed'
+          : 'ai',
     item_kind: itemKind,
     prompt: publicMiniPrompt(itemKind, row.prompt),
   };
@@ -72,14 +76,6 @@ function nextClippedSlug(drills: { slug: string }[], currentSlug: string) {
   const index = drills.findIndex((row) => row.slug === currentSlug);
   if (index < 0) return drills[0]?.slug ?? null;
   return drills[index + 1]?.slug ?? null;
-}
-
-function seedMiniOnly<T extends { student_id: string | null; source: string | null }>(
-  rows: T[],
-) {
-  return rows.filter(
-    (row) => !row.student_id && (row.source === 'seed' || !row.source),
-  );
 }
 
 function seedBucket(source: string | null | undefined, studentId: string | null) {
@@ -272,11 +268,7 @@ export async function GET(request: Request) {
       if (studentId) {
         const licence = await getWritingLicence(userId, studentId);
         if (licence.state === 'trial') {
-          const visible = await visibleTrialMiniDrills(
-            studentId,
-            drill.module_id,
-            licence.miniUsed,
-          );
+          const visible = await visibleTrialMiniDrills(studentId);
           nextSlug = nextClippedSlug(visible, drill.slug);
         }
       }
@@ -303,6 +295,39 @@ export async function GET(request: Request) {
         { error: 'module_id must be an integer between 1 and 11' },
         { status: 400 },
       );
+    }
+
+    const licence = studentId ? await getWritingLicence(userId, studentId) : null;
+    if (licence?.state === 'trial') {
+      const pack = await query<DrillRow>(
+        `SELECT ${DRILL_COLUMNS}
+         FROM mini_drills
+         WHERE source = 'trial' AND is_active = TRUE AND student_id IS NULL
+         ORDER BY sort_order ASC`,
+      );
+      const attempted = studentId
+        ? await query<{ drill_id: string }>(
+            `SELECT DISTINCT drill_id FROM mini_drill_attempts WHERE student_id = $1`,
+            [studentId],
+          )
+        : { rows: [] as { drill_id: string }[] };
+      const done = new Set(attempted.rows.map((row) => row.drill_id));
+      return NextResponse.json({
+        module_id: moduleId,
+        drills: pack.rows.map((row) => ({
+          ...publicDrill(row),
+          attempted: done.has(row.id),
+        })),
+        extra: {
+          can_generate: false,
+          remaining_today: 0,
+          remaining_unit: 0,
+          suggested_skills: [],
+          reason: '',
+        },
+        trial_mini: { used: licence.miniUsed, limit: licence.miniLimit },
+        trial_only: true,
+      });
     }
 
     const drills = await query<DrillRow>(
@@ -335,7 +360,6 @@ export async function GET(request: Request) {
     );
 
     let done = new Set<string>();
-    const licence = studentId ? await getWritingLicence(userId, studentId) : null;
     if (studentId) {
       const attempts = await query<{ drill_id: string }>(
         `SELECT DISTINCT attempt.drill_id
@@ -347,10 +371,7 @@ export async function GET(request: Request) {
       done = new Set(attempts.rows.map((row) => row.drill_id));
     }
 
-    const visibleRows =
-      licence?.state === 'trial'
-        ? clipTrialMiniDrills(seedMiniOnly(drills.rows), done, licence.miniUsed)
-        : drills.rows;
+    const visibleRows = drills.rows;
 
     return NextResponse.json({
       module_id: moduleId,
@@ -358,20 +379,8 @@ export async function GET(request: Request) {
         ...publicDrill(row),
         attempted: done.has(row.id),
       })),
-      extra:
-        licence?.state === 'trial'
-          ? {
-              can_generate: false,
-              remaining_today: 0,
-              remaining_unit: 0,
-              suggested_skills: [],
-              reason: '',
-            }
-          : null,
-      trial_mini:
-        licence?.state === 'trial'
-          ? { used: licence.miniUsed, limit: licence.miniLimit }
-          : null,
+      extra: null,
+      trial_mini: null,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load drills';
@@ -524,11 +533,7 @@ export async function POST(request: Request) {
     );
     const licence = await getWritingLicence(userId, studentId);
     if (licence.state === 'trial') {
-      const visible = await visibleTrialMiniDrills(
-        studentId,
-        drill.module_id,
-        licence.miniUsed,
-      );
+      const visible = await visibleTrialMiniDrills(studentId);
       nextSlug = nextClippedSlug(visible, drill.slug);
     }
 

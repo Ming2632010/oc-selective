@@ -117,8 +117,10 @@ export async function GET(request: Request) {
           : true;
         const trialBlock = await trialBlocksPrompt(userId, studentId, promptId, prompt.kind);
         if (trialBlock && access === 'trial') {
-          reviewLocked = true;
-          lockReason = trialBlock.error;
+          return NextResponse.json(
+            { error: trialBlock.error, trial_only: true },
+            { status: trialBlock.status },
+          );
         } else if (isExam && maxDraft < 1) {
           if (prompt.kind === 'bonus') {
             const examAccess = await getBonusExamAccess(studentId);
@@ -161,6 +163,11 @@ export async function GET(request: Request) {
       );
     }
 
+    const kind =
+      kindParam === 'test' || kindParam === 'practice' || kindParam === 'all'
+        ? kindParam
+        : 'practice';
+
     if (studentId) {
       const access = await getWritingAccessState(userId, studentId);
       if (access === 'not-found') {
@@ -172,19 +179,23 @@ export async function GET(request: Request) {
           { status: 403 },
         );
       }
+      if (access === 'trial') {
+        return NextResponse.json({
+          module_id: moduleId,
+          unit_locked: true,
+          kind,
+          prompts: [],
+          trial_only: true,
+        });
+      }
     }
-
-    const kind =
-      kindParam === 'test' || kindParam === 'practice' || kindParam === 'all'
-        ? kindParam
-        : 'practice';
 
     // Custom prompts are private to one student and must never be part of the
     // shared unit catalogue, including broad `kind=all` requests.
     const conditions = [
       'module_id = $1',
       'is_active = TRUE',
-      `COALESCE(kind, 'practice') <> 'custom'`,
+      `COALESCE(kind, 'practice') NOT IN ('custom', 'trial')`,
     ];
     const params: unknown[] = [moduleId];
     if (kind !== 'all') {

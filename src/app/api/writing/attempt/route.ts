@@ -165,8 +165,10 @@ export async function GET(request: Request) {
     let lockReason = '';
     const trialBlock = await trialBlocksPrompt(userId, studentId, promptId, prompt.kind);
     if (trialBlock && access === 'trial') {
-      reviewLocked = true;
-      lockReason = trialBlock.error;
+      return NextResponse.json(
+        { error: trialBlock.error, trial_only: true },
+        { status: trialBlock.status },
+      );
     } else if (examStyle && maxDraft < 1) {
       if (prompt.kind === 'bonus') {
         const examAccess = await getBonusExamAccess(studentId);

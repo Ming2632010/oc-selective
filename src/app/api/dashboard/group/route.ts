@@ -32,6 +32,18 @@ export async function GET(request: Request) {
     if (!hasWritingProductAccess(licence.state)) {
       return NextResponse.json({ error: 'Selective Writing access is required for this child.' }, { status: 403 });
     }
+    if (licence.state === 'trial') {
+      return NextResponse.json(
+        {
+          group,
+          progress: [],
+          mini_progress: [],
+          term_tests: [],
+          trial_only: true,
+        },
+        { headers: { 'Cache-Control': 'private, no-store' } },
+      );
+    }
 
     const [allProgress, allMini] = await Promise.all([
       getUnitProgress(studentId),

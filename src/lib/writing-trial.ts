@@ -97,7 +97,7 @@ export function trialAllowsPracticeTask(input: {
   if (kind === 'custom') {
     return { ok: false, message: trialCustomLockMessage() };
   }
-  if (kind !== 'practice') {
+  if (kind !== 'trial') {
     return { ok: false, message: trialExamLockMessage() };
   }
   const limit = input.attemptLimit ?? WRITING_TRIAL_FULL_TASKS;
@@ -112,7 +112,7 @@ export function clipTrialRecommendation<
 >(recommendation: T | null, distinctTried: number, attemptLimit?: number): T | null {
   if (!recommendation) return null;
   const allowed = trialAllowsPracticeTask({
-    promptKind: 'practice',
+    promptKind: 'trial',
     alreadyTried: recommendation.next_draft > 1,
     distinctTried,
     attemptLimit,

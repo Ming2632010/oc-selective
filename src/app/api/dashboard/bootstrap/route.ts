@@ -4,6 +4,7 @@ import { query } from '@/lib/db';
 import { isSubscriptionActive } from '@/lib/subscription';
 import { getDashboardOverview, getWritingLicence, applyWritingTrialLimits, trialClientFields } from '@/lib/writing-state';
 import { ensureWritingTrialColumns } from '@/lib/writing-trial-schema';
+import { ensureWritingTrialPack, getTrialPackView } from '@/lib/writing-trial-pack';
 import { hasWritingProductAccess } from '@/lib/writing-trial';
 
 export const runtime = 'nodejs';
@@ -14,6 +15,7 @@ export async function GET(request: Request) {
     const userId = await getAuthUserId(request);
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     await ensureWritingTrialColumns();
+    await ensureWritingTrialPack();
 
     const [userResult, studentResult, subscriptionResult] = await Promise.all([
       query<{ id: string; email: string; full_name: string }>(
@@ -55,10 +57,31 @@ export async function GET(request: Request) {
       ? await getWritingLicence(userId, selectedStudentId)
       : null;
     const writingAccess = licence?.state ?? 'not-found';
+    const trialPack =
+      selectedStudentId && licence?.state === 'trial'
+        ? await getTrialPackView(selectedStudentId)
+        : null;
     const guidance =
       selectedStudentId && licence && hasWritingProductAccess(licence.state)
         ? applyWritingTrialLimits(await getDashboardOverview(selectedStudentId), licence)
         : null;
+    if (guidance && trialPack) {
+      const nextDraft = Math.min(3, trialPack.prompt.max_draft + 1);
+      guidance.recommendation = {
+        prompt_id: trialPack.prompt.id,
+        title: trialPack.prompt.title,
+        prompt_type: trialPack.prompt.prompt_type,
+        module_id: trialPack.prompt.module_id,
+        next_draft: trialPack.prompt.max_draft >= 3 ? 3 : nextDraft,
+        reason:
+          trialPack.prompt.max_draft >= 3
+            ? 'You have used the three trial attempts on this paper. Buy a year to keep writing.'
+            : trialPack.prompt.max_draft > 0
+              ? `Continue the trial writing task (draft ${nextDraft} of 3).`
+              : 'Your trial writing task. Same 30-minute timer and three attempts as the year.',
+        weakest_dimension: null,
+      };
+    }
 
     return NextResponse.json(
       {
@@ -71,6 +94,7 @@ export async function GET(request: Request) {
         trial: licence && writingAccess !== 'not-found'
           ? trialClientFields(licence)
           : null,
+        trial_pack: trialPack,
         guidance,
       },
       { headers: { 'Cache-Control': 'private, no-store' } },

@@ -19,3 +19,14 @@ BEGIN
       CHECK (access_kind IN ('paid', 'trial'));
   END IF;
 END $$;
+
+-- Extra trial pack uses kind = 'trial' so paid unit queries stay unchanged.
+DO $$
+BEGIN
+  ALTER TABLE prompts DROP CONSTRAINT IF EXISTS prompts_kind_check;
+  ALTER TABLE prompts
+    ADD CONSTRAINT prompts_kind_check
+    CHECK (kind IN ('practice', 'test', 'bonus', 'custom', 'trial'));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;

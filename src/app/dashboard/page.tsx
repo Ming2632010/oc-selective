@@ -124,6 +124,24 @@ type WritingTrialInfo = {
   expires_at: string | null;
 };
 
+type TrialPackInfo = {
+  prompt: {
+    id: string;
+    title: string;
+    description: string;
+    prompt_type: string;
+    module_id: number;
+    max_draft: number;
+  };
+  drills: Array<{
+    id: string;
+    slug: string;
+    title: string;
+    skill: string;
+    attempted: boolean;
+  }>;
+};
+
 function subscriptionBanner(
   sub: SubscriptionState | null,
   studentId: string | null,
@@ -223,6 +241,7 @@ export default function DashboardPage() {
   const [customType, setCustomType] = useState('narrative');
   const [customCreating, setCustomCreating] = useState(false);
   const [writingTrial, setWritingTrial] = useState<WritingTrialInfo | null>(null);
+  const [trialPack, setTrialPack] = useState<TrialPackInfo | null>(null);
   const [startingTrial, setStartingTrial] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -247,6 +266,7 @@ export default function DashboardPage() {
       setHistory([]);
       setRecommendation(null);
       setWritingTrial(null);
+      setTrialPack(null);
       setExpandedGroups([]);
       setLoadedGroups({});
       setCustomOpen(false);
@@ -289,11 +309,13 @@ export default function DashboardPage() {
       setHistory(guidance?.history ?? []);
       setRecommendation(guidance?.recommendation ?? null);
       setWritingTrial((res.data.trial as WritingTrialInfo | null) ?? null);
+      setTrialPack((res.data.trial_pack as TrialPackInfo | null) ?? null);
+      const isTrial = (res.data.writing_access as string | undefined) === 'trial';
       const suggestedGroup =
         UNIT_GROUPS.find((group) =>
           unitsByGroup(group).some((unit) => unit.id === guidance?.recommendation?.module_id),
         ) ?? 'Creative';
-      if (selected && guidance) {
+      if (selected && guidance && !isTrial) {
         setExpandedGroups([suggestedGroup]);
         void loadGroup(selected, suggestedGroup);
       }
@@ -700,12 +722,79 @@ export default function DashboardPage() {
           </div>
 
           <section className="space-y-8">
+            {selectedWritingAccess.access_kind === 'trial' ? (
+              trialPack ? (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-lg font-medium text-warm-ink">Your 7-day trial pack</h2>
+                  <p className="mt-1 text-sm text-warm-muted">
+                    Extra trial questions only: 10 mini questions and one full writing
+                    task with three attempts. The 11 writing units stay in the paid year.
+                  </p>
+                </div>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <section className="rounded-lg border border-warm-border bg-warm-card p-5 shadow-card">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-brand">
+                      Mini practice
+                    </p>
+                    <p className="mt-2 text-sm text-warm-muted">
+                      {trialPack.drills.filter((row) => row.attempted).length}/
+                      {trialPack.drills.length} tried
+                    </p>
+                    <ul className="mt-4 space-y-2">
+                      {trialPack.drills.map((drill) => (
+                        <li key={drill.id}>
+                          <Link
+                            href={`/dashboard/unit/${trialPack.prompt.module_id}/practice/${drill.slug}`}
+                            className="flex items-center justify-between rounded-lg border border-warm-border px-3 py-2 text-sm hover:border-brand"
+                          >
+                            <span className="font-medium text-warm-ink">{drill.title}</span>
+                            <span className="text-xs text-warm-subtle">
+                              {drill.attempted ? 'Tried' : 'Open'}
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                  <section className="rounded-lg border border-warm-border bg-warm-card p-5 shadow-card">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-brand">
+                      Full writing task
+                    </p>
+                    <h3 className="mt-2 text-lg font-semibold text-warm-ink">
+                      {trialPack.prompt.title}
+                    </h3>
+                    <p className="mt-2 text-sm text-warm-muted">
+                      Narrative · 30 minutes · {trialPack.prompt.max_draft}/3 drafts
+                    </p>
+                    <p className="mt-3 line-clamp-4 text-sm text-warm-muted">
+                      {trialPack.prompt.description}
+                    </p>
+                    <Link
+                      href={`/dashboard/writing/${trialPack.prompt.id}`}
+                      className="mt-4 inline-flex rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover"
+                    >
+                      {trialPack.prompt.max_draft === 0
+                        ? 'Start this task'
+                        : trialPack.prompt.max_draft >= 3
+                          ? 'View your drafts'
+                          : `Continue draft ${trialPack.prompt.max_draft + 1}`}
+                    </Link>
+                  </section>
+                </div>
+              </div>
+              ) : (
+                <p className="text-sm text-warm-muted">
+                  Your trial pack is still loading. Refresh to see the 10 mini
+                  questions and one writing task.
+                </p>
+              )
+            ) : (
+            <>
             <div>
               <h2 className="text-lg font-medium text-warm-ink">Writing units</h2>
               <p className="mt-1 text-sm text-warm-muted">
-                {selectedWritingAccess.access_kind === 'trial'
-                  ? 'Trial: 10 mini questions, and one full writing task with three attempts. Term reviews, bonus papers, and custom tasks are in the full year.'
-                  : 'Start any unit. Each one has mini practice and three full writing tasks. Term reviews stay locked until you have tried every full writing task in that unit at least once. One sitting, one attempt only.'}
+                Start any unit. Each one has mini practice and three full writing tasks. Term reviews stay locked until you have tried every full writing task in that unit at least once. One sitting, one attempt only.
               </p>
             </div>
             {UNIT_GROUPS.map((group) => {
@@ -882,6 +971,8 @@ export default function DashboardPage() {
               </div>
               );
             })}
+            </>
+            )}
 
             {selectedWritingAccess.access_kind === 'trial' ? null : (
             <div className="space-y-4">
@@ -966,7 +1057,7 @@ export default function DashboardPage() {
             </div>
             )}
 
-            {bonusPapers ? (
+            {bonusPapers && selectedWritingAccess.access_kind !== 'trial' ? (
               <section
                 data-testid="bonus-exam-papers"
                 className="relative overflow-hidden rounded-lg border border-brand-dark p-6 text-white shadow-float"
@@ -993,9 +1084,7 @@ export default function DashboardPage() {
                         Exam-style writing, after the course
                       </h3>
                       <p className="mt-2 max-w-2xl text-sm text-white/80">
-                        {selectedWritingAccess.access_kind === 'trial'
-                          ? 'Bonus exam papers stay in the full year. The trial is 10 mini questions and one full writing task with three attempts.'
-                          : 'Original TrialSeed papers in the forms used on recent Selective writing tests. One sitting, 30 minutes, no re-attempt. Unlock them by trying every full writing task and every term review at least once.'}
+                        Original TrialSeed papers in the forms used on recent Selective writing tests. One sitting, 30 minutes, no re-attempt. Unlock them by trying every full writing task and every term review at least once.
                       </p>
                     </div>
                     <span className="rounded-full border border-[#E5B993] bg-[#C49B7A] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
