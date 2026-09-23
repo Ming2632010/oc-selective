@@ -813,14 +813,6 @@ export default function DashboardPage() {
             {selectedWritingAccess.access_kind === 'trial' ? (
               trialPack ? (
               <div id="trial-pack" className="space-y-4">
-                <div>
-                  <h2 className="text-lg font-medium text-warm-ink">Writing</h2>
-                  <p className="mt-1 text-sm text-warm-muted">
-                    Open Free Trial for the seed patch, growth chat, 10 mini
-                    questions, and one writing task. The groups below stay locked
-                    until you buy a year.
-                  </p>
-                </div>
                 <DashboardGroupRow
                   title="Free Trial"
                   blurb="10 minis and one writing task"
@@ -914,14 +906,14 @@ export default function DashboardPage() {
               )
             ) : null}
 
+            {selectedWritingAccess.access_kind === 'trial' ? null : (
             <div>
               <h2 className="text-lg font-medium text-warm-ink">Writing units</h2>
               <p className="mt-1 text-sm text-warm-muted">
-                {selectedWritingAccess.access_kind === 'trial'
-                  ? 'Creative, Informative, and Persuasive are what a year includes. They stay locked during the trial.'
-                  : 'Start any unit. Each one has mini practice and three full writing tasks. Term reviews stay locked until you have tried every full writing task in that unit at least once. One sitting, one attempt only.'}
+                Start any unit. Each one has mini practice and three full writing tasks. Term reviews stay locked until you have tried every full writing task in that unit at least once. One sitting, one attempt only.
               </p>
             </div>
+            )}
             {UNIT_GROUPS.map((group) => {
               const groupUnits = unitsByGroup(group);
               const groupTests = termTests.filter((test) =>
