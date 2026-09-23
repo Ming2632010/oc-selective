@@ -5,6 +5,7 @@ import {
   TRIAL_PACK_PROMPT,
   TRIAL_PACK_PROMPT_TITLE,
 } from '@/lib/seed-trial-pack';
+import { clipTrialMiniDrills } from '@/lib/writing-trial';
 
 let ready: Promise<void> | null = null;
 
@@ -192,11 +193,12 @@ export async function getTrialPackView(studentId: string): Promise<TrialPackView
     [studentId],
   );
 
+  const triedIds = new Set(drills.rows.filter((item) => item.attempted).map((item) => item.id));
   return {
     prompt: {
       ...row,
       max_draft: Number(draft.rows[0]?.n ?? 0),
     },
-    drills: drills.rows,
+    drills: clipTrialMiniDrills(drills.rows, triedIds, triedIds.size),
   };
 }

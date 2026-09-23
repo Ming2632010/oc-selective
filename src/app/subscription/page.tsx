@@ -12,7 +12,6 @@ import {
   isAvailableSubject,
   type Subject,
 } from '@/lib/subjects';
-import { usesWritingDashboard } from '@/lib/writing-trial';
 
 type SubscriptionItem = {
   id: string;
@@ -28,16 +27,6 @@ type StatusResponse = {
   subscriptions: SubscriptionItem[];
   has_active: boolean;
 };
-type TrialInfo = {
-  eligible: boolean;
-  active: boolean;
-  days_left: number | null;
-  attempts_used: number;
-  attempts_limit: number;
-  mini_used?: number;
-  mini_limit?: number;
-  expires_at: string | null;
-};
 type Student = { id: string; name: string; grade: string };
 
 export default function SubscriptionPage() {
@@ -50,7 +39,6 @@ export default function SubscriptionPage() {
   const [expiredNotice, setExpiredNotice] = useState(false);
   const [students, setStudents] = useState<Student[]>([]);
   const [studentId, setStudentId] = useState<string>('');
-  const [trial, setTrial] = useState<TrialInfo | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -91,22 +79,6 @@ export default function SubscriptionPage() {
     void load();
   }, [router]);
 
-  useEffect(() => {
-    async function loadTrial() {
-      if (!studentId) {
-        setTrial(null);
-        return;
-      }
-      const res = await apiFetch(`/api/subscription/start-trial?student_id=${studentId}`);
-      if (res.response.ok) {
-        setTrial(res.data.trial as TrialInfo);
-      } else {
-        setTrial(null);
-      }
-    }
-    void loadTrial();
-  }, [studentId]);
-
   const activeBySubject = useMemo(() => {
     const map = new Map<string, SubscriptionItem>();
     for (const sub of data?.subscriptions ?? []) {
@@ -122,27 +94,6 @@ export default function SubscriptionPage() {
     (subscription) =>
       subscription.subject === 'writing' && subscription.active && !subscription.student_id,
   );
-
-  async function startTrial() {
-    if (!studentId) return;
-    setError(null);
-    setBusy('trial');
-    try {
-      const res = await apiFetch('/api/subscription/start-trial', {
-        method: 'POST',
-        body: JSON.stringify({ student_id: studentId }),
-      });
-      if (!res.response.ok) {
-        throw new Error(res.data.error || 'Could not start the trial');
-      }
-      setTrial(res.data.trial as TrialInfo);
-      router.push('/dashboard');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not start the trial');
-    } finally {
-      setBusy(null);
-    }
-  }
 
   async function subscribe(subject: Subject) {
     setError(null);
@@ -218,9 +169,8 @@ export default function SubscriptionPage() {
           <p className="text-sm uppercase tracking-wide text-warm-subtle">Subscription</p>
           <h1 className="text-3xl font-semibold text-warm-ink">Choose your subjects</h1>
           <p className="mt-1 text-sm text-warm-muted">
-            Selective Writing is ${SUBJECT_PRICE_AUD} AUD for one year. You can
-            try 7 days first: 10 mini practice questions and one full writing
-            task with three attempts. The paid year starts from the day you buy.
+            Selective Writing is ${SUBJECT_PRICE_AUD} AUD for one year. The paid
+            year starts from the day you buy.
           </p>
         </div>
         <Link
@@ -306,9 +256,9 @@ export default function SubscriptionPage() {
                       {SUBJECT_BLURBS[subject]}
                     </p>
                   </div>
-                  {active ? (
+                  {active && active.access_kind !== 'trial' ? (
                     <span className="whitespace-nowrap rounded-full bg-[#E3EFE6] px-2.5 py-0.5 text-xs font-medium text-brand-dark">
-                      {active.access_kind === 'trial' ? 'Trial' : 'Active'}
+                      Active
                     </span>
                   ) : !available ? (
                     <span className="whitespace-nowrap rounded-full bg-[#F0EBE3] px-2.5 py-0.5 text-xs font-medium text-warm-muted">
@@ -350,25 +300,12 @@ export default function SubscriptionPage() {
                   <div className="mt-6 space-y-3">
                     {active?.access_kind === 'trial' ? (
                       <p className="text-sm text-warm-muted">
-                        Trial until{' '}
+                        Trial in progress
                         {active.expires_at
-                          ? new Date(active.expires_at).toLocaleDateString()
-                          : 'the end of 7 days'}
-                        {trial
-                          ? ` · ${trial.attempts_used}/${trial.attempts_limit} full writing task used · ${trial.mini_used ?? 0}/${trial.mini_limit ?? 10} mini questions used`
+                          ? ` until ${new Date(active.expires_at).toLocaleDateString()}`
                           : ''}
                         . Buy a year to keep this work.
                       </p>
-                    ) : null}
-                    {trial?.eligible && usesWritingDashboard(students.find((row) => row.id === studentId)?.grade ?? '') ? (
-                      <button
-                        type="button"
-                        onClick={() => void startTrial()}
-                        disabled={busy === 'trial' || !studentId}
-                        className="w-full rounded-full border border-brand px-4 py-2.5 text-sm font-medium text-brand hover:bg-[#EDF3ED] disabled:opacity-60"
-                      >
-                        {busy === 'trial' ? 'Starting…' : 'Start 7-day trial'}
-                      </button>
                     ) : null}
                     <button
                       type="button"

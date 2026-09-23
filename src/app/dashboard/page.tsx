@@ -12,6 +12,11 @@ import {
   setStudentId,
 } from '@/lib/client-auth';
 import { typeLabel, UNIT_GROUPS, unitsByGroup, WRITING_TYPES, type UnitGroup } from '@/lib/units';
+import {
+  trialEndedKeepWorkMessage,
+  trialInProgressMessage,
+} from '@/lib/writing-trial';
+import { MINI_SKILL_LABELS, type MiniSkill } from '@/lib/seed-mini-drills';
 import { WritingProgressLine, type HistoryPoint } from '@/components/writing/progress-line';
 import { SeedPatch, type SeedPatchData } from '@/components/writing/seed-patch';
 import { WeekNote } from '@/components/writing/week-note';
@@ -95,6 +100,7 @@ type Recommendation = {
   module_id: number;
   next_draft: number;
   reason: string;
+  completed?: boolean;
 };
 
 type CustomTask = {
@@ -113,12 +119,54 @@ const GROUP_BLURBS: Record<UnitGroup, string> = {
   Persuasive: 'Convince and influence',
 };
 
+function DashboardGroupRow({
+  title,
+  blurb,
+  action,
+  expanded,
+  onClick,
+}: {
+  title: string;
+  blurb: string;
+  action: string;
+  expanded: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={expanded}
+      className="flex w-full items-baseline justify-between gap-3 rounded-lg border border-brand-dark p-4 text-left text-white shadow-card"
+      style={{
+        background:
+          'linear-gradient(145deg, #1E3F33 0%, #2D5A4A 58%, #4A7A64 100%)',
+      }}
+    >
+      <span className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="text-sm font-bold uppercase tracking-wide whitespace-nowrap">
+          {title}
+        </span>
+        <span className="text-sm text-white/80">{blurb}</span>
+      </span>
+      <span className="shrink-0 text-sm font-semibold text-[#F0C9A8]">{action}</span>
+    </button>
+  );
+}
+
+function miniSkillLabel(skill: string) {
+  return MINI_SKILL_LABELS[skill as MiniSkill] ?? skill;
+}
+
 type WritingTrialInfo = {
   eligible: boolean;
   active: boolean;
+  had_trial?: boolean;
   days_left: number | null;
   attempts_used: number;
   attempts_limit: number;
+  drafts_used?: number;
+  drafts_limit?: number;
   mini_used?: number;
   mini_limit?: number;
   expires_at: string | null;
@@ -160,7 +208,13 @@ function subscriptionBanner(
       return {
         tone: 'info',
         message:
-          'Start a 7-day trial: 10 mini questions and one full writing task with three attempts. No card needed.',
+          'Press Start 7-day trial to begin. No card needed: 10 mini questions and one full writing task with three attempts.',
+      };
+    }
+    if (trial?.had_trial) {
+      return {
+        tone: 'warn',
+        message: trialEndedKeepWorkMessage(),
       };
     }
     return {
@@ -170,15 +224,25 @@ function subscriptionBanner(
   }
 
   if (writingAccess.access_kind === 'trial') {
-    const daysLeft = writingAccess.expires_at
-      ? Math.max(
-          0,
-          Math.ceil((new Date(writingAccess.expires_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000)),
-        )
-      : 0;
+    const daysLeft =
+      trial?.days_left ??
+      (writingAccess.expires_at
+        ? Math.max(
+            0,
+            Math.ceil(
+              (new Date(writingAccess.expires_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000),
+            ),
+          )
+        : 0);
     return {
       tone: 'info',
-      message: `7-day trial · ${daysLeft} day${daysLeft === 1 ? '' : 's'} left. 10 mini practice questions and one full writing task with three attempts. Buy a year to keep this work.`,
+      message: trialInProgressMessage({
+        daysLeft,
+        draftsUsed: trial?.drafts_used ?? 0,
+        draftsLimit: trial?.drafts_limit ?? 3,
+        miniUsed: trial?.mini_used ?? 0,
+        miniLimit: trial?.mini_limit ?? 10,
+      }),
     };
   }
 
@@ -249,6 +313,7 @@ export default function DashboardPage() {
   const [customCreating, setCustomCreating] = useState(false);
   const [writingTrial, setWritingTrial] = useState<WritingTrialInfo | null>(null);
   const [trialPack, setTrialPack] = useState<TrialPackInfo | null>(null);
+  const [trialGroupOpen, setTrialGroupOpen] = useState(false);
   const [startingTrial, setStartingTrial] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -274,6 +339,7 @@ export default function DashboardPage() {
       setRecommendation(null);
       setWritingTrial(null);
       setTrialPack(null);
+      setTrialGroupOpen(false);
       setExpandedGroups([]);
       setLoadedGroups({});
       setCustomOpen(false);
@@ -318,6 +384,7 @@ export default function DashboardPage() {
       setWritingTrial((res.data.trial as WritingTrialInfo | null) ?? null);
       setTrialPack((res.data.trial_pack as TrialPackInfo | null) ?? null);
       const isTrial = (res.data.writing_access as string | undefined) === 'trial';
+      setTrialGroupOpen(isTrial);
       const suggestedGroup =
         UNIT_GROUPS.find((group) =>
           unitsByGroup(group).some((unit) => unit.id === guidance?.recommendation?.module_id),
@@ -530,44 +597,27 @@ export default function DashboardPage() {
           banner.tone === 'warn'
             ? 'border-amber-300 bg-amber-50 text-amber-900'
             : 'border-[#C9DDD0] bg-[#EEF6F0] text-brand-dark';
-        const trialHref = trialPack
-          ? `/dashboard/writing/${trialPack.prompt.id}`
-          : recommendation
-            ? `/dashboard/writing/${recommendation.prompt_id}`
-            : '#trial-pack';
+        const canStartTrial = Boolean(writingTrial?.eligible && !selectedWritingAccess);
         return (
           <div
             className={`flex flex-wrap items-center justify-between gap-3 rounded-md border px-4 py-3 ${classes}`}
           >
-            <p className="text-sm">
-              {writingTrial?.active
-                ? `7-day trial · ${writingTrial.days_left ?? 0} day${
-                    writingTrial.days_left === 1 ? '' : 's'
-                  } left · ${writingTrial.attempts_used}/${writingTrial.attempts_limit} full writing task used · ${writingTrial.mini_used ?? 0}/${writingTrial.mini_limit ?? 10} mini questions used. Buy a year to keep this work.`
-                : banner.message}
-            </p>
+            <p className="text-sm">{banner.message}</p>
             <div className="flex flex-wrap items-center gap-2">
-              {writingTrial?.eligible && !selectedWritingAccess ? (
+              {canStartTrial ? (
                 <button
                   type="button"
                   onClick={() => void startWritingTrial()}
                   disabled={startingTrial || !selectedStudentId}
                   className="rounded-full bg-terracotta px-3 py-1.5 text-sm font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
                 >
-                  {startingTrial ? 'Starting…' : 'Start the trial'}
+                  {startingTrial ? 'Starting…' : 'Start 7-day trial'}
                 </button>
-              ) : writingTrial?.active ? (
-                <Link
-                  href={trialHref}
-                  className="rounded-full bg-terracotta px-3 py-1.5 text-sm font-medium text-white hover:bg-terracotta-hover"
-                >
-                  Start the trial
-                </Link>
               ) : null}
               <Link
                 href="/subscription"
                 className={
-                  writingTrial?.eligible || writingTrial?.active
+                  canStartTrial
                     ? 'rounded-full border border-brand px-3 py-1.5 text-sm font-medium text-brand hover:bg-[#EDF3ED]'
                     : 'rounded-full bg-terracotta px-3 py-1.5 text-sm font-medium text-white hover:bg-terracotta-hover'
                 }
@@ -653,13 +703,29 @@ export default function DashboardPage() {
 
           {!selectedWritingAccess ? (
             <section className="space-y-4 rounded-lg border border-warm-border bg-warm-card p-6 shadow-card">
-              <h2 className="text-lg font-semibold text-warm-ink">Try Selective Writing</h2>
-              <p className="text-sm text-warm-muted">
-                7 days to decide. The trial includes 10 mini practice questions
-                and one full writing task with three attempts, with the same
-                timer and notes as the paid year. Term reviews, bonus papers,
-                and custom tasks stay in the full year.
-              </p>
+              {writingTrial?.had_trial && !writingTrial.eligible ? (
+                <>
+                  <h2 className="text-lg font-semibold text-warm-ink">
+                    The 7-day trial has ended
+                  </h2>
+                  <p className="text-sm text-warm-muted">
+                    This child has already used a 7-day trial. Buy a year to keep
+                    that writing and open the 11 writing units. Term reviews,
+                    bonus papers, and custom tasks stay in the full year.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-lg font-semibold text-warm-ink">Try Selective Writing</h2>
+                  <p className="text-sm text-warm-muted">
+                    7 days to decide. The 10 mini questions and one full writing task
+                    stay closed until you start the trial. After you start, you get
+                    three attempts on that task, with the same timer and notes as the
+                    paid year. Term reviews, bonus papers, and custom tasks stay in
+                    the full year.
+                  </p>
+                </>
+              )}
               <div className="flex flex-wrap gap-3">
                 {writingTrial?.eligible ? (
                   <button
@@ -668,13 +734,11 @@ export default function DashboardPage() {
                     disabled={startingTrial || !selectedStudentId}
                     className="rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
                   >
-                    {startingTrial ? 'Starting…' : 'Start the trial'}
+                    {startingTrial ? 'Starting…' : 'Start 7-day trial'}
                   </button>
-                ) : (
+                ) : writingTrial?.had_trial ? null : (
                   <p className="text-sm text-warm-muted">
-                    {writingTrial && !writingTrial.eligible
-                      ? 'This child has already used a 7-day trial.'
-                      : 'Add a Year 4–7 profile to start a trial.'}
+                    Add a Year 4–7 profile to start a trial.
                   </p>
                 )}
                 <Link
@@ -697,87 +761,131 @@ export default function DashboardPage() {
               </h2>
               <p className="mt-2 text-sm text-warm-muted">{recommendation.reason}</p>
               <Link
-                href={`/dashboard/writing/${recommendation.prompt_id}`}
+                href={
+                  recommendation.completed
+                    ? `/dashboard/writing/${recommendation.prompt_id}/results`
+                    : `/dashboard/writing/${recommendation.prompt_id}`
+                }
                 className="mt-4 inline-flex rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover"
               >
-                {recommendation.next_draft === 1
-                  ? 'Start this task'
-                  : `Continue draft ${recommendation.next_draft}`}
+                {recommendation.completed
+                  ? 'View results'
+                  : recommendation.next_draft === 1
+                    ? 'Start this task'
+                    : `Continue draft ${recommendation.next_draft}`}
               </Link>
             </section>
           ) : null}
 
-          <SeedPatch patch={rewards} />
-          <WeekNote note={weekNote} />
-
-          <div className="grid w-full gap-4 lg:grid-cols-2">
-            <WritingProgressLine history={history} />
-            {selectedStudentId ? (
-              <SubjectChat studentId={selectedStudentId} subject="writing" />
-            ) : null}
-          </div>
+          {selectedWritingAccess.access_kind === 'trial' ? null : (
+            <>
+              <SeedPatch patch={rewards} />
+              <WeekNote note={weekNote} />
+              <div className="grid w-full gap-4 lg:grid-cols-2">
+                <WritingProgressLine history={history} />
+                {selectedStudentId ? (
+                  <SubjectChat studentId={selectedStudentId} subject="writing" />
+                ) : null}
+              </div>
+            </>
+          )}
 
           <section className="space-y-8">
             {selectedWritingAccess.access_kind === 'trial' ? (
               trialPack ? (
-              <div id="trial-pack" className="space-y-6">
+              <div id="trial-pack" className="space-y-4">
                 <div>
-                  <h2 className="text-lg font-medium text-warm-ink">Your 7-day trial pack</h2>
+                  <h2 className="text-lg font-medium text-warm-ink">Writing</h2>
                   <p className="mt-1 text-sm text-warm-muted">
-                    Extra trial questions only: 10 mini questions and one full writing
-                    task with three attempts. The 11 writing units stay in the paid year.
+                    Open Free Trial to see the seed patch, growth chat, 10 mini
+                    questions, and one full writing task. The 11 writing units stay
+                    in the paid year.
                   </p>
                 </div>
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <section className="rounded-lg border border-warm-border bg-warm-card p-5 shadow-card">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-brand">
-                      Mini practice
-                    </p>
-                    <p className="mt-2 text-sm text-warm-muted">
-                      {trialPack.drills.filter((row) => row.attempted).length}/
-                      {trialPack.drills.length} tried
-                    </p>
-                    <ul className="mt-4 space-y-2">
-                      {trialPack.drills.map((drill) => (
-                        <li key={drill.id}>
-                          <Link
-                            href={`/dashboard/unit/${trialPack.prompt.module_id}/practice/${drill.slug}`}
-                            className="flex items-center justify-between rounded-lg border border-warm-border px-3 py-2 text-sm hover:border-brand"
-                          >
-                            <span className="font-medium text-warm-ink">{drill.title}</span>
-                            <span className="text-xs text-warm-subtle">
-                              {drill.attempted ? 'Tried' : 'Open'}
-                            </span>
-                          </Link>
-                        </li>
+                <DashboardGroupRow
+                  title="Free Trial"
+                  blurb="10 minis and one writing task"
+                  action={trialGroupOpen ? 'Close' : 'View pack'}
+                  expanded={trialGroupOpen}
+                  onClick={() => setTrialGroupOpen((open) => !open)}
+                />
+                {trialGroupOpen ? (
+                  <div className="space-y-4">
+                    <SeedPatch patch={rewards} />
+                    {selectedStudentId ? (
+                      <SubjectChat studentId={selectedStudentId} subject="writing" />
+                    ) : null}
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {trialPack.drills.map((drill, index) => (
+                        <Link
+                          key={drill.id}
+                          href={`/dashboard/unit/${trialPack.prompt.module_id}/practice/${drill.slug}`}
+                          className="group flex flex-col justify-between rounded-lg border border-warm-border bg-warm-card p-5 shadow-card transition hover:border-brand"
+                        >
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-semibold uppercase tracking-wide text-warm-subtle">
+                                Question {index + 1}
+                              </span>
+                              <span
+                                className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                  drill.attempted
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : 'bg-stone-100 text-stone-600'
+                                }`}
+                              >
+                                {drill.attempted ? 'Tried' : 'Open'}
+                              </span>
+                            </div>
+                            <h4 className="text-lg font-semibold text-warm-ink">
+                              {drill.title}
+                            </h4>
+                            <p className="text-sm text-warm-muted">
+                              {miniSkillLabel(drill.skill)}
+                            </p>
+                          </div>
+                        </Link>
                       ))}
-                    </ul>
-                  </section>
-                  <section className="rounded-lg border border-warm-border bg-warm-card p-5 shadow-card">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-brand">
-                      Full writing task
-                    </p>
-                    <h3 className="mt-2 text-lg font-semibold text-warm-ink">
-                      {trialPack.prompt.title}
-                    </h3>
-                    <p className="mt-2 text-sm text-warm-muted">
-                      Narrative · 30 minutes · {trialPack.prompt.max_draft}/3 drafts
-                    </p>
-                    <p className="mt-3 line-clamp-4 text-sm text-warm-muted">
-                      {trialPack.prompt.description}
-                    </p>
-                    <Link
-                      href={`/dashboard/writing/${trialPack.prompt.id}`}
-                      className="mt-4 inline-flex rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover"
-                    >
-                      {trialPack.prompt.max_draft === 0
-                        ? 'Start this task'
-                        : trialPack.prompt.max_draft >= 3
-                          ? 'View your drafts'
-                          : `Continue draft ${trialPack.prompt.max_draft + 1}`}
-                    </Link>
-                  </section>
-                </div>
+                      <Link
+                        href={
+                          trialPack.prompt.max_draft >= 3
+                            ? `/dashboard/writing/${trialPack.prompt.id}/results`
+                            : `/dashboard/writing/${trialPack.prompt.id}`
+                        }
+                        className="group flex flex-col justify-between rounded-lg border border-warm-border bg-warm-card p-5 shadow-card transition hover:border-brand"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold uppercase tracking-wide text-warm-subtle">
+                              Writing task
+                            </span>
+                            <span
+                              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                trialPack.prompt.max_draft >= 3
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : trialPack.prompt.max_draft > 0
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-stone-100 text-stone-600'
+                              }`}
+                            >
+                              {trialPack.prompt.max_draft >= 3
+                                ? 'Completed'
+                                : trialPack.prompt.max_draft > 0
+                                  ? `Draft ${trialPack.prompt.max_draft}/3`
+                                  : 'Not started'}
+                            </span>
+                          </div>
+                          <h4 className="text-lg font-semibold text-warm-ink">
+                            {trialPack.prompt.title}
+                          </h4>
+                          <p className="text-sm text-warm-muted">
+                            Narrative · 30 minutes · {trialPack.prompt.max_draft}/3 drafts
+                          </p>
+                        </div>
+                      </Link>
+                    </div>
+                  </div>
+                ) : null}
               </div>
               ) : (
                 <p className="text-sm text-warm-muted">
@@ -803,26 +911,13 @@ export default function DashboardPage() {
 
               return (
               <div key={group} className="space-y-4">
-                <button
-                  type="button"
+                <DashboardGroupRow
+                  title={group}
+                  blurb={GROUP_BLURBS[group]}
+                  action={expanded ? 'Close' : 'View units'}
+                  expanded={expanded}
                   onClick={() => toggleGroup(group)}
-                  aria-expanded={expanded}
-                  className="flex w-full items-baseline justify-between gap-3 rounded-lg border border-brand-dark p-4 text-left text-white shadow-card"
-                  style={{
-                    background:
-                      'linear-gradient(145deg, #1E3F33 0%, #2D5A4A 58%, #4A7A64 100%)',
-                  }}
-                >
-                  <span className="flex items-baseline gap-3">
-                    <span className="text-sm font-bold uppercase tracking-wide">
-                      {group}
-                    </span>
-                    <span className="text-sm text-white/80">{GROUP_BLURBS[group]}</span>
-                  </span>
-                  <span className="shrink-0 text-sm font-semibold text-[#F0C9A8]">
-                    {expanded ? 'Close' : 'View units'}
-                  </span>
-                </button>
+                />
                 {expanded && loadingGroup ? (
                   <p className="px-1 text-sm text-warm-muted">Loading {group.toLowerCase()} units…</p>
                 ) : null}

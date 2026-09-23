@@ -20,6 +20,14 @@ BEGIN
   END IF;
 END $$;
 
+-- One 7-day trial per child. Convert keeps this row (trial_started_at stays),
+-- so a second INSERT cannot open another trial after expiry or purchase.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_writing_one_trial_per_student
+  ON user_subscriptions (student_id)
+  WHERE subject = 'writing'
+    AND student_id IS NOT NULL
+    AND trial_started_at IS NOT NULL;
+
 -- Extra trial pack uses kind = 'trial' so paid unit queries stay unchanged.
 DO $$
 BEGIN

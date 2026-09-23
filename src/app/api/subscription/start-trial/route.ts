@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { isRateLimited } from '@/lib/rate-limit';
 import { getWritingLicence, startWritingTrial, trialClientFields } from '@/lib/writing-state';
+import { WRITING_TRIAL_DRAFTS } from '@/lib/writing-trial';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -57,9 +58,12 @@ export async function POST(request: Request) {
       trial: {
         eligible: false,
         active: true,
+        had_trial: true,
         days_left: result.daysLeft,
         attempts_used: 0,
         attempts_limit: result.attemptsLimit,
+        drafts_used: 0,
+        drafts_limit: WRITING_TRIAL_DRAFTS,
         mini_used: 0,
         mini_limit: result.miniLimit,
         expires_at: result.expiresAt.toISOString(),

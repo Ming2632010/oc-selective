@@ -29,6 +29,76 @@ export function trialOfferCopy() {
   return '10 mini practice questions and one full writing task with three attempts';
 }
 
+export function trialStartRequiredMessage() {
+  return 'Start the 7-day trial on the dashboard first.';
+}
+
+export function writingAccessRequiredMessage(trialPack = false) {
+  return trialPack
+    ? trialStartRequiredMessage()
+    : 'Selective Writing access is required for this child.';
+}
+
+export function trialEndedMessage() {
+  return 'The 7-day trial has ended. Buy a year to keep writing.';
+}
+
+export function trialEndedKeepWorkMessage() {
+  return 'The 7-day trial has ended. Buy a year to keep this work.';
+}
+
+export function trialInProgressMessage(input: {
+  daysLeft: number;
+  draftsUsed: number;
+  draftsLimit?: number;
+  miniUsed: number;
+  miniLimit?: number;
+}) {
+  const days = Math.max(0, input.daysLeft);
+  const draftsLimit = input.draftsLimit ?? WRITING_TRIAL_DRAFTS;
+  const miniLimit = input.miniLimit ?? WRITING_TRIAL_MINI_QUESTIONS;
+  return `Trial in progress · ${days} day${days === 1 ? '' : 's'} left · writing drafts ${input.draftsUsed}/${draftsLimit} · ${input.miniUsed}/${miniLimit} mini questions used. Buy a year to keep this work.`;
+}
+
+export function trialPackRecommendation(input: {
+  promptId: string;
+  title: string;
+  promptType: string;
+  moduleId: number;
+  maxDraft: number;
+}) {
+  const completed = input.maxDraft >= WRITING_TRIAL_DRAFTS;
+  const nextDraft = completed
+    ? WRITING_TRIAL_DRAFTS
+    : Math.min(WRITING_TRIAL_DRAFTS, input.maxDraft + 1);
+  return {
+    prompt_id: input.promptId,
+    title: input.title,
+    prompt_type: input.promptType,
+    module_id: input.moduleId,
+    next_draft: nextDraft,
+    completed,
+    reason: completed
+      ? 'You have used the three trial attempts on this paper. Buy a year to keep writing.'
+      : input.maxDraft > 0
+        ? `Continue the trial writing task (draft ${nextDraft} of 3).`
+        : 'Your trial writing task. Same 30-minute timer and three attempts as the year.',
+    weakest_dimension: null as null,
+  };
+}
+
+export function unlicensedAccessMessage(input: {
+  trialPack?: boolean;
+  hadTrial?: boolean;
+}) {
+  if (input.trialPack && input.hadTrial) return trialEndedMessage();
+  return writingAccessRequiredMessage(Boolean(input.trialPack));
+}
+
+export function trialPackPaidLockMessage() {
+  return 'The extra trial pack stays with the 7-day trial. Open the writing units for this year’s practice.';
+}
+
 export function trialMiniLimitMessage(
   _limit = WRITING_TRIAL_MINI_QUESTIONS,
 ) {

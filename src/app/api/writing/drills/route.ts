@@ -10,13 +10,14 @@ import {
   type MiniMarkResult,
 } from '@/lib/mini-item-kinds';
 import {
-  assertOwnedStudent,
   awardMiniSeeds,
   extraIsUnlocked,
   getWritingLicence,
   trialBlocksMini,
   visibleTrialMiniDrills,
 } from '@/lib/writing-state';
+import { unlicensedAccessMessage, writingAccessRequiredMessage } from '@/lib/writing-trial';
+import { isTrialPackDrillSource } from '@/lib/writing-trial-pack';
 import { typeLabel } from '@/lib/units';
 
 export const runtime = 'nodejs';
@@ -197,13 +198,6 @@ export async function GET(request: Request) {
     const studentId = searchParams.get('student_id');
     const slug = searchParams.get('slug');
 
-    if (studentId) {
-      const owned = await assertOwnedStudent(userId, studentId);
-      if (!owned) {
-        return NextResponse.json({ error: 'Student not found' }, { status: 404 });
-      }
-    }
-
     if (slug) {
       const result = await query<DrillRow>(
         `SELECT ${DRILL_COLUMNS}
@@ -223,6 +217,12 @@ export async function GET(request: Request) {
         if (!studentId || !(await extraIsUnlocked(studentId, drill.id))) {
           return NextResponse.json({ error: 'Drill not found' }, { status: 404 });
         }
+      }
+      if (isTrialPackDrillSource(drill.source) && !studentId) {
+        return NextResponse.json(
+          { error: writingAccessRequiredMessage(true) },
+          { status: 403 },
+        );
       }
       if (studentId) {
         const trialBlock = await trialBlocksMini(userId, studentId, drill);
@@ -298,6 +298,15 @@ export async function GET(request: Request) {
     }
 
     const licence = studentId ? await getWritingLicence(userId, studentId) : null;
+    if (licence?.state === 'not-found') {
+      return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    }
+    if (licence?.state === 'unlicensed') {
+      return NextResponse.json(
+        { error: writingAccessRequiredMessage(false) },
+        { status: 403 },
+      );
+    }
     if (licence?.state === 'trial') {
       const pack = await query<DrillRow>(
         `SELECT ${DRILL_COLUMNS}
@@ -431,11 +440,6 @@ export async function POST(request: Request) {
         { error: 'answer_text must be 1,000 characters or fewer' },
         { status: 400 },
       );
-    }
-
-    const owned = await assertOwnedStudent(userId, studentId);
-    if (!owned) {
-      return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
 
     const drillResult = await query<DrillRow>(
