@@ -125,24 +125,22 @@ function DashboardGroupRow({
   action,
   expanded,
   onClick,
+  locked = false,
 }: {
   title: string;
   blurb: string;
   action: string;
   expanded: boolean;
-  onClick: () => void;
+  onClick?: () => void;
+  locked?: boolean;
 }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-expanded={expanded}
-      className="flex w-full items-baseline justify-between gap-3 rounded-lg border border-brand-dark p-4 text-left text-white shadow-card"
-      style={{
-        background:
-          'linear-gradient(145deg, #1E3F33 0%, #2D5A4A 58%, #4A7A64 100%)',
-      }}
-    >
+  const className =
+    'flex w-full items-baseline justify-between gap-3 rounded-lg border border-brand-dark p-4 text-left text-white shadow-card';
+  const style = {
+    background: 'linear-gradient(145deg, #1E3F33 0%, #2D5A4A 58%, #4A7A64 100%)',
+  };
+  const content = (
+    <>
       <span className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="text-sm font-bold uppercase tracking-wide whitespace-nowrap">
           {title}
@@ -150,6 +148,24 @@ function DashboardGroupRow({
         <span className="text-sm text-white/80">{blurb}</span>
       </span>
       <span className="shrink-0 text-sm font-semibold text-[#F0C9A8]">{action}</span>
+    </>
+  );
+  if (locked) {
+    return (
+      <div className={`${className} cursor-default`} style={style} aria-disabled="true">
+        {content}
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={expanded}
+      className={className}
+      style={style}
+    >
+      {content}
     </button>
   );
 }
@@ -407,6 +423,7 @@ export default function DashboardPage() {
   }, [router]);
 
   async function loadGroup(studentId: string, group: UnitGroup) {
+    if (writingTrial?.active) return;
     if (loadedGroups[group] || groupLoading === group) return;
     setGroupLoading(group);
     try {
@@ -435,6 +452,7 @@ export default function DashboardPage() {
   }
 
   function toggleGroup(group: UnitGroup) {
+    if (writingTrial?.active) return;
     const opening = !expandedGroups.includes(group);
     setExpandedGroups((current) =>
       opening ? [...current, group] : current.filter((item) => item !== group),
@@ -451,6 +469,7 @@ export default function DashboardPage() {
   }
 
   async function toggleCustomTasks() {
+    if (writingTrial?.active) return;
     const opening = !customOpen;
     setCustomOpen(opening);
     if (opening) {
@@ -797,9 +816,9 @@ export default function DashboardPage() {
                 <div>
                   <h2 className="text-lg font-medium text-warm-ink">Writing</h2>
                   <p className="mt-1 text-sm text-warm-muted">
-                    Open Free Trial to see the seed patch, growth chat, 10 mini
-                    questions, and one full writing task. The 11 writing units stay
-                    in the paid year.
+                    Open Free Trial for the seed patch, growth chat, 10 mini
+                    questions, and one writing task. The groups below stay locked
+                    until you buy a year.
                   </p>
                 </div>
                 <DashboardGroupRow
@@ -893,12 +912,14 @@ export default function DashboardPage() {
                   questions and one writing task.
                 </p>
               )
-            ) : (
-            <>
+            ) : null}
+
             <div>
               <h2 className="text-lg font-medium text-warm-ink">Writing units</h2>
               <p className="mt-1 text-sm text-warm-muted">
-                Start any unit. Each one has mini practice and three full writing tasks. Term reviews stay locked until you have tried every full writing task in that unit at least once. One sitting, one attempt only.
+                {selectedWritingAccess.access_kind === 'trial'
+                  ? 'Creative, Informative, and Persuasive are what a year includes. They stay locked during the trial.'
+                  : 'Start any unit. Each one has mini practice and three full writing tasks. Term reviews stay locked until you have tried every full writing task in that unit at least once. One sitting, one attempt only.'}
               </p>
             </div>
             {UNIT_GROUPS.map((group) => {
@@ -906,7 +927,8 @@ export default function DashboardPage() {
               const groupTests = termTests.filter((test) =>
                 groupUnits.some((unit) => unit.id === test.module_id),
               );
-              const expanded = expandedGroups.includes(group);
+              const trialLocked = selectedWritingAccess.access_kind === 'trial';
+              const expanded = !trialLocked && expandedGroups.includes(group);
               const loadingGroup = groupLoading === group;
 
               return (
@@ -914,9 +936,10 @@ export default function DashboardPage() {
                 <DashboardGroupRow
                   title={group}
                   blurb={GROUP_BLURBS[group]}
-                  action={expanded ? 'Close' : 'View units'}
+                  action={trialLocked ? 'Locked' : expanded ? 'Close' : 'View units'}
                   expanded={expanded}
-                  onClick={() => toggleGroup(group)}
+                  locked={trialLocked}
+                  onClick={trialLocked ? undefined : () => toggleGroup(group)}
                 />
                 {expanded && loadingGroup ? (
                   <p className="px-1 text-sm text-warm-muted">Loading {group.toLowerCase()} units…</p>
@@ -1062,10 +1085,25 @@ export default function DashboardPage() {
               </div>
               );
             })}
-            </>
-            )}
 
-            {selectedWritingAccess.access_kind === 'trial' ? null : (
+            {selectedWritingAccess.access_kind === 'trial' ? (
+              <>
+                <DashboardGroupRow
+                  title="Custom tasks"
+                  blurb="Your own writing questions"
+                  action="Locked"
+                  expanded={false}
+                  locked
+                />
+                <DashboardGroupRow
+                  title="Bonus exam papers"
+                  blurb="Exam-style writing, after the course"
+                  action="Locked"
+                  expanded={false}
+                  locked
+                />
+              </>
+            ) : (
             <div className="space-y-4">
               <button
                 type="button"
