@@ -21,9 +21,11 @@ import {
   STUDENT_GRADES,
   isStudentGrade,
   programForGrade,
+  usesMathsDashboard,
   usesWritingDashboard,
 } from '@/lib/student-grades';
 import type { WeekNoteData } from '@/lib/week-note';
+import { MathsHome, type MathsOverview } from '@/components/dashboard/maths-home';
 
 const SubjectChat = dynamic(
   () => import('@/components/writing/subject-chat').then((module) => module.SubjectChat),
@@ -205,12 +207,14 @@ export default function DashboardPage() {
   const [customQuestion, setCustomQuestion] = useState('');
   const [customType, setCustomType] = useState('narrative');
   const [customCreating, setCustomCreating] = useState(false);
+  const [mathsOverview, setMathsOverview] = useState<MathsOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [newName, setNewName] = useState('');
   const [newGrade, setNewGrade] = useState(DEFAULT_STUDENT_GRADE);
   const [creating, setCreating] = useState(false);
+  const [mathsParentView, setMathsParentView] = useState(false);
 
   async function loadDashboard(requestedStudentId?: string | null) {
     if (!getToken()) {
@@ -227,6 +231,7 @@ export default function DashboardPage() {
       setWeekNote(null);
       setHistory([]);
       setRecommendation(null);
+      setMathsOverview(null);
       setExpandedGroups([]);
       setLoadedGroups({});
       setCustomOpen(false);
@@ -247,7 +252,8 @@ export default function DashboardPage() {
         throw new Error(res.data.error || 'Failed to load dashboard');
       }
       setUserName(res.data.user?.full_name || res.data.user?.email || 'there');
-      setStudents((res.data.students as Student[]) || []);
+      const studentList = (res.data.students as Student[]) || [];
+      setStudents(studentList);
       setSubscription({
         subscriptions: (res.data.subscriptions as SubscriptionItem[]) || [],
         has_active: Boolean(res.data.has_active),
@@ -268,6 +274,13 @@ export default function DashboardPage() {
       setWeekNote(guidance?.week_note ?? null);
       setHistory(guidance?.history ?? []);
       setRecommendation(guidance?.recommendation ?? null);
+      const selectedStudent = studentList.find((student) => student.id === selected);
+      if (selected && selectedStudent && usesMathsDashboard(selectedStudent.grade)) {
+        const mathsRes = await apiFetch(`/api/maths/overview?student_id=${selected}`);
+        if (mathsRes.response.ok) {
+          setMathsOverview(mathsRes.data as MathsOverview);
+        }
+      }
       const suggestedGroup =
         UNIT_GROUPS.find((group) =>
           unitsByGroup(group).some((unit) => unit.id === guidance?.recommendation?.module_id),
@@ -413,6 +426,7 @@ export default function DashboardPage() {
   const activeStudent =
     students.find((s) => s.id === selectedStudentId) ?? null;
   const showWriting = usesWritingDashboard(activeStudent?.grade ?? '');
+  const showMaths = usesMathsDashboard(activeStudent?.grade ?? '');
   const yearProgram = activeStudent ? programForGrade(activeStudent.grade) : null;
   const selectedWritingAccess = subscription?.subscriptions.find(
     (item) =>
@@ -423,6 +437,38 @@ export default function DashboardPage() {
 
   return (
     <main className="mx-auto max-w-5xl space-y-8 p-6">
+      {showMaths && !mathsParentView ? (
+        <header className="flex justify-end">
+          <details className="relative">
+            <summary className="cursor-pointer list-none rounded-full px-2 py-1 text-xl leading-none text-warm-subtle hover:text-warm-ink [&::-webkit-details-marker]:hidden">
+              <span aria-hidden>⋯</span>
+              <span className="sr-only">Grown-ups menu</span>
+            </summary>
+            <div className="absolute right-0 z-20 mt-2 w-48 rounded-xl border border-warm-border bg-white p-2 shadow-float">
+              <button
+                type="button"
+                onClick={() => setMathsParentView(true)}
+                className="block w-full rounded-lg px-3 py-2 text-left text-sm text-warm-ink hover:bg-[#F7F5F0]"
+              >
+                Grown-ups
+              </button>
+              <Link
+                href="/subscription"
+                className="block rounded-lg px-3 py-2 text-sm text-warm-ink hover:bg-[#F7F5F0]"
+              >
+                Subscription
+              </Link>
+              <button
+                type="button"
+                onClick={logout}
+                className="block w-full rounded-lg px-3 py-2 text-left text-sm text-warm-ink hover:bg-[#F7F5F0]"
+              >
+                Log out
+              </button>
+            </div>
+          </details>
+        </header>
+      ) : (
       <header
         className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand-dark p-5 text-white shadow-float"
         style={{
@@ -450,6 +496,7 @@ export default function DashboardPage() {
           </button>
         </div>
       </header>
+      )}
 
       {error ? (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
@@ -524,7 +571,10 @@ export default function DashboardPage() {
         </section>
       ) : (
         <>
-          <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warm-border bg-warm-card p-4 shadow-card">
+          {!(showMaths && !mathsParentView) ? (
+          <section
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warm-border bg-warm-card p-4 shadow-card"
+          >
             <div>
               <p className="text-sm text-warm-subtle">Student</p>
               <p className="text-lg font-medium text-warm-ink">
@@ -532,14 +582,26 @@ export default function DashboardPage() {
                 <span className="text-warm-subtle">· {activeStudent?.grade}</span>
               </p>
             </div>
-            {students.length > 1 ? (
-              <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {showMaths && mathsParentView ? (
+                <button
+                  type="button"
+                  onClick={() => setMathsParentView(false)}
+                  className="rounded-full px-4 py-2 text-sm text-warm-ink hover:bg-[#F7F5F0]"
+                >
+                  Back to the game
+                </button>
+              ) : null}
+              {students.length > 1 ? (
+              <div className="flex flex-wrap justify-center gap-2">
                 {students.map((student) => (
                   <button
                     key={student.id}
                     type="button"
                     onClick={() => onSelectStudent(student.id)}
-                    className={`rounded-full px-3 py-2 text-sm ${
+                    className={`rounded-full px-4 py-2 ${
+                      showMaths ? 'text-lg' : 'text-sm'
+                    } ${
                       selectedStudentId === student.id
                         ? 'bg-brand text-white'
                         : 'border border-warm-border bg-warm-card text-warm-ink hover:border-brand'
@@ -549,16 +611,27 @@ export default function DashboardPage() {
                   </button>
                 ))}
               </div>
-            ) : null}
+              ) : null}
+            </div>
           </section>
+          ) : null}
 
+          {showMaths ? (
+            <MathsHome
+              overview={mathsOverview}
+              grade={activeStudent?.grade ?? 'Kindergarten'}
+              parentView={mathsParentView}
+            />
+          ) : null}
+
+          {!showMaths || mathsParentView ? (
           <section className="space-y-3 rounded-lg border border-warm-border bg-warm-card p-4 shadow-card">
             <div>
               <h2 className="text-lg font-semibold text-warm-ink">Add another child</h2>
               <p className="text-sm text-warm-muted">
                 Each child has their own progress. Year 4–7 profiles use
-                Selective Writing; K–Y1 and later years open as those paths
-                are ready.
+                Selective Writing. Kindergarten and Year 1 profiles use K–Y1
+                Maths. Later years open as those paths are ready.
               </p>
             </div>
             <form
@@ -594,8 +667,9 @@ export default function DashboardPage() {
               </button>
             </form>
           </section>
+          ) : null}
 
-          {!showWriting && yearProgram ? (
+          {showMaths ? null : !showWriting && yearProgram ? (
             <ProgramComingSoon program={yearProgram} />
           ) : selectedWritingAccess ? (
             <>

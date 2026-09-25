@@ -60,3 +60,24 @@
     color: #1e3f33;
   }
 }
+
+@keyframes maths-path-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(45, 90, 74, 0.42);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(45, 90, 74, 0);
+  }
+}
+
+.maths-path-current {
+  animation: maths-path-pulse 1.8s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .maths-path-current {
+    animation: none;
+    box-shadow: 0 0 0 5px rgba(45, 90, 74, 0.22);
+  }
+}
