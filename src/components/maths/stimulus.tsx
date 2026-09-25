@@ -337,10 +337,13 @@ export function MathsStimulus({ stimulus }: { stimulus?: MathStimulus | Record<s
                 const crossed = group.crossed ?? 0;
                 const gone = crossed > 0 && i >= group.count - crossed;
                 return (
-                  <span key={i} className={`relative ${gone ? 'opacity-45' : ''}`}>
+                  <span key={i} className="relative inline-flex">
                     <ToyIcon name={group.icon} />
                     {gone ? (
-                      <span className="absolute inset-0 flex items-center justify-center text-2xl font-black text-terracotta">
+                      <span
+                        className="pointer-events-none absolute inset-[-2px] flex items-center justify-center text-3xl font-black leading-none text-[#C45C26]"
+                        aria-hidden
+                      >
                         ×
                       </span>
                     ) : null}
@@ -767,7 +770,7 @@ function HopNumberLine({
         const x1 = xAt(arc.from);
         const x2 = xAt(arc.to);
         const mid = (x1 + x2) / 2;
-        const lift = arc.dashed || arc.label ? 36 : 22;
+        const lift = arc.dashed || arc.label ? 38 : 30;
         return (
           <g key={`${arc.from}-${arc.to}`}>
             <path
