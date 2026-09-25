@@ -71,11 +71,11 @@ export const EARLY_MATH_SKILL_LABELS: Record<EarlyMathSkill, string> = {
   'ten-bonds': 'Make ten',
   'missing-part': 'Find the missing part',
   'join-result': 'How many now?',
-  'join-change': 'How many joined?',
-  'join-start': 'How many at the start?',
+  'join-change': 'What number is missing?',
+  'join-start': 'What number is missing?',
   'separate-result': 'How many left?',
-  'separate-change': 'How many went?',
-  'separate-start': 'How many before?',
+  'separate-change': 'What number is missing?',
+  'separate-start': 'What number is missing?',
   'ppw-whole': 'Parts make a whole',
   'ppw-part': 'Find a hidden part',
   'compare-difference': 'How many more?',
@@ -119,9 +119,28 @@ export type MathStimulus =
   | { type: 'fingers'; left: number; right: number }
   | { type: 'tally'; count: number }
   | { type: 'numberTrack'; min: number; max: number; missing?: number[]; highlight?: number; ask?: 'before' | 'after' }
-  | { type: 'numberLine'; min: number; max: number; target: number }
-  | { type: 'partWhole'; whole: number | null; left: number | null; right: number | null }
-  | { type: 'groups'; groups: { count: number; icon: string; label: string }[] }
+  | { type: 'numberLine'; min: number; max: number; target?: number; missing?: number[] }
+  | {
+      type: 'numberLineHops';
+      min: number;
+      max: number;
+      start: number;
+      hops?: number;
+      end?: number;
+      direction?: 'forward' | 'back';
+      blank?: 'start' | 'hops' | 'result';
+    }
+  | { type: 'numberSentence'; a: number | null; op: '+' | '-'; b: number | null; result: number | null }
+  | {
+      type: 'partWhole';
+      whole: number | null;
+      left: number | null;
+      right: number | null;
+      wholeLabel?: string;
+      leftLabel?: string;
+      rightLabel?: string;
+    }
+  | { type: 'groups'; groups: { count: number; icon: string; label: string; crossed?: number }[] }
   | { type: 'pattern'; items: string[]; blankIndex: number }
   | { type: 'shapes'; items: { kind: string; label?: string }[] }
   | { type: 'position'; place: 'bench' | 'shelf' | 'slide'; target: string }
@@ -205,16 +224,16 @@ export const EARLY_MATH_UNITS: EarlyMathUnit[] = [
   {
     id: 4,
     title: 'Put together, take away',
-    blurb: 'Story problems with different jobs: how many now, how many joined, how many more.',
-    kindyFocus: 'Join and take-away when the end is unknown.',
-    year1Focus: 'Change unknown, start unknown, and compare stories.',
+    blurb: 'Add and take away with pictures, number sentences, and a number line.',
+    kindyFocus: 'How many altogether, and how many left.',
+    year1Focus: 'Missing numbers such as 6 + □ = 9, and hops on a line.',
   },
   {
     id: 5,
     title: 'Tens and ones',
     blurb: 'See two-digit numbers as groups of ten and leftover ones.',
     kindyFocus: '11 to 20 as ten and some more.',
-    year1Focus: 'Numbers to 100, skip counting, ten more and ten less.',
+    year1Focus: 'Numbers to 20 and 100, skip counting, ten more and ten less.',
   },
   {
     id: 6,
@@ -270,11 +289,11 @@ const ASK_BY_SKILL: Record<EarlyMathSkill, string> = {
   'ten-bonds': 'Is this 10?',
   'missing-part': 'What is the missing part?',
   'join-result': 'How many now?',
-  'join-change': 'How many joined?',
-  'join-start': 'How many at the start?',
+  'join-change': 'Missing number in a + □',
+  'join-start': 'Missing start number',
   'separate-result': 'How many left?',
-  'separate-change': 'How many went?',
-  'separate-start': 'How many at the start?',
+  'separate-change': 'Missing number in a − □',
+  'separate-start': 'Missing start number',
   'ppw-whole': 'How many altogether?',
   'ppw-part': 'What is the missing part?',
   'compare-difference': 'How many more?',
@@ -304,7 +323,6 @@ const ASK_BY_SKILL: Record<EarlyMathSkill, string> = {
 };
 
 const ASK_BY_SLUG: Record<string, string> = {
-  'see-which-faster-five': 'Which is easier?',
   'see-odd-one-not-four': 'Which one is different?',
   'count-order-three-numbers': 'Smallest to biggest?',
   'every-not-a-square': 'Which is not a square?',
@@ -315,6 +333,7 @@ const ASK_BY_SLUG: Record<string, string> = {
   'count-before-eleven': 'What comes before?',
   'count-one-to-one-keep-track': 'How do you count?',
   'parts-same-as-five-two': 'Which is the same?',
+  'parts-see-the-parts': 'Which sentence?',
   'parts-both-of-five': 'Which parts make 5?',
   'parts-five-and-friends': 'How can you see 9?',
   'parts-ten-ones-one-ten': 'What is another name?',
@@ -347,13 +366,15 @@ export function kidAskForItem(item: {
     if (stimulus.type === 'howManyMore') return 'How many more?';
     if (stimulus.type === 'oddOneOut') return 'Which one is different?';
     if (stimulus.type === 'pattern') return 'What comes next?';
+    if (stimulus.type === 'numberSentence') {
+      return stimulus.result === null ? 'What is the answer?' : 'What number is missing?';
+    }
+    if (stimulus.type === 'numberLineHops') {
+      return stimulus.blank === 'result' || !stimulus.blank
+        ? 'What is the answer?'
+        : 'What number is missing?';
+    }
     if (stimulus.type === 'partWhole') {
-      if (item.skill === 'join-change') return 'How many joined?';
-      if (item.skill === 'join-start' || item.skill === 'separate-start') {
-        return 'How many at the start?';
-      }
-      if (item.skill === 'separate-result') return 'How many left?';
-      if (item.skill === 'separate-change') return 'How many went?';
       return 'What is the missing part?';
     }
     if (stimulus.type === 'clock') return 'What time is it?';
@@ -362,6 +383,10 @@ export function kidAskForItem(item: {
     }
     if (stimulus.type === 'numberTrack') {
       if (stimulus.missing?.length) return 'What number is missing?';
+    }
+    if (stimulus.type === 'numberLine') {
+      if (stimulus.missing?.length) return 'What number is missing?';
+      return 'Which number?';
     }
     if (stimulus.type === 'lineup') return 'Who is third?';
     if (stimulus.type === 'balance') return 'Which is heavier?';
@@ -379,6 +404,9 @@ export function kidAskForItem(item: {
       return 'Which has more?';
     }
     if (stimulus.type === 'groups') {
+      if (stimulus.groups.some((group) => (group.crossed ?? 0) > 0) || item.skill === 'separate-result') {
+        return 'How many left?';
+      }
       if (item.skill === 'join-result') return 'How many now?';
       if (item.skill === 'conservation') return 'Still the same?';
       if (item.skill === 'cardinality') return 'Are there 5?';
@@ -401,7 +429,6 @@ export function kidAskForItem(item: {
     if (stimulus.type === 'position') {
       return stimulus.place === 'slide' ? 'Who is on the left?' : 'Where is the bag?';
     }
-    if (stimulus.type === 'numberLine') return 'Which number?';
   }
   if (item.kind === 'true_false') {
     if (item.skill === 'conservation') return 'Still the same?';

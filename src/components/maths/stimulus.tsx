@@ -256,33 +256,72 @@ export function MathsStimulus({ stimulus }: { stimulus?: MathStimulus | Record<s
     );
   }
   if (stimulus.type === 'numberLine') {
-    const pct = ((stimulus.target - stimulus.min) / (stimulus.max - stimulus.min)) * 100;
     return (
-      <div className="relative mx-4 mt-8 mb-6 h-10">
-        <div className="absolute top-4 right-0 left-0 h-2 rounded-full bg-[#E8D9B0]" />
-        <span className="absolute top-7 left-0 text-sm font-semibold">{stimulus.min}</span>
-        <span className="absolute top-7 right-0 text-sm font-semibold">{stimulus.max}</span>
-        <span
-          className="absolute -top-1 block h-7 w-7 rounded-full bg-terracotta shadow-sm"
-          style={{ left: `calc(${pct}% - 14px)` }}
+      <NumberLineTicks
+        min={stimulus.min}
+        max={stimulus.max}
+        target={stimulus.target}
+        missing={stimulus.missing}
+      />
+    );
+  }
+  if (stimulus.type === 'numberLineHops') {
+    const direction = stimulus.direction ?? 'forward';
+    const hopCount =
+      stimulus.hops ??
+      (stimulus.end != null ? Math.abs(stimulus.end - stimulus.start) : 0);
+    const end =
+      stimulus.end ??
+      (direction === 'forward' ? stimulus.start + hopCount : stimulus.start - hopCount);
+    const a = stimulus.blank === 'start' ? null : stimulus.start;
+    const b = stimulus.blank === 'hops' ? null : hopCount;
+    const result = stimulus.blank === 'result' || !stimulus.blank ? null : end;
+    return (
+      <div className="space-y-5">
+        <HopNumberLine
+          min={stimulus.min}
+          max={stimulus.max}
+          start={stimulus.start}
+          end={end}
+          hops={stimulus.blank === 'hops' ? undefined : hopCount}
+          direction={direction}
+        />
+        <NumberSentenceTiles
+          a={a}
+          op={direction === 'back' ? '-' : '+'}
+          b={b}
+          result={result}
         />
       </div>
     );
   }
+  if (stimulus.type === 'numberSentence') {
+    return (
+      <NumberSentenceTiles
+        a={stimulus.a}
+        op={stimulus.op}
+        b={stimulus.b}
+        result={stimulus.result}
+      />
+    );
+  }
   if (stimulus.type === 'partWhole') {
-    const cell = (value: number | null, tone: string) => (
-      <div
-        className={`flex h-20 w-20 items-center justify-center rounded-full border-[3px] text-3xl font-bold ${tone}`}
-      >
-        {value ?? '?'}
+    const cell = (value: number | null, tone: string, label: string) => (
+      <div className="text-center">
+        <div
+          className={`flex h-20 w-20 items-center justify-center rounded-full border-[3px] text-3xl font-bold ${tone}`}
+        >
+          {value ?? '?'}
+        </div>
+        <p className="mt-1 text-xs font-semibold tracking-wide text-warm-muted uppercase">{label}</p>
       </div>
     );
     return (
       <div className="flex flex-col items-center gap-3">
-        {cell(stimulus.whole, 'border-[#2D5A4A] bg-[#EEF6F0] text-brand-dark')}
-        <div className="flex gap-4">
-          {cell(stimulus.left, 'border-terracotta bg-[#FFF1D6] text-warm-ink')}
-          {cell(stimulus.right, 'border-[#C49B7A] bg-white text-warm-ink')}
+        {cell(stimulus.whole, 'border-[#2D5A4A] bg-[#EEF6F0] text-brand-dark', stimulus.wholeLabel ?? 'All')}
+        <div className="flex gap-6">
+          {cell(stimulus.left, 'border-terracotta bg-[#FFF1D6] text-warm-ink', stimulus.leftLabel ?? 'Part')}
+          {cell(stimulus.right, 'border-[#C49B7A] bg-white text-warm-ink', stimulus.rightLabel ?? 'Part')}
         </div>
       </div>
     );
@@ -294,9 +333,19 @@ export function MathsStimulus({ stimulus }: { stimulus?: MathStimulus | Record<s
           <div key={group.label} className="rounded-[1.4rem] bg-[#FFF1D6] px-4 py-3">
             <p className="mb-2 text-center text-sm font-medium text-warm-ink">{group.label}</p>
             <div className="flex flex-wrap justify-center gap-1.5">
-              {Array.from({ length: group.count }, (_, i) => (
-                <ToyIcon key={i} name={group.icon} />
-              ))}
+              {Array.from({ length: group.count }, (_, i) => {
+                const gone = (group.crossed ?? 0) > 0 && i >= group.count - group.crossed;
+                return (
+                  <span key={i} className={`relative ${gone ? 'opacity-45' : ''}`}>
+                    <ToyIcon name={group.icon} />
+                    {gone ? (
+                      <span className="absolute inset-0 flex items-center justify-center text-2xl font-black text-terracotta">
+                        ×
+                      </span>
+                    ) : null}
+                  </span>
+                );
+              })}
             </div>
           </div>
         ))}
@@ -568,6 +617,190 @@ export function MathsStimulus({ stimulus }: { stimulus?: MathStimulus | Record<s
     );
   }
   return null;
+}
+
+function NumberSentenceTiles({
+  a,
+  op,
+  b,
+  result,
+}: {
+  a: number | null;
+  op: '+' | '-';
+  b: number | null;
+  result: number | null;
+}) {
+  const tile = (value: number | null) => {
+    const blank = value === null;
+    return (
+      <span
+        className={`flex h-16 min-w-16 items-center justify-center rounded-2xl border-[3px] px-3 text-4xl font-bold ${
+          blank
+            ? 'border-dashed border-terracotta bg-white text-terracotta'
+            : 'border-[#3D352E] bg-white text-warm-ink'
+        }`}
+      >
+        {blank ? '?' : value}
+      </span>
+    );
+  };
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-2">
+      {tile(a)}
+      <span className="text-4xl font-bold text-warm-ink">{op === '-' ? '−' : '+'}</span>
+      {tile(b)}
+      <span className="text-4xl font-bold text-warm-ink">=</span>
+      {tile(result)}
+    </div>
+  );
+}
+
+function lineX(n: number, min: number, max: number, width: number, pad: number) {
+  return pad + ((n - min) / Math.max(1, max - min)) * (width - pad * 2);
+}
+
+function NumberLineTicks({
+  min,
+  max,
+  target,
+  missing,
+}: {
+  min: number;
+  max: number;
+  target?: number;
+  missing?: number[];
+}) {
+  const nums = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+  const width = Math.max(320, nums.length * 22);
+  const height = 84;
+  const pad = 18;
+  const y = 36;
+  const hidden = new Set(missing ?? []);
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="mx-auto h-24 w-full max-w-xl" aria-hidden>
+      <line x1={pad} y1={y} x2={width - pad} y2={y} stroke="#3D352E" strokeWidth="3" />
+      {nums.map((n) => {
+        const x = lineX(n, min, max, width, pad);
+        const isMissing = hidden.has(n);
+        const isTarget = target === n;
+        return (
+          <g key={n}>
+            <line x1={x} y1={y - 7} x2={x} y2={y + 7} stroke="#3D352E" strokeWidth="2" />
+            <text
+              x={x}
+              y={y + 24}
+              textAnchor="middle"
+              fontSize={nums.length > 16 ? 11 : 13}
+              fontWeight={isTarget || isMissing ? 700 : 600}
+              fill={isMissing ? '#C45C26' : '#3D352E'}
+            >
+              {isMissing ? '?' : n}
+            </text>
+            {isTarget ? <circle cx={x} cy={y} r="6" fill="#C45C26" /> : null}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function HopNumberLine({
+  min,
+  max,
+  start,
+  end,
+  hops,
+  direction,
+}: {
+  min: number;
+  max: number;
+  start: number;
+  end: number;
+  hops?: number;
+  direction: 'forward' | 'back';
+}) {
+  const nums = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+  const width = Math.max(320, nums.length * 22);
+  const height = 92;
+  const pad = 18;
+  const y = 58;
+  const markerId = `hop-arrow-${min}-${max}-${start}-${end}`;
+  const xAt = (n: number) => lineX(n, min, max, width, pad);
+  const hopCount = hops ?? Math.abs(end - start);
+  const step = direction === 'back' ? -1 : 1;
+  const useUnitHops = hops != null && hopCount > 0 && hopCount <= 5;
+  const arcs =
+    hops == null
+      ? [{ from: start, to: end, dashed: true, label: '?' }]
+      : useUnitHops
+        ? Array.from({ length: hopCount }, (_, i) => ({
+            from: start + i * step,
+            to: start + (i + 1) * step,
+            dashed: false,
+            label: '',
+          }))
+        : [{ from: start, to: end, dashed: false, label: String(hopCount) }];
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="mx-auto h-28 w-full max-w-xl" aria-hidden>
+      <line x1={pad} y1={y} x2={width - pad} y2={y} stroke="#3D352E" strokeWidth="3" />
+      {nums.map((n) => {
+        const x = xAt(n);
+        return (
+          <g key={n}>
+            <line x1={x} y1={y - 6} x2={x} y2={y + 6} stroke="#3D352E" strokeWidth="2" />
+            <text
+              x={x}
+              y={y + 22}
+              textAnchor="middle"
+              fontSize={nums.length > 16 ? 11 : 13}
+              fontWeight="600"
+              fill="#3D352E"
+            >
+              {n}
+            </text>
+          </g>
+        );
+      })}
+      {arcs.map((arc) => {
+        const x1 = xAt(arc.from);
+        const x2 = xAt(arc.to);
+        const mid = (x1 + x2) / 2;
+        const lift = arc.dashed || arc.label ? 36 : 22;
+        return (
+          <g key={`${arc.from}-${arc.to}`}>
+            <path
+              d={`M ${x1} ${y - 4} Q ${mid} ${y - lift} ${x2} ${y - 4}`}
+              fill="none"
+              stroke="#4A86B8"
+              strokeWidth="2.5"
+              strokeDasharray={arc.dashed ? '6 5' : undefined}
+              markerEnd={`url(#${markerId})`}
+            />
+            {arc.label ? (
+              <text
+                x={mid}
+                y={y - lift - 4}
+                textAnchor="middle"
+                fontSize="16"
+                fontWeight="700"
+                fill="#C45C26"
+              >
+                {arc.label}
+              </text>
+            ) : null}
+          </g>
+        );
+      })}
+      <defs>
+        <marker id={markerId} markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" fill="#4A86B8" />
+        </marker>
+      </defs>
+      <circle cx={xAt(start)} cy={y} r="6" fill="#2D5A4A" />
+      <circle cx={xAt(end)} cy={y} r="6" fill="#C45C26" />
+    </svg>
+  );
 }
 
 function Shape({ kind }: { kind: string }) {

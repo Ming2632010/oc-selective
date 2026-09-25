@@ -111,6 +111,8 @@ describe('K–Y1 Maths items', () => {
     assert.ok(types.has('tenFrame'));
     assert.ok(types.has('fingers'));
     assert.ok(types.has('partWhole'));
+    assert.ok(types.has('numberSentence'));
+    assert.ok(types.has('numberLineHops'));
     assert.ok(types.has('pictureGraph'));
     assert.ok(types.has('clock'));
     assert.ok(types.has('baseTen'));
@@ -148,8 +150,22 @@ describe('K–Y1 Maths items', () => {
       }
     }
     assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'see-match-four-shells')!), 'Which one is 4?');
-    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'story-join-change-library')!), 'How many joined?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'story-join-change-library')!), 'What number is missing?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'story-separate-result-lunch')!), 'How many left?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'count-missing-fourteen')!), 'What number is missing?');
     assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'every-heavier-book')!), 'Which is heavier?');
+  });
+
+  it('keeps join and take-away stories as pictures or number sentences, not unmarked bonds', () => {
+    for (const item of SEED_EARLY_MATH.filter((row) => row.unitId === 4)) {
+      assert.notEqual(item.stimulus?.type, 'partWhole', `${item.slug} should not use a number-bond picture`);
+    }
+    const change = SEED_EARLY_MATH.find((row) => row.slug === 'story-join-change-library');
+    assert.equal(change?.stimulus?.type, 'numberLineHops');
+    const hops = change?.stimulus?.type === 'numberLineHops' ? change.stimulus : null;
+    assert.equal(hops?.start, 6);
+    assert.equal(hops?.end, 9);
+    assert.equal(hops?.blank, 'hops');
   });
 
   it('keeps Kindy-friendly items and Year 1 stretch items', () => {
