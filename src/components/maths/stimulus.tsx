@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { MathStimulus } from '@/lib/early-math';
 import {
   ColorBead,
@@ -722,7 +723,13 @@ function CoinFace({ value, unit }: { value: number; unit?: 'dollar' | 'cent' }) 
       ? 'border-amber-800 bg-gradient-to-b from-amber-400 to-amber-700 text-amber-950'
       : 'border-slate-500 bg-gradient-to-b from-slate-100 to-slate-400 text-slate-900'
     : 'border-amber-700 bg-gradient-to-b from-amber-200 to-amber-400 text-amber-950';
-  const size = !isCent && value === 2 ? 'h-16 w-16 text-base' : 'h-14 w-14 text-sm';
+  const size = isCent
+    ? value === 5
+      ? 'h-11 w-11 text-xs'
+      : 'h-16 w-16 text-sm'
+    : value === 2
+      ? 'h-12 w-12 text-sm'
+      : 'h-16 w-16 text-base';
   return (
     <span className={`flex items-center justify-center rounded-full border-[3px] font-bold shadow-sm ${size} ${tone}`}>
       {label}
@@ -741,7 +748,7 @@ function HalvesPicture({
       <div className="mx-auto w-full max-w-sm">
         <div className="relative h-8 rounded-full bg-[#E15A4A]">
           <span
-            className="absolute top-[-10px] h-12 w-1.5 rounded-full bg-[#3D352E]"
+            className="absolute top-[-10px] h-12 w-1.5 -translate-x-1/2 rounded-full bg-[#3D352E]"
             style={{ left: mark }}
           />
         </div>
@@ -758,6 +765,7 @@ function HalvesPicture({
         <div className="text-center">
           <div className="flex overflow-hidden rounded-xl border-[3px] border-[#3D352E]">
             <span className="h-16 w-14 bg-[#E8B84A]" />
+            <span className="w-1 bg-white" />
             <span className="h-16 w-14 bg-[#E8B84A]" />
           </div>
           <p className="mt-2 text-sm font-semibold">A</p>
@@ -765,6 +773,7 @@ function HalvesPicture({
         <div className="text-center">
           <div className="flex overflow-hidden rounded-xl border-[3px] border-[#3D352E]">
             <span className="h-16 w-8 bg-[#E8B84A]" />
+            <span className="w-1 bg-white" />
             <span className="h-16 w-20 bg-[#E8B84A]" />
           </div>
           <p className="mt-2 text-sm font-semibold">B</p>
@@ -794,12 +803,20 @@ function MeasureUnitsPicture({
   stimulus: Extract<MathStimulus, { type: 'measureUnits' }>;
 }) {
   if (stimulus.kind === 'length') {
+    const width = `${stimulus.units * 2}rem`;
     return (
-      <div className="space-y-3">
-        <div className="flex justify-center">
-          <ToyIcon name={stimulus.item} />
+      <div className="space-y-2">
+        <div className="mx-auto flex items-center" style={{ width }}>
+          {stimulus.item === 'shoe' ? (
+            <div className="h-8 w-full rounded-l-md rounded-r-full bg-[#C45C26]" />
+          ) : (
+            <>
+              <div className="h-5 flex-1 rounded-sm bg-[#E8B84A]" />
+              <div className="h-0 w-0 border-y-[10px] border-y-transparent border-l-[14px] border-l-[#E8A07A]" />
+            </>
+          )}
         </div>
-        <div className="flex flex-wrap justify-center gap-1">
+        <div className="mx-auto flex justify-center" style={{ width }}>
           {Array.from({ length: stimulus.units }, (_, i) => (
             <ToyIcon key={i} name="block" />
           ))}
@@ -809,12 +826,12 @@ function MeasureUnitsPicture({
   }
   if (stimulus.kind === 'mass') {
     return (
-      <div className="mx-auto max-w-sm space-y-2">
-        <div className="flex items-end justify-between gap-6">
-          <div className="flex-1 rounded-[1.4rem] bg-[#FFF1D6] px-3 py-4 text-center">
+      <div className="mx-auto max-w-sm">
+        <div className="flex items-stretch justify-center gap-3">
+          <div className="flex-1 rounded-[1.4rem] border-[3px] border-[#C49B7A] bg-[#FFF1D6] px-3 py-3 text-center">
             <ToyIcon name={stimulus.item} />
           </div>
-          <div className="flex-1 rounded-[1.4rem] bg-[#EEF6F0] px-3 py-4">
+          <div className="flex-1 rounded-[1.4rem] border-[3px] border-[#C49B7A] bg-[#EEF6F0] px-3 py-3">
             <div className="flex flex-wrap justify-center gap-1">
               {Array.from({ length: stimulus.units }, (_, i) => (
                 <ToyIcon key={i} name="cube" />
@@ -822,8 +839,8 @@ function MeasureUnitsPicture({
             </div>
           </div>
         </div>
-        <div className="mx-auto h-2 w-40 rounded-full bg-[#C49B7A]" />
-        <div className="mx-auto h-8 w-2 bg-[#C49B7A]" />
+        <div className="mx-auto mt-1 h-2 w-full max-w-xs rounded-full bg-[#C49B7A]" />
+        <div className="mx-auto h-0 w-0 border-x-[12px] border-x-transparent border-t-[16px] border-t-[#C49B7A]" />
       </div>
     );
   }
@@ -833,10 +850,11 @@ function MeasureUnitsPicture({
         <div className="mx-auto h-28 w-16 rounded-b-2xl border-[3px] border-[#4A86B8] bg-[#D7E6DA]" />
         <p className="mt-2 text-sm font-medium">Jug</p>
       </div>
-      <div className="flex flex-wrap justify-center gap-2">
+      <div className="flex flex-wrap items-end justify-center gap-2">
         {Array.from({ length: stimulus.units }, (_, i) => (
           <div key={i} className="text-center">
             <div className="mx-auto h-12 w-8 rounded-b-xl border-[3px] border-terracotta bg-[#FFF1D6]" />
+            <p className="mt-1 text-xs font-semibold text-warm-muted">{i + 1}</p>
           </div>
         ))}
       </div>
@@ -851,37 +869,51 @@ function PlaygroundScene({ scene }: { scene: 'between' | 'next' | 'front' | 'beh
       <p className="mt-1 text-sm font-bold">{name}</p>
     </div>
   );
-  const slide = <div className="h-20 w-14 rounded-t-2xl bg-brand" />;
+  const slide = (
+    <div className="text-center">
+      <div className="mx-auto h-16 w-12 rounded-t-2xl bg-brand" />
+      <div className="mx-auto h-3 w-16 rounded-full bg-[#C45C26]" />
+      <p className="mt-1 text-xs font-semibold text-warm-muted">Slide</p>
+    </div>
+  );
+  let inner: ReactNode;
   if (scene === 'between') {
-    return (
+    inner = (
       <div className="flex items-end justify-center gap-6">
         {kid('Mia')}
         {kid('Ali')}
         {kid('Sam')}
       </div>
     );
-  }
-  if (scene === 'next') {
-    return (
-      <div className="flex items-end justify-center gap-6">
-        {kid('Mia')}
-        {slide}
+  } else if (scene === 'next') {
+    inner = (
+      <div className="flex items-end justify-between gap-8">
+        <div className="flex items-end gap-3">
+          {kid('Mia')}
+          {slide}
+        </div>
         {kid('Sam')}
       </div>
     );
-  }
-  if (scene === 'front') {
-    return (
-      <div className="flex flex-col items-center gap-3">
+  } else if (scene === 'front') {
+    inner = (
+      <div className="flex flex-col items-center gap-6">
         {slide}
         {kid('Mia')}
+      </div>
+    );
+  } else {
+    inner = (
+      <div className="flex flex-col items-center gap-6">
+        {kid('Sam')}
+        {slide}
       </div>
     );
   }
   return (
-    <div className="flex flex-col items-center gap-3">
-      {kid('Sam')}
-      {slide}
+    <div className="mx-auto w-full max-w-sm rounded-[1.6rem] bg-[#E8F0D8] px-4 py-4">
+      <p className="mb-3 text-center text-xs font-semibold tracking-wide text-warm-muted uppercase">Playground</p>
+      {inner}
     </div>
   );
 }

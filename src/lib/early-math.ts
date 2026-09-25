@@ -248,7 +248,7 @@ export const EARLY_MATH_UNITS: EarlyMathUnit[] = [
     title: 'Put together, take away',
     blurb: 'Add and take away with pictures, number sentences, and a number line.',
     kindyFocus: 'How many altogether, and how many left.',
-    year1Focus: 'Missing numbers such as 6 + □ = 9, and hops on a line.',
+    year1Focus: 'Missing numbers such as 6 + □ = 9, related facts, and three numbers.',
   },
   {
     id: 5,
@@ -260,9 +260,9 @@ export const EARLY_MATH_UNITS: EarlyMathUnit[] = [
   {
     id: 6,
     title: 'Everyday maths',
-    blurb: 'Shapes, position, measure, time, sharing, and a simple graph.',
+    blurb: 'Shapes, position, measure, time, coins, chance, and a simple graph.',
     kindyFocus: 'Name shapes, compare length, hour time, share equally.',
-    year1Focus: 'Half past, picture graphs, coins, and leftovers.',
+    year1Focus: 'Half past, coins, months, chance words, and leftovers.',
   },
   {
     id: 7,
@@ -388,8 +388,10 @@ const ASK_BY_SLUG: Record<string, string> = {
   'every-morning-or-night': 'Which is night?',
   'every-day-after-wednesday': 'What day is next?',
   'every-chance-sunrise': 'Will the sun come up?',
+  'every-coin-five-cents': 'Which coin?',
   'every-coin-ten-cents': 'Which coin?',
   'every-coin-one-dollar': 'Which coin?',
+  'every-coin-two-dollars': 'Which coin?',
   'every-coin-worth-more': 'Which is worth more?',
   'every-coin-count-tens': 'How many coins?',
   'every-duration-sleep': 'Which takes longer?',

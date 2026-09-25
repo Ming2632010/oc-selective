@@ -166,6 +166,33 @@ describe('K–Y1 Maths items', () => {
     assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'story-related-three-four')!), 'What is the answer?');
     assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'halves-eight-apples')!), 'How many for Sam?');
     assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'every-coin-worth-more')!), 'Which is worth more?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'groups-plates-not-equal')!), 'Which is not equal?');
+  });
+
+  it('names the four Australian coins and keeps equal-groups as pictures', () => {
+    for (const slug of [
+      'every-coin-five-cents',
+      'every-coin-ten-cents',
+      'every-coin-one-dollar',
+      'every-coin-two-dollars',
+    ]) {
+      assert.ok(SEED_EARLY_MATH.find((row) => row.slug === slug), slug);
+    }
+    const plates = SEED_EARLY_MATH.find((row) => row.slug === 'groups-plates-not-equal');
+    const groups = SEED_EARLY_MATH.find((row) => row.slug === 'groups-three-of-two');
+    assert.equal(plates?.stimulus?.type, 'groups');
+    assert.equal(groups?.stimulus?.type, 'groups');
+    if (plates?.stimulus?.type === 'groups') {
+      assert.equal(plates.stimulus.groups.length, 3);
+      assert.equal(plates.stimulus.groups[2]?.count, 3);
+    }
+    if (groups?.stimulus?.type === 'groups') {
+      assert.equal(groups.stimulus.groups.length, 3);
+      assert.ok(groups.stimulus.groups.every((group) => group.count === 2));
+    }
+    const worth = SEED_EARLY_MATH.find((row) => row.slug === 'every-coin-worth-more');
+    assert.equal(markEarlyMathItem(worth!, { index: 0 }).isCorrect, true);
+    assert.equal(markEarlyMathItem(plates!, { index: 2 }).isCorrect, true);
   });
 
   it('marks Year 1 related facts and half of a group by the missing number', () => {
