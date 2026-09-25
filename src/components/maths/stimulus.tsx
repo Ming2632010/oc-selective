@@ -334,7 +334,8 @@ export function MathsStimulus({ stimulus }: { stimulus?: MathStimulus | Record<s
             <p className="mb-2 text-center text-sm font-medium text-warm-ink">{group.label}</p>
             <div className="flex flex-wrap justify-center gap-1.5">
               {Array.from({ length: group.count }, (_, i) => {
-                const gone = (group.crossed ?? 0) > 0 && i >= group.count - group.crossed;
+                const crossed = group.crossed ?? 0;
+                const gone = crossed > 0 && i >= group.count - crossed;
                 return (
                   <span key={i} className={`relative ${gone ? 'opacity-45' : ''}`}>
                     <ToyIcon name={group.icon} />
