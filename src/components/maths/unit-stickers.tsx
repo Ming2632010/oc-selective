@@ -5,6 +5,7 @@ const STICKER_LABELS: Record<number, string> = {
   4: 'Stories',
   5: 'Tens',
   6: 'Today',
+  7: 'Groups',
 };
 
 const STAMP_TILT: Record<number, string> = {
@@ -14,6 +15,7 @@ const STAMP_TILT: Record<number, string> = {
   4: 'rotate-3',
   5: '-rotate-3',
   6: 'rotate-1',
+  7: '-rotate-2',
 };
 
 export function MathsUnitSticker({
@@ -34,6 +36,8 @@ export function MathsUnitSticker({
       return <BlocksSticker className={className} />;
     case 6:
       return <ClockSticker className={className} />;
+    case 7:
+      return <GroupsSticker className={className} />;
     default:
       return <DiceSticker className={className} />;
   }
@@ -110,6 +114,16 @@ function BlocksSticker({ className }: { className?: string }) {
       <path d="M4 13.5h12M4 20.5h12M4 27.5h12" stroke="#EEF6F0" strokeWidth="1.4" />
       <rect x="20" y="22" width="8" height="12" rx="1.8" fill="#4A7A64" />
       <rect x="29.5" y="22" width="8" height="12" rx="1.8" fill="#C49B7A" />
+    </svg>
+  );
+}
+
+function GroupsSticker({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 40 40" className={className ?? iconClass} aria-hidden>
+      <rect x="4" y="8" width="14" height="10" rx="3" fill="#E8B84A" />
+      <rect x="22" y="8" width="14" height="10" rx="3" fill="#E8B84A" />
+      <rect x="13" y="22" width="14" height="10" rx="3" fill="#4A7A64" />
     </svg>
   );
 }

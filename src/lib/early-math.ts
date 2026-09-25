@@ -1,4 +1,4 @@
-export const EARLY_MATH_UNIT_COUNT = 6;
+export const EARLY_MATH_UNIT_COUNT = 7;
 
 export const EARLY_MATH_SKILLS = [
   'subitise-perceptual',
@@ -49,6 +49,14 @@ export const EARLY_MATH_SKILLS = [
   'tally',
   'chance-language',
   'money-count',
+  'related-facts',
+  'three-addends',
+  'halves',
+  'informal-length',
+  'informal-mass',
+  'informal-capacity',
+  'duration-compare',
+  'months-sequence',
 ] as const;
 
 export type EarlyMathSkill = (typeof EARLY_MATH_SKILLS)[number];
@@ -102,6 +110,14 @@ export const EARLY_MATH_SKILL_LABELS: Record<EarlyMathSkill, string> = {
   'tally': 'Tally marks',
   'chance-language': 'Might, will, won’t',
   'money-count': 'Coins and dollars',
+  'related-facts': 'Related facts',
+  'three-addends': 'Add three numbers',
+  'halves': 'Halves',
+  'informal-length': 'How many units long?',
+  'informal-mass': 'How many units to balance?',
+  'informal-capacity': 'How many cups?',
+  'duration-compare': 'Which takes longer?',
+  'months-sequence': 'Months of the year',
 };
 
 export const EARLY_MATH_KINDS = ['choice', 'count', 'true_false'] as const;
@@ -130,7 +146,13 @@ export type MathStimulus =
       direction?: 'forward' | 'back';
       blank?: 'start' | 'hops' | 'result';
     }
-  | { type: 'numberSentence'; a: number | null; op: '+' | '-'; b: number | null; result: number | null }
+  | { type: 'numberSentence'; a: number | null; op: '+' | '-'; b: number | null; result: number | null; c?: number | null }
+  | { type: 'relatedFacts'; a: number; b: number; total: number }
+  | { type: 'addThree'; addends: [number, number, number]; icon?: string }
+  | { type: 'halves'; kind: 'ribbon' | 'sandwich' | 'group'; equal?: boolean; mark?: 'mid' | 'side'; total?: number }
+  | { type: 'measureUnits'; kind: 'length' | 'mass' | 'capacity'; units: number; item: string }
+  | { type: 'duration'; left: { icon: string; label: string }; right: { icon: string; label: string } }
+  | { type: 'playground'; scene: 'between' | 'next' | 'front' | 'behind' }
   | {
       type: 'partWhole';
       whole: number | null;
@@ -143,13 +165,13 @@ export type MathStimulus =
   | { type: 'groups'; groups: { count: number; icon: string; label: string; crossed?: number }[] }
   | { type: 'pattern'; items: string[]; blankIndex: number }
   | { type: 'shapes'; items: { kind: string; label?: string }[] }
-  | { type: 'position'; place: 'bench' | 'shelf' | 'slide'; target: string }
+  | { type: 'position'; place: 'bench' | 'shelf' | 'slide' | 'between' | 'next' | 'front' | 'behind'; target: string }
   | { type: 'compareBars'; a: number; b: number; aLabel: string; bLabel: string }
   | { type: 'pictureGraph'; title: string; rows: { label: string; count: number; icon: string }[] }
   | { type: 'clock'; hour: number; minute: 0 | 30 }
   | { type: 'baseTen'; tens: number; ones: number }
   | { type: 'sharing'; total: number; people: number }
-  | { type: 'coins'; coins: { value: number; count: number }[] }
+  | { type: 'coins'; coins: { value: number; count: number; unit?: 'dollar' | 'cent' }[] }
   | {
       type: 'matchNumber';
       target: number;
@@ -240,7 +262,14 @@ export const EARLY_MATH_UNITS: EarlyMathUnit[] = [
     title: 'Everyday maths',
     blurb: 'Shapes, position, measure, time, sharing, and a simple graph.',
     kindyFocus: 'Name shapes, compare length, hour time, share equally.',
-    year1Focus: 'Informal units, half past, picture graphs, and leftovers.',
+    year1Focus: 'Half past, picture graphs, coins, and leftovers.',
+  },
+  {
+    id: 7,
+    title: 'Groups and measure',
+    blurb: 'Equal groups, halves, and how many units long, heavy, or full.',
+    kindyFocus: 'Equal or not, half a length, count the blocks.',
+    year1Focus: 'How many in all, half a group, measure with the same unit.',
   },
 ];
 
@@ -253,8 +282,8 @@ export function isEarlyMathUnitId(value: number): boolean {
 }
 
 export function recommendedUnitOrder(grade: string): number[] {
-  if (grade === 'Year 1') return [3, 4, 5, 2, 6, 1];
-  return [1, 2, 3, 4, 6, 5];
+  if (grade === 'Year 1') return [3, 4, 7, 5, 2, 6, 1];
+  return [1, 2, 3, 4, 6, 7, 5];
 }
 
 /** Consecutive questions share a page: 1+2, 3+4, leftover alone. */
@@ -319,7 +348,15 @@ const ASK_BY_SKILL: Record<EarlyMathSkill, string> = {
   'picture-graph': 'Which has the most?',
   'tally': 'How many?',
   'chance-language': 'Will it happen?',
-  'money-count': 'How many dollars?',
+  'money-count': 'Which coin?',
+  'related-facts': 'What is the answer?',
+  'three-addends': 'What is the answer?',
+  'halves': 'Which is a half?',
+  'informal-length': 'How many blocks?',
+  'informal-mass': 'How many cubes?',
+  'informal-capacity': 'How many cups?',
+  'duration-compare': 'Which takes longer?',
+  'months-sequence': 'What month is next?',
 };
 
 const ASK_BY_SLUG: Record<string, string> = {
@@ -351,6 +388,33 @@ const ASK_BY_SLUG: Record<string, string> = {
   'every-morning-or-night': 'Which is night?',
   'every-day-after-wednesday': 'What day is next?',
   'every-chance-sunrise': 'Will the sun come up?',
+  'every-coin-ten-cents': 'Which coin?',
+  'every-coin-one-dollar': 'Which coin?',
+  'every-coin-worth-more': 'Which is worth more?',
+  'every-coin-count-tens': 'How many coins?',
+  'every-duration-sleep': 'Which takes longer?',
+  'every-yesterday-friday': 'What day was yesterday?',
+  'every-month-after-june': 'What month is next?',
+  'every-between-friends': 'Who is in the middle?',
+  'every-next-to-slide': 'Who is next to it?',
+  'every-in-front-slide': 'Who is in front?',
+  'every-behind-slide': 'Who is behind?',
+  'every-chance-rain': 'Will it rain?',
+  'every-chance-cow-fly': 'Will it happen?',
+  'story-related-three-four': 'What is the answer?',
+  'story-three-addends-trays': 'What is the answer?',
+  'groups-plates-not-equal': 'Which is not equal?',
+  'groups-two-same-plates': 'Are they equal?',
+  'groups-five-and-three': 'Are they equal?',
+  'groups-three-of-two': 'How many altogether?',
+  'groups-two-of-four': 'How many altogether?',
+  'halves-ribbon-middle': 'Is this halfway?',
+  'halves-sandwich-equal': 'Which is a half?',
+  'halves-eight-apples': 'How many for Sam?',
+  'measure-pencil-blocks': 'How many blocks?',
+  'measure-shoe-blocks': 'How many blocks?',
+  'measure-apple-cubes': 'How many cubes?',
+  'measure-jug-cups': 'How many cups?',
 };
 
 export function kidAskForItem(item: {
@@ -366,8 +430,25 @@ export function kidAskForItem(item: {
     if (stimulus.type === 'howManyMore') return 'How many more?';
     if (stimulus.type === 'oddOneOut') return 'Which one is different?';
     if (stimulus.type === 'pattern') return 'What comes next?';
+    if (stimulus.type === 'addThree') return 'What is the answer?';
     if (stimulus.type === 'numberSentence') {
       return stimulus.result === null ? 'What is the answer?' : 'What number is missing?';
+    }
+    if (stimulus.type === 'relatedFacts') return 'What is the answer?';
+    if (stimulus.type === 'halves') {
+      return stimulus.kind === 'ribbon' ? 'Is this halfway?' : 'Which is a half?';
+    }
+    if (stimulus.type === 'measureUnits') {
+      if (stimulus.kind === 'mass') return 'How many cubes?';
+      if (stimulus.kind === 'capacity') return 'How many cups?';
+      return 'How many blocks?';
+    }
+    if (stimulus.type === 'duration') return 'Which takes longer?';
+    if (stimulus.type === 'playground') {
+      if (stimulus.scene === 'between') return 'Who is in the middle?';
+      if (stimulus.scene === 'next') return 'Who is next to it?';
+      if (stimulus.scene === 'front') return 'Who is in front?';
+      return 'Who is behind?';
     }
     if (stimulus.type === 'numberLineHops') {
       return stimulus.blank === 'result' || !stimulus.blank
@@ -391,7 +472,11 @@ export function kidAskForItem(item: {
     if (stimulus.type === 'lineup') return 'Who is third?';
     if (stimulus.type === 'balance') return 'Which is heavier?';
     if (stimulus.type === 'jugs') return 'Which holds more?';
-    if (stimulus.type === 'dayStrip') return 'What day is next?';
+    if (stimulus.type === 'dayStrip') {
+      if (item.skill === 'months-sequence') return 'What month is next?';
+      if (item.slug === 'every-yesterday-friday') return 'What day was yesterday?';
+      return 'What day is next?';
+    }
     if (stimulus.type === 'giantNumber') return 'What number?';
     if (stimulus.type === 'tenFrame' || stimulus.type === 'dots' || stimulus.type === 'fingers' || stimulus.type === 'tally') {
       if (item.skill === 'count-on') return 'How many now?';
@@ -422,7 +507,12 @@ export function kidAskForItem(item: {
       return 'What number is this?';
     }
     if (stimulus.type === 'pictureGraph') return 'Which has the most?';
-    if (stimulus.type === 'coins') return 'How many dollars?';
+    if (stimulus.type === 'coins') {
+      if (item.skill === 'money-count' && stimulus.coins.some((coin) => (coin.unit ?? 'dollar') === 'cent')) {
+        return stimulus.coins.reduce((n, coin) => n + coin.count, 0) > 1 ? 'How many coins?' : 'Which coin?';
+      }
+      return 'How many dollars?';
+    }
     if (stimulus.type === 'shapes') {
       return item.skill === 'shape-2d' ? 'Look at the shape.' : 'Which shape?';
     }

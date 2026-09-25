@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 
     const unitId = Number(url.searchParams.get('unit_id'));
     if (!isEarlyMathUnitId(unitId)) {
-      return NextResponse.json({ error: 'unit_id must be 1–6' }, { status: 400 });
+      return NextResponse.json({ error: 'unit_id must be 1–7' }, { status: 400 });
     }
     const items = await listMathsUnit(studentId, unitId);
     return NextResponse.json(

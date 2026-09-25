@@ -126,6 +126,16 @@ export function ToyIcon({
       return <MiniDiceIcon />;
     case 'pencil':
       return <PencilIcon fill={color} />;
+    case 'rain':
+      return <RainIcon />;
+    case 'cow':
+      return <CowIcon />;
+    case 'sandwich':
+      return <SandwichIcon />;
+    case 'cube':
+      return <CubeIcon fill={color} />;
+    case 'cup':
+      return <BowlIcon fill={color} />;
     default:
       return <Counter color={color ?? 'terracotta'} />;
   }
@@ -449,6 +459,46 @@ function MiniDiceIcon() {
       <rect x="3" y="3" width="22" height="22" rx="5" fill="#C49B7A" />
       <circle cx="10" cy="10" r="2" fill="#fff" />
       <circle cx="18" cy="18" r="2" fill="#fff" />
+    </svg>
+  );
+}
+
+function RainIcon() {
+  return (
+    <svg viewBox="0 0 32 32" className="h-9 w-9" aria-hidden>
+      <path d="M8 14h16a6 6 0 0 0-1-8 7 7 0 0 0-13 2 5 5 0 0 0-2 6z" fill="#8AA4B8" />
+      <path d="M10 20l-2 6M16 21l-2 6M22 20l-2 6" stroke="#4A86B8" strokeWidth="2.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CowIcon() {
+  return (
+    <svg viewBox="0 0 36 28" className="h-8 w-10" aria-hidden>
+      <ellipse cx="18" cy="16" rx="12" ry="8" fill="#F4E4C8" />
+      <circle cx="10" cy="10" r="4" fill="#F4E4C8" />
+      <circle cx="26" cy="10" r="4" fill="#F4E4C8" />
+      <circle cx="16" cy="15" r="1.4" fill="#3D352E" />
+      <circle cx="21" cy="15" r="1.4" fill="#3D352E" />
+      <ellipse cx="18" cy="20" rx="3" ry="2" fill="#E8A07A" />
+    </svg>
+  );
+}
+
+function SandwichIcon() {
+  return (
+    <svg viewBox="0 0 32 24" className="h-8 w-10" aria-hidden>
+      <path d="M4 10 16 4l12 6-12 6z" fill="#E8B84A" />
+      <path d="M4 14 16 8l12 6-12 6z" fill="#4A7A64" />
+    </svg>
+  );
+}
+
+function CubeIcon({ fill }: { fill?: string }) {
+  return (
+    <svg viewBox="0 0 28 28" className="h-8 w-8" aria-hidden>
+      <path d="M4 10 14 4l10 6v12L14 28 4 22z" fill={fill ?? '#4A86B8'} />
+      <path d="M14 4v24M4 10l10 6 10-6" stroke="#fff" strokeWidth="1.4" />
     </svg>
   );
 }

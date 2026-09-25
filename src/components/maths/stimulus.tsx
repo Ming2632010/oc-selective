@@ -301,9 +301,61 @@ export function MathsStimulus({ stimulus }: { stimulus?: MathStimulus | Record<s
         a={stimulus.a}
         op={stimulus.op}
         b={stimulus.b}
+        c={stimulus.c}
         result={stimulus.result}
       />
     );
+  }
+  if (stimulus.type === 'relatedFacts') {
+    return (
+      <div className="space-y-4">
+        <NumberSentenceTiles a={stimulus.a} op="+" b={stimulus.b} result={stimulus.total} />
+        <NumberSentenceTiles a={stimulus.total} op="-" b={stimulus.b} result={null} />
+      </div>
+    );
+  }
+  if (stimulus.type === 'addThree') {
+    const [a, b, c] = stimulus.addends;
+    const icon = stimulus.icon ?? 'apple';
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap justify-center gap-4">
+          {[a, b, c].map((count, i) => (
+            <div key={i} className="rounded-[1.4rem] bg-[#FFF1D6] px-3 py-2">
+              <div className="flex flex-wrap justify-center gap-1">
+                {Array.from({ length: count }, (_, n) => (
+                  <ToyIcon key={n} name={icon} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <NumberSentenceTiles a={a} op="+" b={b} c={c} result={null} />
+      </div>
+    );
+  }
+  if (stimulus.type === 'halves') {
+    return <HalvesPicture stimulus={stimulus} />;
+  }
+  if (stimulus.type === 'measureUnits') {
+    return <MeasureUnitsPicture stimulus={stimulus} />;
+  }
+  if (stimulus.type === 'duration') {
+    return (
+      <div className="flex flex-wrap justify-center gap-6">
+        {[stimulus.left, stimulus.right].map((side) => (
+          <div key={side.label} className="w-36 rounded-[1.4rem] bg-[#FFF1D6] px-4 py-4 text-center">
+            <div className="flex justify-center">
+              <ToyIcon name={side.icon} />
+            </div>
+            <p className="mt-2 text-sm font-semibold text-warm-ink">{side.label}</p>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (stimulus.type === 'playground') {
+    return <PlaygroundScene scene={stimulus.scene} />;
   }
   if (stimulus.type === 'partWhole') {
     const cell = (value: number | null, tone: string, label: string) => (
@@ -609,12 +661,7 @@ export function MathsStimulus({ stimulus }: { stimulus?: MathStimulus | Record<s
       <div className="flex flex-wrap justify-center gap-3">
         {stimulus.coins.flatMap((coin) =>
           Array.from({ length: coin.count }, (_, i) => (
-            <span
-              key={`${coin.value}-${i}`}
-              className="flex h-14 w-14 items-center justify-center rounded-full border-[3px] border-amber-700 bg-gradient-to-b from-amber-200 to-amber-400 text-sm font-bold text-amber-950 shadow-sm"
-            >
-              ${coin.value}
-            </span>
+            <CoinFace key={`${coin.unit ?? 'dollar'}-${coin.value}-${i}`} value={coin.value} unit={coin.unit} />
           )),
         )}
       </div>
@@ -627,15 +674,17 @@ function NumberSentenceTiles({
   a,
   op,
   b,
+  c,
   result,
 }: {
   a: number | null;
   op: '+' | '-';
   b: number | null;
+  c?: number | null;
   result: number | null;
 }) {
-  const tile = (value: number | null) => {
-    const blank = value === null;
+  const tile = (value: number | null | undefined) => {
+    const blank = value === null || value === undefined;
     return (
       <span
         className={`flex h-16 min-w-16 items-center justify-center rounded-2xl border-[3px] px-3 text-4xl font-bold ${
@@ -653,8 +702,186 @@ function NumberSentenceTiles({
       {tile(a)}
       <span className="text-4xl font-bold text-warm-ink">{op === '-' ? '−' : '+'}</span>
       {tile(b)}
+      {c !== undefined ? (
+        <>
+          <span className="text-4xl font-bold text-warm-ink">+</span>
+          {tile(c)}
+        </>
+      ) : null}
       <span className="text-4xl font-bold text-warm-ink">=</span>
       {tile(result)}
+    </div>
+  );
+}
+
+function CoinFace({ value, unit }: { value: number; unit?: 'dollar' | 'cent' }) {
+  const isCent = unit === 'cent';
+  const label = isCent ? `${value}c` : `$${value}`;
+  const tone = isCent
+    ? value === 5
+      ? 'border-amber-800 bg-gradient-to-b from-amber-400 to-amber-700 text-amber-950'
+      : 'border-slate-500 bg-gradient-to-b from-slate-100 to-slate-400 text-slate-900'
+    : 'border-amber-700 bg-gradient-to-b from-amber-200 to-amber-400 text-amber-950';
+  const size = !isCent && value === 2 ? 'h-16 w-16 text-base' : 'h-14 w-14 text-sm';
+  return (
+    <span className={`flex items-center justify-center rounded-full border-[3px] font-bold shadow-sm ${size} ${tone}`}>
+      {label}
+    </span>
+  );
+}
+
+function HalvesPicture({
+  stimulus,
+}: {
+  stimulus: Extract<MathStimulus, { type: 'halves' }>;
+}) {
+  if (stimulus.kind === 'ribbon') {
+    const mark = stimulus.mark === 'side' ? '22%' : '50%';
+    return (
+      <div className="mx-auto w-full max-w-sm">
+        <div className="relative h-8 rounded-full bg-[#E15A4A]">
+          <span
+            className="absolute top-[-10px] h-12 w-1.5 rounded-full bg-[#3D352E]"
+            style={{ left: mark }}
+          />
+        </div>
+        <div className="mt-3 flex justify-between text-xs font-semibold text-warm-muted">
+          <span>Start</span>
+          <span>End</span>
+        </div>
+      </div>
+    );
+  }
+  if (stimulus.kind === 'sandwich') {
+    return (
+      <div className="flex justify-center gap-8">
+        <div className="text-center">
+          <div className="flex overflow-hidden rounded-xl border-[3px] border-[#3D352E]">
+            <span className="h-16 w-14 bg-[#E8B84A]" />
+            <span className="h-16 w-14 bg-[#E8B84A]" />
+          </div>
+          <p className="mt-2 text-sm font-semibold">A</p>
+        </div>
+        <div className="text-center">
+          <div className="flex overflow-hidden rounded-xl border-[3px] border-[#3D352E]">
+            <span className="h-16 w-8 bg-[#E8B84A]" />
+            <span className="h-16 w-20 bg-[#E8B84A]" />
+          </div>
+          <p className="mt-2 text-sm font-semibold">B</p>
+        </div>
+      </div>
+    );
+  }
+  const total = stimulus.total ?? 8;
+  const half = Math.floor(total / 2);
+  return (
+    <div className="space-y-3">
+      <p className="text-center text-sm font-medium text-warm-ink">Sam’s half</p>
+      <div className="flex flex-wrap justify-center gap-2">
+        {Array.from({ length: total }, (_, i) => (
+          <span key={i} className={i < half ? 'rounded-lg bg-[#EEF6F0] p-1' : 'p-1 opacity-40'}>
+            <ToyIcon name="apple" />
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MeasureUnitsPicture({
+  stimulus,
+}: {
+  stimulus: Extract<MathStimulus, { type: 'measureUnits' }>;
+}) {
+  if (stimulus.kind === 'length') {
+    return (
+      <div className="space-y-3">
+        <div className="flex justify-center">
+          <ToyIcon name={stimulus.item} />
+        </div>
+        <div className="flex flex-wrap justify-center gap-1">
+          {Array.from({ length: stimulus.units }, (_, i) => (
+            <ToyIcon key={i} name="block" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (stimulus.kind === 'mass') {
+    return (
+      <div className="mx-auto max-w-sm space-y-2">
+        <div className="flex items-end justify-between gap-6">
+          <div className="flex-1 rounded-[1.4rem] bg-[#FFF1D6] px-3 py-4 text-center">
+            <ToyIcon name={stimulus.item} />
+          </div>
+          <div className="flex-1 rounded-[1.4rem] bg-[#EEF6F0] px-3 py-4">
+            <div className="flex flex-wrap justify-center gap-1">
+              {Array.from({ length: stimulus.units }, (_, i) => (
+                <ToyIcon key={i} name="cube" />
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="mx-auto h-2 w-40 rounded-full bg-[#C49B7A]" />
+        <div className="mx-auto h-8 w-2 bg-[#C49B7A]" />
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-end justify-center gap-8">
+      <div className="text-center">
+        <div className="mx-auto h-28 w-16 rounded-b-2xl border-[3px] border-[#4A86B8] bg-[#D7E6DA]" />
+        <p className="mt-2 text-sm font-medium">Jug</p>
+      </div>
+      <div className="flex flex-wrap justify-center gap-2">
+        {Array.from({ length: stimulus.units }, (_, i) => (
+          <div key={i} className="text-center">
+            <div className="mx-auto h-12 w-8 rounded-b-xl border-[3px] border-terracotta bg-[#FFF1D6]" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PlaygroundScene({ scene }: { scene: 'between' | 'next' | 'front' | 'behind' }) {
+  const kid = (name: string) => (
+    <div className="text-center">
+      <ToyIcon name="child" />
+      <p className="mt-1 text-sm font-bold">{name}</p>
+    </div>
+  );
+  const slide = <div className="h-20 w-14 rounded-t-2xl bg-brand" />;
+  if (scene === 'between') {
+    return (
+      <div className="flex items-end justify-center gap-6">
+        {kid('Mia')}
+        {kid('Ali')}
+        {kid('Sam')}
+      </div>
+    );
+  }
+  if (scene === 'next') {
+    return (
+      <div className="flex items-end justify-center gap-6">
+        {kid('Mia')}
+        {slide}
+        {kid('Sam')}
+      </div>
+    );
+  }
+  if (scene === 'front') {
+    return (
+      <div className="flex flex-col items-center gap-3">
+        {slide}
+        {kid('Mia')}
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col items-center gap-3">
+      {kid('Sam')}
+      {slide}
     </div>
   );
 }

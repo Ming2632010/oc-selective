@@ -11,7 +11,7 @@ import { canonicalizeCount, markEarlyMathItem } from './mark-early-math';
 import { SEED_EARLY_MATH } from './seed-early-math';
 
 describe('K–Y1 Maths catalogue', () => {
-  it('has six units from seeing number through everyday maths', () => {
+  it('has seven units from seeing number through groups and measure', () => {
     assert.deepEqual(
       EARLY_MATH_UNITS.map((unit) => unit.title),
       [
@@ -21,13 +21,14 @@ describe('K–Y1 Maths catalogue', () => {
         'Put together, take away',
         'Tens and ones',
         'Everyday maths',
+        'Groups and measure',
       ],
     );
   });
 
   it('starts Year 1 on parts and stories, and Kindergarten on seeing number', () => {
-    assert.deepEqual(recommendedUnitOrder('Year 1'), [3, 4, 5, 2, 6, 1]);
-    assert.deepEqual(recommendedUnitOrder('Kindergarten'), [1, 2, 3, 4, 6, 5]);
+    assert.deepEqual(recommendedUnitOrder('Year 1'), [3, 4, 7, 5, 2, 6, 1]);
+    assert.deepEqual(recommendedUnitOrder('Kindergarten'), [1, 2, 3, 4, 6, 7, 5]);
   });
 
   it('puts two questions on a practice page and leaves a leftover alone', () => {
@@ -94,6 +95,10 @@ describe('K–Y1 Maths items', () => {
       'teen-vs-ten',
       'conservation',
       'leftovers',
+      'equal-groups',
+      'halves',
+      'related-facts',
+      'three-addends',
     ] as const) {
       assert.equal(skills.has(skill), true, `missing ${skill}`);
     }
@@ -120,7 +125,11 @@ describe('K–Y1 Maths items', () => {
     assert.ok(types.has('matchNumber'));
     assert.ok(types.has('howManyMore'));
     assert.ok(types.has('oddOneOut'));
-    assert.ok(types.size >= 13);
+    assert.ok(types.has('relatedFacts'));
+    assert.ok(types.has('addThree'));
+    assert.ok(types.has('halves'));
+    assert.ok(types.has('measureUnits'));
+    assert.ok(types.size >= 16);
   });
 
   it('lets children tap a matching picture, a difference, or the odd one out', () => {
@@ -154,6 +163,20 @@ describe('K–Y1 Maths items', () => {
     assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'story-separate-result-lunch')!), 'How many left?');
     assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'count-missing-fourteen')!), 'What number is missing?');
     assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'every-heavier-book')!), 'Which is heavier?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'story-related-three-four')!), 'What is the answer?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'halves-eight-apples')!), 'How many for Sam?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'every-coin-worth-more')!), 'Which is worth more?');
+  });
+
+  it('marks Year 1 related facts and half of a group by the missing number', () => {
+    const related = SEED_EARLY_MATH.find((row) => row.slug === 'story-related-three-four');
+    const half = SEED_EARLY_MATH.find((row) => row.slug === 'halves-eight-apples');
+    const three = SEED_EARLY_MATH.find((row) => row.slug === 'story-three-addends-trays');
+    assert.ok(related && half && three);
+    assert.equal(markEarlyMathItem(related, { text: '3' }).isCorrect, true);
+    assert.equal(markEarlyMathItem(related, { text: '7' }).isCorrect, false);
+    assert.equal(markEarlyMathItem(half, { text: '4' }).isCorrect, true);
+    assert.equal(markEarlyMathItem(three, { text: '6' }).isCorrect, true);
   });
 
   it('keeps join and take-away stories as pictures or number sentences, not unmarked bonds', () => {

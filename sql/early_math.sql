@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS early_math_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   slug TEXT NOT NULL UNIQUE,
-  unit_id INTEGER NOT NULL CHECK (unit_id BETWEEN 1 AND 6),
+  unit_id INTEGER NOT NULL CHECK (unit_id BETWEEN 1 AND 7),
   skill TEXT NOT NULL,
   item_kind TEXT NOT NULL,
   title TEXT NOT NULL,
