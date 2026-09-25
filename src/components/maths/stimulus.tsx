@@ -763,7 +763,7 @@ function HalvesPicture({
     return (
       <div className="flex justify-center gap-8">
         <div className="text-center">
-          <div className="flex overflow-hidden rounded-xl border-[3px] border-[#3D352E]">
+          <div className="flex w-28 overflow-hidden rounded-xl border-[3px] border-[#3D352E]">
             <span className="h-16 w-14 bg-[#E8B84A]" />
             <span className="w-1 bg-white" />
             <span className="h-16 w-14 bg-[#E8B84A]" />
@@ -771,10 +771,10 @@ function HalvesPicture({
           <p className="mt-2 text-sm font-semibold">A</p>
         </div>
         <div className="text-center">
-          <div className="flex overflow-hidden rounded-xl border-[3px] border-[#3D352E]">
-            <span className="h-16 w-8 bg-[#E8B84A]" />
+          <div className="flex w-28 overflow-hidden rounded-xl border-[3px] border-[#3D352E]">
+            <span className="h-16 w-7 bg-[#E8B84A]" />
             <span className="w-1 bg-white" />
-            <span className="h-16 w-20 bg-[#E8B84A]" />
+            <span className="h-16 flex-1 bg-[#E8B84A]" />
           </div>
           <p className="mt-2 text-sm font-semibold">B</p>
         </div>
@@ -803,22 +803,27 @@ function MeasureUnitsPicture({
   stimulus: Extract<MathStimulus, { type: 'measureUnits' }>;
 }) {
   if (stimulus.kind === 'length') {
-    const width = `${stimulus.units * 2}rem`;
+    const unit = 32;
+    const width = stimulus.units * unit;
     return (
-      <div className="space-y-2">
-        <div className="mx-auto flex items-center" style={{ width }}>
+      <div className="mx-auto w-fit space-y-1">
+        <div className="flex items-center" style={{ width }}>
           {stimulus.item === 'shoe' ? (
             <div className="h-8 w-full rounded-l-md rounded-r-full bg-[#C45C26]" />
           ) : (
             <>
               <div className="h-5 flex-1 rounded-sm bg-[#E8B84A]" />
-              <div className="h-0 w-0 border-y-[10px] border-y-transparent border-l-[14px] border-l-[#E8A07A]" />
+              <div className="h-0 w-0 border-y-[10px] border-y-transparent border-l-[12px] border-l-[#E8A07A]" />
             </>
           )}
         </div>
-        <div className="mx-auto flex justify-center" style={{ width }}>
+        <div className="flex">
           {Array.from({ length: stimulus.units }, (_, i) => (
-            <ToyIcon key={i} name="block" />
+            <span
+              key={i}
+              className="inline-block border border-[#D4A84A] bg-[#E8B84A]"
+              style={{ width: unit, height: unit }}
+            />
           ))}
         </div>
       </div>

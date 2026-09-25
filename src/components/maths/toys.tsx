@@ -474,13 +474,16 @@ function RainIcon() {
 
 function CowIcon() {
   return (
-    <svg viewBox="0 0 36 28" className="h-8 w-10" aria-hidden>
-      <ellipse cx="18" cy="16" rx="12" ry="8" fill="#F4E4C8" />
-      <circle cx="10" cy="10" r="4" fill="#F4E4C8" />
-      <circle cx="26" cy="10" r="4" fill="#F4E4C8" />
-      <circle cx="16" cy="15" r="1.4" fill="#3D352E" />
-      <circle cx="21" cy="15" r="1.4" fill="#3D352E" />
-      <ellipse cx="18" cy="20" rx="3" ry="2" fill="#E8A07A" />
+    <svg viewBox="0 0 40 28" className="h-8 w-11" aria-hidden>
+      <ellipse cx="22" cy="16" rx="12" ry="8" fill="#F4E4C8" />
+      <circle cx="10" cy="12" r="6" fill="#F4E4C8" />
+      <path d="M6 7l-2-4 5 2M14 7l2-4-5 2" fill="#3D352E" />
+      <circle cx="8" cy="11" r="1.2" fill="#3D352E" />
+      <circle cx="12" cy="11" r="1.2" fill="#3D352E" />
+      <ellipse cx="10" cy="15" rx="3" ry="1.6" fill="#E8A07A" />
+      <circle cx="20" cy="14" r="2.2" fill="#3D352E" />
+      <circle cx="28" cy="18" r="2.4" fill="#3D352E" />
+      <path d="M16 24v3M28 24v3" stroke="#3D352E" strokeWidth="2" />
     </svg>
   );
 }
