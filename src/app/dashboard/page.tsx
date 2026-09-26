@@ -109,6 +109,7 @@ type CustomTask = {
   description: string;
   prompt_type: string;
   max_draft: number;
+  stimulus_image?: string | null;
 };
 
 const EXPIRY_WARNING_DAYS = 7;
@@ -325,6 +326,8 @@ export default function DashboardPage() {
   const [customTasks, setCustomTasks] = useState<CustomTask[]>([]);
   const [customLoaded, setCustomLoaded] = useState(false);
   const [customQuestion, setCustomQuestion] = useState('');
+  const [customImage, setCustomImage] = useState<File | null>(null);
+  const [customImagePreview, setCustomImagePreview] = useState<string | null>(null);
   const [customType, setCustomType] = useState('narrative');
   const [customCreating, setCustomCreating] = useState(false);
   const [writingTrial, setWritingTrial] = useState<WritingTrialInfo | null>(null);
@@ -481,25 +484,38 @@ export default function DashboardPage() {
     }
   }
 
+  function onPickCustomImage(file: File | null) {
+    if (customImagePreview) URL.revokeObjectURL(customImagePreview);
+    setCustomImage(file);
+    setCustomImagePreview(file ? URL.createObjectURL(file) : null);
+  }
+
   async function onCreateCustomTask(event: FormEvent) {
     event.preventDefault();
     if (!selectedStudentId) return;
+    if (!customQuestion.trim() && !customImage) {
+      setError('Type the question, or add a photo of it.');
+      return;
+    }
     setCustomCreating(true);
     setError(null);
     try {
+      const body = new FormData();
+      body.append('student_id', selectedStudentId);
+      body.append('prompt_type', customType);
+      if (customQuestion.trim()) body.append('question', customQuestion.trim());
+      if (customImage) body.append('image', customImage);
       const res = await apiFetch('/api/writing/custom-tasks', {
         method: 'POST',
-        body: JSON.stringify({
-          student_id: selectedStudentId,
-          question: customQuestion,
-          prompt_type: customType,
-        }),
+        body,
       });
       if (!res.response.ok) throw new Error(res.data.error || 'Could not create custom task');
       const task = res.data.task as { id?: unknown } | undefined;
       if (!task || typeof task.id !== 'string' || !task.id) {
         throw new Error('Custom task was created, but its workspace could not be opened.');
       }
+      onPickCustomImage(null);
+      setCustomQuestion('');
       router.push(`/dashboard/writing/${task.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create custom task');
@@ -1119,10 +1135,10 @@ export default function DashboardPage() {
                 <section className="space-y-4 rounded-lg border border-warm-border bg-warm-card p-5 shadow-card">
                   <p className="text-sm text-warm-muted">
                     Add up to 20 personal tasks for this student. Each task has one timed attempt and one TrialSeed mark.
+                    If the question is a picture or a worksheet, add a photo. You can type extra instructions as well.
                   </p>
                   <form onSubmit={onCreateCustomTask} className="space-y-3">
                     <textarea
-                      required
                       maxLength={2000}
                       value={customQuestion}
                       onChange={(event) => setCustomQuestion(event.target.value)}
@@ -1130,6 +1146,35 @@ export default function DashboardPage() {
                       placeholder="Paste or write your own writing question…"
                       className="w-full rounded-lg border border-warm-border p-3"
                     />
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-warm-ink">
+                        Photo of the question
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={(event) => onPickCustomImage(event.target.files?.[0] ?? null)}
+                          className="mt-1 block w-full text-sm text-warm-muted file:mr-3 file:rounded-full file:border-0 file:bg-terracotta file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
+                        />
+                      </label>
+                      {customImagePreview ? (
+                        <div className="flex items-start gap-3">
+                          <img
+                            src={customImagePreview}
+                            alt="Preview of the question photo"
+                            className="h-28 w-28 rounded-lg object-contain bg-white ring-1 ring-warm-border"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => onPickCustomImage(null)}
+                            className="text-sm text-warm-muted underline"
+                          >
+                            Remove photo
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-warm-subtle">JPEG, PNG or WebP, up to 5 MB. A phone photo of the worksheet is fine.</p>
+                      )}
+                    </div>
                     <div className="flex flex-wrap gap-3">
                       <select
                         value={customType}
@@ -1142,7 +1187,7 @@ export default function DashboardPage() {
                       </select>
                       <button
                         type="submit"
-                        disabled={customCreating || customTasks.length >= 20}
+                        disabled={customCreating || customTasks.length >= 20 || (!customQuestion.trim() && !customImage)}
                         className="rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                       >
                         {customCreating ? 'Adding…' : 'Add My Own Task'}
@@ -1163,7 +1208,16 @@ export default function DashboardPage() {
                             {typeLabel(task.prompt_type)}
                           </p>
                           <p className="mt-1 font-semibold text-warm-ink">{task.title}</p>
-                          <p className="mt-2 line-clamp-3 text-sm text-warm-muted">{task.description}</p>
+                          {task.stimulus_image ? (
+                            <img
+                              src={task.stimulus_image}
+                              alt=""
+                              className="mt-2 h-24 w-full rounded-md bg-white object-contain ring-1 ring-warm-border"
+                            />
+                          ) : null}
+                          <p className="mt-2 line-clamp-3 text-sm text-warm-muted">
+                            {task.description.trim() || (task.stimulus_image ? 'Photo question' : '')}
+                          </p>
                           <p className="mt-3 text-sm text-brand">
                             {task.max_draft > 0 ? 'View saved result' : 'Start task'}
                           </p>

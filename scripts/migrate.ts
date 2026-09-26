@@ -8,6 +8,7 @@ const files = [
   'sql/subscriptions_schema.sql',
   'sql/release_migration.sql',
   'sql/writing_trial.sql',
+  'sql/custom_task_images.sql',
 ];
 
 async function main() {
