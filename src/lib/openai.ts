@@ -1,4 +1,8 @@
 import OpenAI from 'openai';
+import type {
+  ChatCompletionCreateParamsNonStreaming,
+  ChatCompletionMessageParam,
+} from 'openai/resources/chat/completions';
 
 let client: OpenAI | null = null;
 
@@ -68,18 +72,7 @@ function errorText(error: unknown): string {
     .join(' ');
 }
 
-type ChatTextPart = { type: 'text'; text: string };
-type ChatImagePart = { type: 'image_url'; image_url: { url: string } };
-type ChatUserContent = string | Array<ChatTextPart | ChatImagePart>;
-
-type ChatParams = {
-  model: string;
-  messages: { role: 'system' | 'user'; content: ChatUserContent }[];
-  temperature?: number;
-  response_format?: { type: 'json_object' };
-};
-
-async function completeJson(params: ChatParams): Promise<string> {
+async function completeJson(params: ChatCompletionCreateParamsNonStreaming): Promise<string> {
   const completion = await getOpenAIClient().chat.completions.create(params);
   const raw = completion.choices[0]?.message?.content;
   if (!raw) {
@@ -100,23 +93,26 @@ export async function createJsonCompletion(input: {
   const model = getOpenAIModel();
   const text =
     typeof input.user === 'string' ? input.user : JSON.stringify(input.user, null, 2);
-  const userContent: ChatUserContent = input.image
-    ? [
-        { type: 'text', text },
-        {
-          type: 'image_url',
-          image_url: {
-            url: `data:${input.image.mimeType};base64,${input.image.bytes.toString('base64')}`,
+  const userMessage: ChatCompletionMessageParam = input.image
+    ? {
+        role: 'user',
+        content: [
+          { type: 'text', text },
+          {
+            type: 'image_url',
+            image_url: {
+              url: `data:${input.image.mimeType};base64,${input.image.bytes.toString('base64')}`,
+            },
           },
-        },
-      ]
-    : text;
-  const messages: ChatParams['messages'] = [
+        ],
+      }
+    : { role: 'user', content: text };
+  const messages: ChatCompletionMessageParam[] = [
     { role: 'system', content: input.system },
-    { role: 'user', content: userContent },
+    userMessage,
   ];
 
-  const params: ChatParams = {
+  const params: ChatCompletionCreateParamsNonStreaming = {
     model,
     messages,
     response_format: { type: 'json_object' },
@@ -129,7 +125,7 @@ export async function createJsonCompletion(input: {
     return await completeJson(params);
   } catch (error) {
     const text = errorText(error);
-    const retry: ChatParams = { ...params };
+    const retry: ChatCompletionCreateParamsNonStreaming = { ...params };
     let changed = false;
     if (/temperature/i.test(text) && retry.temperature !== undefined) {
       delete retry.temperature;
