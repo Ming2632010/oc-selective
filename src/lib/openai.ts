@@ -68,9 +68,13 @@ function errorText(error: unknown): string {
     .join(' ');
 }
 
+type ChatTextPart = { type: 'text'; text: string };
+type ChatImagePart = { type: 'image_url'; image_url: { url: string } };
+type ChatUserContent = string | Array<ChatTextPart | ChatImagePart>;
+
 type ChatParams = {
   model: string;
-  messages: { role: 'system' | 'user'; content: string }[];
+  messages: { role: 'system' | 'user'; content: ChatUserContent }[];
   temperature?: number;
   response_format?: { type: 'json_object' };
 };
@@ -91,17 +95,25 @@ export async function createJsonCompletion(input: {
   temperature: number;
   system: string;
   user: unknown;
+  image?: { mimeType: string; bytes: Buffer } | null;
 }): Promise<string> {
   const model = getOpenAIModel();
+  const text =
+    typeof input.user === 'string' ? input.user : JSON.stringify(input.user, null, 2);
+  const userContent: ChatUserContent = input.image
+    ? [
+        { type: 'text', text },
+        {
+          type: 'image_url',
+          image_url: {
+            url: `data:${input.image.mimeType};base64,${input.image.bytes.toString('base64')}`,
+          },
+        },
+      ]
+    : text;
   const messages: ChatParams['messages'] = [
     { role: 'system', content: input.system },
-    {
-      role: 'user',
-      content:
-        typeof input.user === 'string'
-          ? input.user
-          : JSON.stringify(input.user, null, 2),
-    },
+    { role: 'user', content: userContent },
   ];
 
   const params: ChatParams = {

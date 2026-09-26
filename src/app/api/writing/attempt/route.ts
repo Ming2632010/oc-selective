@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
+import { loadCustomTaskImageForStudent } from '@/lib/custom-task-image';
 import { scoreWritingAttempt } from '@/lib/scoring';
 import {
   buildMarkerNotesHeuristic,
@@ -403,6 +404,11 @@ export async function POST(request: Request) {
       ? (prompt.hint_points as string[])
       : [];
 
+    const customImage =
+      prompt.kind === 'custom'
+        ? await loadCustomTaskImageForStudent({ promptId, studentId })
+        : null;
+
     const scored = await scoreWritingAttempt({
       content,
       hintPoints: isExam ? [] : hintPoints,
@@ -410,6 +416,7 @@ export async function POST(request: Request) {
       promptTitle: prompt.title,
       promptDescription: prompt.description,
       examStyle: isExam,
+      promptImage: customImage,
     });
 
     if (isExam && !(await claimWritingExamSubmission(studentId, promptId))) {
