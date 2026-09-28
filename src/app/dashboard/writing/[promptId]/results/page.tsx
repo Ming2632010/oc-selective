@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { SeedAwardBanner } from '@/components/writing/seed-patch';
 import { MarkedScript, MarkerSummary } from '@/components/writing/marked-script';
+import { PromptStimulus } from '@/components/writing/prompt-stimulus';
 import { markerNotesFromUnknown } from '@/lib/marker-notes';
 import { getStudentId, getToken } from '@/lib/client-auth';
 
@@ -34,9 +35,13 @@ type Attempt = {
 type Prompt = {
   id: string;
   title: string;
+  description?: string | null;
   hint_points: string[];
   sample_answer_high?: string;
   kind?: 'practice' | 'test' | 'bonus' | 'custom';
+  stimulus_image?: string | null;
+  stimulus_quote?: string | null;
+  purpose_note?: string | null;
 };
 
 export default function WritingResultsPage() {
@@ -179,12 +184,14 @@ export default function WritingResultsPage() {
             ? prompt.kind === 'bonus'
               ? 'Results · Bonus exam paper · one sitting'
               : 'Results · Term review · one sitting'
-            : `Results · Draft ${attempt.draft_number}/3`}
+            : isCustom
+              ? 'Results · Custom task · one attempt'
+              : `Results · Draft ${attempt.draft_number}/3`}
         </p>
         <h1 className="text-3xl font-semibold">{prompt.title}</h1>
-        {isTest ? (
+        {isTest || isCustom ? (
           <p className="mt-2 text-sm text-stone-600">
-            This test cannot be sat again. Your sitting is saved here.
+            This {isCustom ? 'custom task' : 'test'} cannot be sat again. Your sitting is saved here.
           </p>
         ) : (
           <p className="mt-2 text-sm text-stone-600">
@@ -221,6 +228,8 @@ export default function WritingResultsPage() {
           lines={awards}
         />
       ) : null}
+
+      <PromptStimulus prompt={prompt} showJobs={!isTest && !isCustom} />
 
       <section className="grid gap-3 sm:grid-cols-3">
         <ScoreCard

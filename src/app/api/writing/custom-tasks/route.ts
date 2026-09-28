@@ -9,6 +9,7 @@ import {
 } from '@/lib/custom-task-image';
 import { WRITING_TYPES, type WritingType } from '@/lib/units';
 import { getWritingAccessState } from '@/lib/writing-state';
+import { customTaskTitle } from '@/lib/custom-task-title';
 import { hasWritingProductAccess, trialCustomLockMessage } from '@/lib/writing-trial';
 
 export const runtime = 'nodejs';
@@ -158,7 +159,7 @@ export async function POST(request: Request) {
        ) < $5
        RETURNING id, title`,
       [
-        `My custom ${input.promptType.replace('_', ' ')} task`,
+        customTaskTitle(input.promptType, input.question),
         input.question,
         input.promptType,
         input.studentId,

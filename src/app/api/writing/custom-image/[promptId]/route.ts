@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserIdFromRequest } from '@/lib/auth';
-import { loadCustomTaskImageForOwner } from '@/lib/custom-task-image';
+import { isCustomTaskPromptId, loadCustomTaskImageForOwner } from '@/lib/custom-task-image';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,7 +13,7 @@ export async function GET(
     const userId = await getAuthUserIdFromRequest(request);
     if (!userId) return new NextResponse('Unauthorized', { status: 401 });
     const { promptId } = await context.params;
-    if (!promptId) return new NextResponse('Not found', { status: 404 });
+    if (!isCustomTaskPromptId(promptId)) return new NextResponse('Not found', { status: 404 });
 
     const image = await loadCustomTaskImageForOwner({ promptId, userId });
     if (!image) return new NextResponse('Not found', { status: 404 });

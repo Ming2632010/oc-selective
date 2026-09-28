@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   apiFetch,
@@ -12,6 +12,7 @@ import {
   setStudentId,
 } from '@/lib/client-auth';
 import { typeLabel, UNIT_GROUPS, unitsByGroup, WRITING_TYPES, type UnitGroup } from '@/lib/units';
+import { CUSTOM_TASK_IMAGE_ACCEPT, prepareCustomTaskImage } from '@/lib/prepare-custom-task-image';
 import {
   trialEndedKeepWorkMessage,
   trialInProgressMessage,
@@ -328,6 +329,9 @@ export default function DashboardPage() {
   const [customQuestion, setCustomQuestion] = useState('');
   const [customImage, setCustomImage] = useState<File | null>(null);
   const [customImagePreview, setCustomImagePreview] = useState<string | null>(null);
+  const [customImageBusy, setCustomImageBusy] = useState(false);
+  const customImageInputRef = useRef<HTMLInputElement | null>(null);
+  const customImagePickRef = useRef(0);
   const [customType, setCustomType] = useState('narrative');
   const [customCreating, setCustomCreating] = useState(false);
   const [writingTrial, setWritingTrial] = useState<WritingTrialInfo | null>(null);
@@ -484,10 +488,39 @@ export default function DashboardPage() {
     }
   }
 
-  function onPickCustomImage(file: File | null) {
-    if (customImagePreview) URL.revokeObjectURL(customImagePreview);
-    setCustomImage(file);
-    setCustomImagePreview(file ? URL.createObjectURL(file) : null);
+  function clearCustomImage() {
+    setCustomImage(null);
+    setCustomImagePreview((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return null;
+    });
+    if (customImageInputRef.current) customImageInputRef.current.value = '';
+  }
+
+  async function onPickCustomImage(file: File | null) {
+    const pick = ++customImagePickRef.current;
+    if (!file) {
+      clearCustomImage();
+      setCustomImageBusy(false);
+      return;
+    }
+    setCustomImageBusy(true);
+    setError(null);
+    try {
+      const prepared = await prepareCustomTaskImage(file);
+      if (pick !== customImagePickRef.current) return;
+      setCustomImagePreview((current) => {
+        if (current) URL.revokeObjectURL(current);
+        return URL.createObjectURL(prepared);
+      });
+      setCustomImage(prepared);
+    } catch (err) {
+      if (pick !== customImagePickRef.current) return;
+      clearCustomImage();
+      setError(err instanceof Error ? err.message : 'Could not read that photo.');
+    } finally {
+      if (pick === customImagePickRef.current) setCustomImageBusy(false);
+    }
   }
 
   async function onCreateCustomTask(event: FormEvent) {
@@ -514,7 +547,7 @@ export default function DashboardPage() {
       if (!task || typeof task.id !== 'string' || !task.id) {
         throw new Error('Custom task was created, but its workspace could not be opened.');
       }
-      onPickCustomImage(null);
+      clearCustomImage();
       setCustomQuestion('');
       router.push(`/dashboard/writing/${task.id}`);
     } catch (err) {
@@ -1150,9 +1183,10 @@ export default function DashboardPage() {
                       <label className="block text-sm font-medium text-warm-ink">
                         Photo of the question
                         <input
+                          ref={customImageInputRef}
                           type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          onChange={(event) => onPickCustomImage(event.target.files?.[0] ?? null)}
+                          accept={CUSTOM_TASK_IMAGE_ACCEPT}
+                          onChange={(event) => void onPickCustomImage(event.target.files?.[0] ?? null)}
                           className="mt-1 block w-full text-sm text-warm-muted file:mr-3 file:rounded-full file:border-0 file:bg-terracotta file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
                         />
                       </label>
@@ -1165,14 +1199,16 @@ export default function DashboardPage() {
                           />
                           <button
                             type="button"
-                            onClick={() => onPickCustomImage(null)}
+                            onClick={() => void onPickCustomImage(null)}
                             className="text-sm text-warm-muted underline"
                           >
                             Remove photo
                           </button>
                         </div>
                       ) : (
-                        <p className="text-xs text-warm-subtle">JPEG, PNG or WebP, up to 5 MB. A phone photo of the worksheet is fine.</p>
+                        <p className="text-xs text-warm-subtle">
+                          A phone photo of the worksheet is fine. Large photos are resized automatically.
+                        </p>
                       )}
                     </div>
                     <div className="flex flex-wrap gap-3">
@@ -1187,10 +1223,10 @@ export default function DashboardPage() {
                       </select>
                       <button
                         type="submit"
-                        disabled={customCreating || customTasks.length >= 20 || (!customQuestion.trim() && !customImage)}
+                        disabled={customCreating || customImageBusy || customTasks.length >= 20 || (!customQuestion.trim() && !customImage)}
                         className="rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                       >
-                        {customCreating ? 'Adding…' : 'Add My Own Task'}
+                        {customCreating ? 'Adding…' : customImageBusy ? 'Preparing photo…' : 'Add My Own Task'}
                       </button>
                     </div>
                   </form>
@@ -1212,7 +1248,7 @@ export default function DashboardPage() {
                             <img
                               src={task.stimulus_image}
                               alt=""
-                              className="mt-2 h-24 w-full rounded-md bg-white object-contain ring-1 ring-warm-border"
+                              className="mt-2 h-28 w-full rounded-md bg-white object-contain ring-1 ring-warm-border"
                             />
                           ) : null}
                           <p className="mt-2 line-clamp-3 text-sm text-warm-muted">

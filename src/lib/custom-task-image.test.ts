@@ -4,7 +4,9 @@ import {
   CUSTOM_TASK_IMAGE_MAX_BYTES,
   CUSTOM_TASK_IMAGE_PATH,
   inspectCustomTaskImage,
+  isCustomTaskPromptId,
 } from './custom-task-image';
+import { customTaskTitle } from './custom-task-title';
 
 function jpegStub() {
   return Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]);
@@ -40,6 +42,21 @@ describe('custom task images', () => {
     assert.equal(
       CUSTOM_TASK_IMAGE_PATH('11111111-1111-1111-1111-111111111111'),
       '/api/writing/custom-image/11111111-1111-1111-1111-111111111111',
+    );
+    assert.equal(isCustomTaskPromptId('11111111-1111-1111-1111-111111111111'), true);
+    assert.equal(isCustomTaskPromptId('../secret'), false);
+    assert.equal(isCustomTaskPromptId('not-a-uuid'), false);
+  });
+
+  it('names a photo task from the typed question when there is one', () => {
+    assert.equal(
+      customTaskTitle('news_report', 'Write a news report about this playground.\nUse the photo.'),
+      'Write a news report about this playground.',
+    );
+    assert.equal(customTaskTitle('narrative', ''), 'Photo Narrative task');
+    assert.equal(
+      customTaskTitle('speech', `${'A'.repeat(80)} leftover`),
+      `${'A'.repeat(69)}…`,
     );
   });
 });

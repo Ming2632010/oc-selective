@@ -4,6 +4,15 @@ export const CUSTOM_TASK_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 export const CUSTOM_TASK_IMAGE_PATH = (promptId: string) =>
   `/api/writing/custom-image/${promptId}`;
 
+const PROMPT_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isCustomTaskPromptId(value: string): boolean {
+  return PROMPT_ID_RE.test(value);
+}
+
+let ensuredTable: Promise<void> | null = null;
+
 export type InspectedCustomImage = {
   mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
   bytes: Buffer;
@@ -33,20 +42,28 @@ export function inspectCustomTaskImage(bytes: Buffer): InspectedCustomImage | nu
 }
 
 export async function ensureCustomTaskImagesTable(): Promise<void> {
-  await runSql(`
-    CREATE TABLE IF NOT EXISTS custom_task_images (
-      prompt_id UUID PRIMARY KEY REFERENCES prompts (id) ON DELETE CASCADE,
-      student_id UUID NOT NULL REFERENCES students (id) ON DELETE CASCADE,
-      mime_type TEXT NOT NULL CHECK (mime_type IN ('image/jpeg', 'image/png', 'image/webp')),
-      bytes BYTEA NOT NULL,
-      byte_length INTEGER NOT NULL CHECK (byte_length > 0 AND byte_length <= 5242880),
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await runSql(`
-    CREATE INDEX IF NOT EXISTS idx_custom_task_images_student
-      ON custom_task_images (student_id)
-  `);
+  if (!ensuredTable) {
+    ensuredTable = (async () => {
+      await runSql(`
+        CREATE TABLE IF NOT EXISTS custom_task_images (
+          prompt_id UUID PRIMARY KEY REFERENCES prompts (id) ON DELETE CASCADE,
+          student_id UUID NOT NULL REFERENCES students (id) ON DELETE CASCADE,
+          mime_type TEXT NOT NULL CHECK (mime_type IN ('image/jpeg', 'image/png', 'image/webp')),
+          bytes BYTEA NOT NULL,
+          byte_length INTEGER NOT NULL CHECK (byte_length > 0 AND byte_length <= 5242880),
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      await runSql(`
+        CREATE INDEX IF NOT EXISTS idx_custom_task_images_student
+          ON custom_task_images (student_id)
+      `);
+    })().catch((error) => {
+      ensuredTable = null;
+      throw error;
+    });
+  }
+  await ensuredTable;
 }
 
 export async function saveCustomTaskImage(input: {
