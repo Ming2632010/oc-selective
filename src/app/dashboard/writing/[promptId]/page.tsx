@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ExamWarmup } from '@/components/writing/exam-warmup';
 import { PromptDecode } from '@/components/writing/prompt-decode';
+import { PromptStimulus } from '@/components/writing/prompt-stimulus';
 import { getStudentId, getToken } from '@/lib/client-auth';
 import { parseDecodeGuide, type DecodeGuide } from '@/lib/decode-guide';
 import { examPhase, EXAM_PHASE_COPY } from '@/lib/exam-phases';
@@ -41,34 +42,6 @@ function debugSecondsFromUrl(): number | null {
   const raw = Number(new URLSearchParams(window.location.search).get('seconds'));
   if (!Number.isFinite(raw) || raw < 5 || raw > 120) return null;
   return Math.floor(raw);
-}
-
-function PromptStimulus({ prompt, showJobs }: { prompt: Prompt; showJobs: boolean }) {
-  return (
-    <section className="space-y-3 rounded-lg border border-stone-200 bg-white p-4">
-      <h2 className="text-lg font-medium">Prompt</h2>
-      {prompt.stimulus_image ? (
-        <figure>
-          <img
-            src={prompt.stimulus_image}
-            alt="Writing stimulus"
-            className="max-h-80 w-full rounded-md object-cover"
-          />
-        </figure>
-      ) : null}
-      {prompt.stimulus_quote ? (
-        <blockquote className="border-l-4 border-stone-400 pl-4 text-lg italic text-stone-800">
-          {prompt.stimulus_quote}
-        </blockquote>
-      ) : null}
-      <p className="whitespace-pre-wrap text-stone-800">{prompt.description}</p>
-      {showJobs && prompt.purpose_note ? (
-        <p className="rounded-md bg-indigo-50 px-3 py-2 text-sm text-indigo-950">
-          Two jobs: {prompt.purpose_note}
-        </p>
-      ) : null}
-    </section>
-  );
 }
 
 export default function WritingPracticePage() {

@@ -32,6 +32,7 @@ type ScoreInput = {
   promptTitle?: string;
   promptDescription?: string;
   examStyle?: boolean;
+  promptImage?: { mimeType: string; bytes: Buffer } | null;
 };
 
 const SELECTIVE_MARKING_CRITERIA = `
@@ -262,11 +263,16 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
       input.examStyle
         ? 'This is a one-sitting exam-style paper. Do not mention hint points or a next draft. Comment on task, form, and accuracy only.'
         : '',
+      input.promptImage
+        ? 'A parent photo of the writing question is attached. Read the task from the photo. If the photo is too blurry or incomplete, mark the writing as a general task of this form and say the photo was hard to read — a short typed instruction would help next time.'
+        : '',
     ].filter(Boolean).join('\n'),
+    image: input.promptImage ?? null,
     user: {
       prompt_type: input.promptType,
       prompt_title: input.promptTitle ?? null,
       prompt_description: input.promptDescription ?? null,
+      prompt_has_photo: Boolean(input.promptImage),
       hint_points: input.examStyle ? [] : hints,
       exam_style: Boolean(input.examStyle),
       word_count: wc,

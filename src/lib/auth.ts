@@ -67,6 +67,18 @@ export function getBearerToken(request: Request): string | null {
   return token;
 }
 
+function getCookieToken(request: Request): string | null {
+  const cookie = request.headers.get('cookie');
+  if (!cookie) return null;
+  const match = cookie.match(/(?:^|;\s*)oc_token=([^;]+)/);
+  if (!match?.[1]) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+}
+
 /** Resolve the authenticated user id, or null if missing/invalid. */
 export async function getAuthUserId(request: Request): Promise<string | null> {
   const token = getBearerToken(request);
@@ -75,5 +87,15 @@ export async function getAuthUserId(request: Request): Promise<string | null> {
   }
 
   const payload = await verifyToken(token);
+  return payload?.userId ?? null;
+}
+
+/** Same as getAuthUserId, plus the oc_token cookie used by <img> tags. */
+export async function getAuthUserIdFromRequest(request: Request): Promise<string | null> {
+  const fromHeader = await getAuthUserId(request);
+  if (fromHeader) return fromHeader;
+  const cookieToken = getCookieToken(request);
+  if (!cookieToken) return null;
+  const payload = await verifyToken(cookieToken);
   return payload?.userId ?? null;
 }
