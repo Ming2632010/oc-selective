@@ -186,7 +186,7 @@ function taskMatchCopy(match: TaskMatch | undefined): { text: string; tone: stri
   }
   if (match === 'unread') {
     return {
-      text: 'The photo was hard to read. A short typed question would help next time.',
+      text: 'TrialSeed could not read the question from this photo. A short typed question would help next time.',
       tone: 'text-stone-600',
     };
   }

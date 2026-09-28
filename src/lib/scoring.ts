@@ -171,17 +171,25 @@ export function applyPhotoTaskMatch(result: ScoringResult): ScoringResult {
   if (match !== 'no' && match !== 'partial') return result;
 
   const breakdown = { ...result.scores_breakdown };
-  let score_set_a = result.score_set_a;
+  const maxSetA = match === 'no' ? 6 : 10;
   if (match === 'no') {
     breakdown.audience = Math.min(breakdown.audience, 1);
-    breakdown.structure = Math.min(breakdown.structure, 2);
+    breakdown.structure = Math.min(breakdown.structure, 3);
     breakdown.vocabulary = Math.min(breakdown.vocabulary, 2);
-    score_set_a = Math.min(score_set_a, 6, breakdown.structure + breakdown.vocabulary + breakdown.audience);
   } else {
     breakdown.audience = Math.min(breakdown.audience, 3);
-    score_set_a = Math.min(score_set_a, 10);
+    breakdown.structure = Math.min(breakdown.structure, 4);
+    breakdown.vocabulary = Math.min(breakdown.vocabulary, 3);
   }
-  score_set_a = clamp(score_set_a, 0, 15);
+  const score_set_a = clamp(
+    Math.min(
+      result.score_set_a,
+      maxSetA,
+      breakdown.structure + breakdown.vocabulary + breakdown.audience,
+    ),
+    0,
+    15,
+  );
   const overall_score = clamp(score_set_a + result.score_set_b, 0, 25);
   return {
     ...result,
@@ -277,6 +285,9 @@ export function scoreWritingAttemptHeuristic(input: ScoreInput): ScoringResult {
     examStyle: input.examStyle,
     wordCount: wc,
   });
+  const marker_notes = input.promptImage
+    ? { ...notes, task_match: 'unread' as const }
+    : notes;
 
   return {
     score_set_a,
@@ -284,7 +295,7 @@ export function scoreWritingAttemptHeuristic(input: ScoreInput): ScoringResult {
     overall_score,
     scores_breakdown: { structure, vocabulary, audience, grammar },
     ai_feedback: notes.summary || ai_feedback,
-    marker_notes: notes,
+    marker_notes,
     checked_hint_1: checked[0] ?? false,
     checked_hint_2: checked[1] ?? false,
     checked_hint_3: checked[2] ?? false,
@@ -316,8 +327,8 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
             '2. If there is no written question, say in one or two sentences what the photo shows. Use task_match "unread" only when the photo is too blurry or dark to use.',
             '3. Judge whether student_writing answers THAT photo question — not the typed title, and not a generic piece of this form.',
             '4. task_match must be "yes", "partial", "no", or "unread".',
-            '5. If task_match is "no", Set A must be 0–6 and audience 0–1. Do not reward an unrelated piece for sounding like a news report or story.',
-            '6. If task_match is "partial", Set A must be 10 or below.',
+            '5. If task_match is "no", Set A must be 0–6, purpose & form (audience) 0–1, organisation 0–3, and vocabulary 0–2. Do not reward an unrelated piece for sounding like a news report or story.',
+            '6. If task_match is "partial", Set A must be 10 or below, purpose & form 0–3, organisation 0–4, and vocabulary 0–3.',
             '7. In the summary, name the photo question in one sentence and say whether the writing answered it.',
           ].join('\n')
         : '',
@@ -400,10 +411,17 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
     examStyle: input.examStyle,
     wordCount: wc,
   });
-  const notes = combineRemoteMarkerNotes(input.content, local, {
-    ...(parsed.marker_notes && typeof parsed.marker_notes === 'object' ? parsed.marker_notes : {}),
+  let notes = combineRemoteMarkerNotes(input.content, local, {
+    ...(parsed.marker_notes &&
+    typeof parsed.marker_notes === 'object' &&
+    !Array.isArray(parsed.marker_notes)
+      ? parsed.marker_notes
+      : {}),
     ...photoFieldsFromParsed(parsed),
   });
+  if (input.promptImage && !notes.task_match) {
+    notes = { ...notes, task_match: 'unread' };
+  }
 
   return normalizeResult({ ...parsed, word_count: parsed.word_count ?? wc }, input.content, notes);
 }

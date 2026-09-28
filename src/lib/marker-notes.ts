@@ -1082,7 +1082,8 @@ export function markerNotesFromUnknown(raw: unknown, content: string): MarkerNot
     notes.annotations.length === 0 &&
     notes.rewrites.length === 0 &&
     notes.strengths.length === 0 &&
-    !notes.photo_question
+    !notes.photo_question &&
+    !notes.task_match
   ) {
     return null;
   }
