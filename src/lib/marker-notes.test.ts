@@ -6,6 +6,7 @@ import {
   combineRemoteMarkerNotes,
   markerNotesFromUnknown,
   normalizeMarkerNotes,
+  photoTaskCardCopy,
 } from './marker-notes';
 
 describe('buildMarkerNotesHeuristic', () => {
@@ -150,6 +151,21 @@ describe('normalizeMarkerNotes', () => {
     assert.equal(notes.photo_question, 'Write a news report about this playground.');
     assert.equal(notes.task_match, 'no');
   });
+
+  it('keeps a picture-stimulus description from a custom-task photo', () => {
+    const notes = normalizeMarkerNotes(
+      {
+        summary: 'The writing did not use the photo.',
+        photo_kind: 'stimulus',
+        photo_question: 'A wet playground with empty swings after rain.',
+        task_match: 'no',
+      },
+      'I like pizza.',
+    );
+    assert.equal(notes.photo_kind, 'stimulus');
+    assert.equal(notes.photo_question, 'A wet playground with empty swings after rain.');
+    assert.equal(notes.task_match, 'no');
+  });
 });
 
 describe('markerNotesFromUnknown', () => {
@@ -190,6 +206,20 @@ describe('combineRemoteMarkerNotes', () => {
     assert.equal(combined.photo_question, 'Write a news report about this playground.');
     assert.equal(combined.task_match, 'no');
   });
+
+  it('keeps a picture-stimulus description from the remote marker notes', () => {
+    const content = 'I like pizza.';
+    const local = buildMarkerNotesHeuristic({ content, promptType: 'narrative' });
+    const combined = combineRemoteMarkerNotes(content, local, {
+      summary: 'The writing did not use the photo.',
+      photo_kind: 'stimulus',
+      photo_question: 'A wet playground with empty swings after rain.',
+      task_match: 'no',
+    });
+    assert.equal(combined.photo_kind, 'stimulus');
+    assert.equal(combined.photo_question, 'A wet playground with empty swings after rain.');
+    assert.equal(combined.task_match, 'no');
+  });
 });
 
 describe('annotationSegments', () => {
@@ -222,5 +252,29 @@ describe('annotationSegments', () => {
       ['After', ' the Storm'],
     );
     assert.equal(segments[0]?.kind, 'punctuation');
+  });
+});
+
+describe('photoTaskCardCopy', () => {
+  it('uses question wording for a photographed written task', () => {
+    const card = photoTaskCardCopy({
+      photo_kind: 'question',
+      photo_question: 'Write a news report about this playground.',
+      task_match: 'no',
+    });
+    assert.equal(card?.heading, 'Question from the photo');
+    assert.equal(card?.body, 'Write a news report about this playground.');
+    assert.match(card?.verdict?.text ?? '', /does not answer that question/);
+  });
+
+  it('uses picture wording when the photo is a stimulus, not a written question', () => {
+    const card = photoTaskCardCopy({
+      photo_kind: 'stimulus',
+      photo_question: 'A wet playground with empty swings after rain.',
+      task_match: 'no',
+    });
+    assert.equal(card?.heading, 'What the photo shows');
+    assert.equal(card?.body, 'A wet playground with empty swings after rain.');
+    assert.match(card?.verdict?.text ?? '', /not based on that photo/);
   });
 });

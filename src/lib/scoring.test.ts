@@ -68,6 +68,18 @@ describe('applyPhotoTaskMatch', () => {
     assert.equal(scored.overall_score, 19);
   });
 
+  it('caps Set A when the writing is not based on a stimulus photo', () => {
+    const notes = {
+      ...emptyMarkerNotes(),
+      photo_kind: 'stimulus' as const,
+      task_match: 'no' as const,
+      photo_question: 'A wet playground with empty swings after rain.',
+    };
+    const scored = applyPhotoTaskMatch(sample({ marker_notes: notes }));
+    assert.equal(scored.score_set_a <= 6, true);
+    assert.equal(scored.overall_score, scored.score_set_a + scored.score_set_b);
+  });
+
   it('leaves scores alone when the photo could not be read', () => {
     const notes = { ...emptyMarkerNotes(), task_match: 'unread' as const };
     const scored = applyPhotoTaskMatch(sample({ marker_notes: notes }));

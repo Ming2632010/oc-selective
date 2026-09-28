@@ -527,7 +527,7 @@ export default function DashboardPage() {
     event.preventDefault();
     if (!selectedStudentId) return;
     if (!customQuestion.trim() && !customImage) {
-      setError('Type the question, or add a photo of it.');
+      setError('Type the question, or add a photo of the question or picture.');
       return;
     }
     setCustomCreating(true);
@@ -1168,7 +1168,7 @@ export default function DashboardPage() {
                 <section className="space-y-4 rounded-lg border border-warm-border bg-warm-card p-5 shadow-card">
                   <p className="text-sm text-warm-muted">
                     Add up to 20 personal tasks for this student. Each task has one timed attempt and one TrialSeed mark.
-                    If the question is a picture or a worksheet, add a photo. You can type extra instructions as well.
+                    If the task is a worksheet or a picture to write from, add a photo. You can type extra instructions as well.
                   </p>
                   <form onSubmit={onCreateCustomTask} className="space-y-3">
                     <textarea
@@ -1181,7 +1181,7 @@ export default function DashboardPage() {
                     />
                     <div className="space-y-2">
                       <label className="block text-sm font-medium text-warm-ink">
-                        Photo of the question
+                        Photo of the question or picture
                         <input
                           ref={customImageInputRef}
                           type="file"
@@ -1194,7 +1194,7 @@ export default function DashboardPage() {
                         <div className="flex items-start gap-3">
                           <img
                             src={customImagePreview}
-                            alt="Preview of the question photo"
+                            alt="Preview of the task photo"
                             className="h-28 w-28 rounded-lg object-contain bg-white ring-1 ring-warm-border"
                           />
                           <button
@@ -1207,7 +1207,7 @@ export default function DashboardPage() {
                         </div>
                       ) : (
                         <p className="text-xs text-warm-subtle">
-                          A phone photo of the worksheet is fine. Large photos are resized automatically.
+                          A phone photo of a worksheet, or a picture to write from, is fine. Large photos are resized automatically.
                         </p>
                       )}
                     </div>
@@ -1252,7 +1252,7 @@ export default function DashboardPage() {
                             />
                           ) : null}
                           <p className="mt-2 line-clamp-3 text-sm text-warm-muted">
-                            {task.description.trim() || (task.stimulus_image ? 'Photo question' : '')}
+                            {task.description.trim() || (task.stimulus_image ? 'Write from this photo' : '')}
                           </p>
                           <p className="mt-3 text-sm text-brand">
                             {task.max_draft > 0 ? 'View saved result' : 'Start task'}

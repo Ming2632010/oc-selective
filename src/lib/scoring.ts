@@ -2,8 +2,10 @@ import { createJsonCompletion, isOpenAIConfigured } from '@/lib/openai';
 import {
   buildMarkerNotesHeuristic,
   combineRemoteMarkerNotes,
+  isPhotoKind,
   isTaskMatch,
   type MarkerNotes,
+  type PhotoKind,
   type TaskMatch,
 } from '@/lib/marker-notes';
 
@@ -202,8 +204,9 @@ export function applyPhotoTaskMatch(result: ScoringResult): ScoringResult {
 function photoFieldsFromParsed(parsed: {
   photo_question?: unknown;
   task_match?: unknown;
+  photo_kind?: unknown;
   marker_notes?: unknown;
-}): { photo_question?: string; task_match?: TaskMatch } {
+}): { photo_question?: string; task_match?: TaskMatch; photo_kind?: PhotoKind } {
   const notes =
     parsed.marker_notes && typeof parsed.marker_notes === 'object' && !Array.isArray(parsed.marker_notes)
       ? (parsed.marker_notes as Record<string, unknown>)
@@ -211,9 +214,15 @@ function photoFieldsFromParsed(parsed: {
   const questionRaw = notes.photo_question ?? parsed.photo_question;
   const photo_question = typeof questionRaw === 'string' ? questionRaw.trim().slice(0, 2_000) : '';
   const task_match = isTaskMatch(notes.task_match) ? notes.task_match : isTaskMatch(parsed.task_match) ? parsed.task_match : undefined;
+  const photo_kind = isPhotoKind(notes.photo_kind)
+    ? notes.photo_kind
+    : isPhotoKind(parsed.photo_kind)
+      ? parsed.photo_kind
+      : undefined;
   return {
     ...(photo_question ? { photo_question } : {}),
     ...(task_match ? { task_match } : {}),
+    ...(photo_kind ? { photo_kind } : {}),
   };
 }
 
@@ -322,14 +331,18 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
         : '',
       input.promptImage
         ? [
-            'A parent photo of the writing question is attached. You MUST look at the photo before you mark.',
-            '1. Read every readable word on the photo. Copy that question into photo_question and marker_notes.photo_question. Do not invent a nicer prompt.',
-            '2. If there is no written question, say in one or two sentences what the photo shows. Use task_match "unread" only when the photo is too blurry or dark to use.',
-            '3. Judge whether student_writing answers THAT photo question — not the typed title, and not a generic piece of this form.',
-            '4. task_match must be "yes", "partial", "no", or "unread".',
-            '5. If task_match is "no", Set A must be 0–6, purpose & form (audience) 0–1, organisation 0–3, and vocabulary 0–2. Do not reward an unrelated piece for sounding like a news report or story.',
-            '6. If task_match is "partial", Set A must be 10 or below, purpose & form 0–3, organisation 0–4, and vocabulary 0–3.',
-            '7. In the summary, name the photo question in one sentence and say whether the writing answered it.',
+            'A parent photo is attached. You MUST look at the photo before you mark.',
+            '1. Decide photo_kind: "question" if the photo contains a written writing task; "stimulus" if it is a picture, scene, or object with no written task (the student should write from what they see).',
+            '2. If photo_kind is "question", copy every readable word of that task into photo_question. Do not invent a nicer prompt.',
+            '3. If photo_kind is "stimulus", put a short factual description of what is visible into photo_question (who, where, what is happening, key objects). Do not invent a writing question the parent did not set. Use any typed prompt_description as extra instruction for form or audience.',
+            '4. Use task_match "unread" only when the photo is too blurry or dark to see either the words or a usable scene.',
+            '5. Judge the writing against the photo, not a generic piece of this form.',
+            '   - question: does the writing answer that written task?',
+            '   - stimulus: is the writing clearly about what is in the photo? A well-written piece that never uses the people, place, or objects in the picture is task_match "no".',
+            '6. task_match must be "yes", "partial", "no", or "unread".',
+            '7. If task_match is "no", Set A must be 0–6, purpose & form (audience) 0–1, organisation 0–3, and vocabulary 0–2. Do not reward an unrelated piece for sounding like a news report or story.',
+            '8. If task_match is "partial", Set A must be 10 or below, purpose & form 0–3, organisation 0–4, and vocabulary 0–3.',
+            '9. In the summary, name what the photo showed or asked, and say whether the writing used it.',
           ].join('\n')
         : '',
     ].filter(Boolean).join('\n'),
@@ -344,8 +357,11 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
       word_count: wc,
       student_writing: input.content,
       required_json_schema: {
+        photo_kind: input.promptImage
+          ? '"question" if the photo has a written task, "stimulus" if the student should write from the picture'
+          : 'omit',
         photo_question: input.promptImage
-          ? 'string: the question copied from the photo, or a short description if there is no written question'
+          ? 'string: the written task copied from the photo, or a short description of the picture'
           : 'string: empty',
         task_match: input.promptImage
           ? '"yes" | "partial" | "no" | "unread"'
@@ -364,8 +380,11 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
           : 'string: 3-6 short paragraphs with strengths, gaps, and next-draft advice',
         marker_notes: {
           summary: 'string: 3-5 sentences of TrialSeed feedback naming Set A and Set B gaps; never call it a teacher mark',
+          photo_kind: input.promptImage
+            ? '"question" | "stimulus"'
+            : 'omit',
           photo_question: input.promptImage
-            ? 'string: same question copied from the photo'
+            ? 'string: same copied task or picture description'
             : 'omit',
           task_match: input.promptImage
             ? '"yes" | "partial" | "no" | "unread"'
@@ -402,6 +421,7 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
     marker_notes?: unknown;
     photo_question?: unknown;
     task_match?: unknown;
+    photo_kind?: unknown;
   };
   const local = buildMarkerNotesHeuristic({
     content: input.content,
