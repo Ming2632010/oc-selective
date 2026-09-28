@@ -31,6 +31,13 @@ export type MarkerRewrite = {
   set: MarkerSet;
 };
 
+export const TASK_MATCH_VALUES = ['yes', 'partial', 'no', 'unread'] as const;
+export type TaskMatch = (typeof TASK_MATCH_VALUES)[number];
+
+export function isTaskMatch(value: unknown): value is TaskMatch {
+  return typeof value === 'string' && (TASK_MATCH_VALUES as readonly string[]).includes(value);
+}
+
 export type MarkerNotes = {
   version: number;
   summary: string;
@@ -38,6 +45,8 @@ export type MarkerNotes = {
   next_steps: string[];
   annotations: MarkerAnnotation[];
   rewrites: MarkerRewrite[];
+  photo_question?: string;
+  task_match?: TaskMatch;
 };
 
 export const MARKER_KIND_META: Record<
@@ -697,6 +706,8 @@ export function normalizeMarkerNotes(raw: unknown, content: string): MarkerNotes
     }
   }
 
+  const photoQuestion =
+    typeof row.photo_question === 'string' ? row.photo_question.trim().slice(0, 2_000) : '';
   const versionRaw = Number(row.version);
   return {
     version: Number.isFinite(versionRaw) ? versionRaw : 0,
@@ -705,6 +716,8 @@ export function normalizeMarkerNotes(raw: unknown, content: string): MarkerNotes
     next_steps: uniqueStrings(Array.isArray(row.next_steps) ? row.next_steps.map(String) : []),
     annotations: annotations.sort((a, b) => a.start - b.start || a.end - b.end),
     rewrites: rewrites.slice(0, 4),
+    ...(photoQuestion ? { photo_question: photoQuestion } : {}),
+    ...(isTaskMatch(row.task_match) ? { task_match: row.task_match } : {}),
   };
 }
 
@@ -717,6 +730,8 @@ function mergeAgainstContent(base: MarkerNotes, extra: MarkerNotes, content: str
       next_steps: [...extra.next_steps, ...base.next_steps],
       annotations: [...extra.annotations, ...base.annotations],
       rewrites: extra.rewrites.length > 0 ? extra.rewrites : base.rewrites,
+      photo_question: extra.photo_question || base.photo_question,
+      task_match: extra.task_match || base.task_match,
     },
     content,
   );
@@ -1066,7 +1081,9 @@ export function markerNotesFromUnknown(raw: unknown, content: string): MarkerNot
     !notes.summary &&
     notes.annotations.length === 0 &&
     notes.rewrites.length === 0 &&
-    notes.strengths.length === 0
+    notes.strengths.length === 0 &&
+    !notes.photo_question &&
+    !notes.task_match
   ) {
     return null;
   }

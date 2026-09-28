@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { SeedAwardBanner } from '@/components/writing/seed-patch';
-import { MarkedScript, MarkerSummary } from '@/components/writing/marked-script';
+import { MarkedScript, MarkerSummary, PhotoQuestionCard } from '@/components/writing/marked-script';
 import { PromptStimulus } from '@/components/writing/prompt-stimulus';
 import { markerNotesFromUnknown } from '@/lib/marker-notes';
 import { getStudentId, getToken } from '@/lib/client-auth';
@@ -230,6 +230,8 @@ export default function WritingResultsPage() {
       ) : null}
 
       <PromptStimulus prompt={prompt} showJobs={!isTest && !isCustom} />
+
+      {notes ? <PhotoQuestionCard notes={notes} /> : null}
 
       <section className="grid gap-3 sm:grid-cols-3">
         <ScoreCard

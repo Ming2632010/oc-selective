@@ -2,7 +2,9 @@ import { createJsonCompletion, isOpenAIConfigured } from '@/lib/openai';
 import {
   buildMarkerNotesHeuristic,
   combineRemoteMarkerNotes,
+  isTaskMatch,
   type MarkerNotes,
+  type TaskMatch,
 } from '@/lib/marker-notes';
 
 export type ScoresBreakdown = {
@@ -146,7 +148,7 @@ function normalizeResult(
     overall_score = clamp(score_set_a + score_set_b, 0, 25);
   }
 
-  return {
+  return applyPhotoTaskMatch({
     score_set_a,
     score_set_b,
     overall_score,
@@ -160,6 +162,58 @@ function normalizeResult(
     checked_hint_2: Boolean(partial.checked_hint_2),
     checked_hint_3: Boolean(partial.checked_hint_3),
     word_count: wc,
+  });
+}
+
+/** When a photo question is readable, off-task writing cannot keep a high Set A. */
+export function applyPhotoTaskMatch(result: ScoringResult): ScoringResult {
+  const match = result.marker_notes.task_match;
+  if (match !== 'no' && match !== 'partial') return result;
+
+  const breakdown = { ...result.scores_breakdown };
+  const maxSetA = match === 'no' ? 6 : 10;
+  if (match === 'no') {
+    breakdown.audience = Math.min(breakdown.audience, 1);
+    breakdown.structure = Math.min(breakdown.structure, 3);
+    breakdown.vocabulary = Math.min(breakdown.vocabulary, 2);
+  } else {
+    breakdown.audience = Math.min(breakdown.audience, 3);
+    breakdown.structure = Math.min(breakdown.structure, 4);
+    breakdown.vocabulary = Math.min(breakdown.vocabulary, 3);
+  }
+  const score_set_a = clamp(
+    Math.min(
+      result.score_set_a,
+      maxSetA,
+      breakdown.structure + breakdown.vocabulary + breakdown.audience,
+    ),
+    0,
+    15,
+  );
+  const overall_score = clamp(score_set_a + result.score_set_b, 0, 25);
+  return {
+    ...result,
+    score_set_a,
+    overall_score,
+    scores_breakdown: breakdown,
+  };
+}
+
+function photoFieldsFromParsed(parsed: {
+  photo_question?: unknown;
+  task_match?: unknown;
+  marker_notes?: unknown;
+}): { photo_question?: string; task_match?: TaskMatch } {
+  const notes =
+    parsed.marker_notes && typeof parsed.marker_notes === 'object' && !Array.isArray(parsed.marker_notes)
+      ? (parsed.marker_notes as Record<string, unknown>)
+      : {};
+  const questionRaw = notes.photo_question ?? parsed.photo_question;
+  const photo_question = typeof questionRaw === 'string' ? questionRaw.trim().slice(0, 2_000) : '';
+  const task_match = isTaskMatch(notes.task_match) ? notes.task_match : isTaskMatch(parsed.task_match) ? parsed.task_match : undefined;
+  return {
+    ...(photo_question ? { photo_question } : {}),
+    ...(task_match ? { task_match } : {}),
   };
 }
 
@@ -231,6 +285,9 @@ export function scoreWritingAttemptHeuristic(input: ScoreInput): ScoringResult {
     examStyle: input.examStyle,
     wordCount: wc,
   });
+  const marker_notes = input.promptImage
+    ? { ...notes, task_match: 'unread' as const }
+    : notes;
 
   return {
     score_set_a,
@@ -238,7 +295,7 @@ export function scoreWritingAttemptHeuristic(input: ScoreInput): ScoringResult {
     overall_score,
     scores_breakdown: { structure, vocabulary, audience, grammar },
     ai_feedback: notes.summary || ai_feedback,
-    marker_notes: notes,
+    marker_notes,
     checked_hint_1: checked[0] ?? false,
     checked_hint_2: checked[1] ?? false,
     checked_hint_3: checked[2] ?? false,
@@ -264,7 +321,16 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
         ? 'This is a one-sitting exam-style paper. Do not mention hint points or a next draft. Comment on task, form, and accuracy only.'
         : '',
       input.promptImage
-        ? 'A parent photo of the writing question is attached. Read the task from the photo. If the photo is too blurry or incomplete, mark the writing as a general task of this form and say the photo was hard to read — a short typed instruction would help next time.'
+        ? [
+            'A parent photo of the writing question is attached. You MUST look at the photo before you mark.',
+            '1. Read every readable word on the photo. Copy that question into photo_question and marker_notes.photo_question. Do not invent a nicer prompt.',
+            '2. If there is no written question, say in one or two sentences what the photo shows. Use task_match "unread" only when the photo is too blurry or dark to use.',
+            '3. Judge whether student_writing answers THAT photo question — not the typed title, and not a generic piece of this form.',
+            '4. task_match must be "yes", "partial", "no", or "unread".',
+            '5. If task_match is "no", Set A must be 0–6, purpose & form (audience) 0–1, organisation 0–3, and vocabulary 0–2. Do not reward an unrelated piece for sounding like a news report or story.',
+            '6. If task_match is "partial", Set A must be 10 or below, purpose & form 0–3, organisation 0–4, and vocabulary 0–3.',
+            '7. In the summary, name the photo question in one sentence and say whether the writing answered it.',
+          ].join('\n')
         : '',
     ].filter(Boolean).join('\n'),
     image: input.promptImage ?? null,
@@ -278,6 +344,12 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
       word_count: wc,
       student_writing: input.content,
       required_json_schema: {
+        photo_question: input.promptImage
+          ? 'string: the question copied from the photo, or a short description if there is no written question'
+          : 'string: empty',
+        task_match: input.promptImage
+          ? '"yes" | "partial" | "no" | "unread"'
+          : 'omit',
         score_set_a: 'integer 0-15',
         score_set_b: 'integer 0-10',
         overall_score: 'integer 0-25 (= score_set_a + score_set_b)',
@@ -292,6 +364,12 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
           : 'string: 3-6 short paragraphs with strengths, gaps, and next-draft advice',
         marker_notes: {
           summary: 'string: 3-5 sentences of TrialSeed feedback naming Set A and Set B gaps; never call it a teacher mark',
+          photo_question: input.promptImage
+            ? 'string: same question copied from the photo'
+            : 'omit',
+          task_match: input.promptImage
+            ? '"yes" | "partial" | "no" | "unread"'
+            : 'omit',
           strengths: ['string: what this sitting already does well'],
           next_steps: ['string: what to change next, tied to Set A or Set B'],
           annotations: [
@@ -322,6 +400,8 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
   const parsed = JSON.parse(raw) as Partial<ScoringResult> & {
     scores_breakdown?: Partial<ScoresBreakdown>;
     marker_notes?: unknown;
+    photo_question?: unknown;
+    task_match?: unknown;
   };
   const local = buildMarkerNotesHeuristic({
     content: input.content,
@@ -331,7 +411,17 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
     examStyle: input.examStyle,
     wordCount: wc,
   });
-  const notes = combineRemoteMarkerNotes(input.content, local, parsed.marker_notes);
+  let notes = combineRemoteMarkerNotes(input.content, local, {
+    ...(parsed.marker_notes &&
+    typeof parsed.marker_notes === 'object' &&
+    !Array.isArray(parsed.marker_notes)
+      ? parsed.marker_notes
+      : {}),
+    ...photoFieldsFromParsed(parsed),
+  });
+  if (input.promptImage && !notes.task_match) {
+    notes = { ...notes, task_match: 'unread' };
+  }
 
   return normalizeResult({ ...parsed, word_count: parsed.word_count ?? wc }, input.content, notes);
 }

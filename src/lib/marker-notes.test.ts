@@ -4,6 +4,7 @@ import {
   annotationSegments,
   buildMarkerNotesHeuristic,
   combineRemoteMarkerNotes,
+  markerNotesFromUnknown,
   normalizeMarkerNotes,
 } from './marker-notes';
 
@@ -136,6 +137,26 @@ describe('normalizeMarkerNotes', () => {
     const notes = normalizeMarkerNotes({ annotations: [{ kind: 'spelling' }] }, 'Hello.');
     assert.equal(notes.annotations.length, 0);
   });
+
+  it('keeps the question read from a custom-task photo', () => {
+    const notes = normalizeMarkerNotes(
+      {
+        summary: 'The writing did not answer the photo question.',
+        photo_question: 'Write a news report about this playground.',
+        task_match: 'no',
+      },
+      'I like pizza.',
+    );
+    assert.equal(notes.photo_question, 'Write a news report about this playground.');
+    assert.equal(notes.task_match, 'no');
+  });
+});
+
+describe('markerNotesFromUnknown', () => {
+  it('keeps unread photo-match notes even without a copied question', () => {
+    const notes = markerNotesFromUnknown({ task_match: 'unread' }, 'I like pizza.');
+    assert.equal(notes?.task_match, 'unread');
+  });
 });
 
 describe('combineRemoteMarkerNotes', () => {
@@ -156,6 +177,18 @@ describe('combineRemoteMarkerNotes', () => {
     assert.equal(combined.summary, 'Model summary.');
     assert.ok(combined.annotations.some((row) => row.kind === 'spelling'));
     assert.equal(combined.rewrites[0].improved.includes('guardian'), true);
+  });
+
+  it('keeps the photo question from the remote marker notes', () => {
+    const content = 'I like pizza.';
+    const local = buildMarkerNotesHeuristic({ content, promptType: 'news_report' });
+    const combined = combineRemoteMarkerNotes(content, local, {
+      summary: 'The writing did not answer the photo question.',
+      photo_question: 'Write a news report about this playground.',
+      task_match: 'no',
+    });
+    assert.equal(combined.photo_question, 'Write a news report about this playground.');
+    assert.equal(combined.task_match, 'no');
   });
 });
 

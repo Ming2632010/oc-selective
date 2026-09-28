@@ -7,6 +7,7 @@ import {
   MARKER_KINDS,
   annotationSegments,
   type MarkerNotes,
+  type TaskMatch,
 } from '@/lib/marker-notes';
 
 function rewriteFocus(set: 'A' | 'B') {
@@ -146,6 +147,50 @@ export function MarkedScript({
       ) : null}
     </section>
   );
+}
+
+export function PhotoQuestionCard({ notes }: { notes: MarkerNotes }) {
+  if (!notes.photo_question && !notes.task_match) return null;
+  const verdict = taskMatchCopy(notes.task_match);
+  return (
+    <section className="rounded-lg border border-stone-200 bg-stone-50 p-4">
+      <h2 className="mb-2 text-lg font-medium">Question from the photo</h2>
+      {notes.photo_question ? (
+        <p className="whitespace-pre-wrap text-stone-800">{notes.photo_question}</p>
+      ) : (
+        <p className="text-stone-600">TrialSeed could not copy a clear question from the photo.</p>
+      )}
+      {verdict ? <p className={`mt-3 text-sm font-medium ${verdict.tone}`}>{verdict.text}</p> : null}
+    </section>
+  );
+}
+
+function taskMatchCopy(match: TaskMatch | undefined): { text: string; tone: string } | null {
+  if (match === 'yes') {
+    return {
+      text: 'This writing answers that question.',
+      tone: 'text-emerald-800',
+    };
+  }
+  if (match === 'partial') {
+    return {
+      text: 'This writing only partly answers that question. Set A is marked for that.',
+      tone: 'text-amber-800',
+    };
+  }
+  if (match === 'no') {
+    return {
+      text: 'This writing does not answer that question. Set A (content, form, purpose) is marked low because of that.',
+      tone: 'text-red-800',
+    };
+  }
+  if (match === 'unread') {
+    return {
+      text: 'TrialSeed could not read the question from this photo. A short typed question would help next time.',
+      tone: 'text-stone-600',
+    };
+  }
+  return null;
 }
 
 export function MarkerSummary({
