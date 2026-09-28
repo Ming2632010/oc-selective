@@ -4,6 +4,7 @@ import {
   annotationSegments,
   buildMarkerNotesHeuristic,
   combineRemoteMarkerNotes,
+  inferPhotoKind,
   markerNotesFromUnknown,
   normalizeMarkerNotes,
   photoTaskCardCopy,
@@ -276,5 +277,28 @@ describe('photoTaskCardCopy', () => {
     assert.equal(card?.heading, 'What the photo shows');
     assert.equal(card?.body, 'A wet playground with empty swings after rain.');
     assert.match(card?.verdict?.text ?? '', /not based on that photo/);
+  });
+
+  it('treats a scene description as a picture task when photo_kind is missing', () => {
+    const card = photoTaskCardCopy({
+      photo_question: 'An empty seat on a quiet train, with no one sitting there.',
+      task_match: 'no',
+    });
+    assert.equal(card?.heading, 'What the photo shows');
+    assert.match(card?.verdict?.text ?? '', /not based on that photo/);
+  });
+
+  it('does not call an unread photo a visible scene', () => {
+    const card = photoTaskCardCopy({ task_match: 'unread' });
+    assert.equal(card?.heading, 'From the photo');
+    assert.match(card?.fallback ?? '', /could not copy a question or describe the picture/);
+  });
+});
+
+describe('inferPhotoKind', () => {
+  it('treats copied task wording as a question and a scene as a stimulus', () => {
+    assert.equal(inferPhotoKind('Write a news report about this playground.'), 'question');
+    assert.equal(inferPhotoKind('What happened at the night market?'), 'question');
+    assert.equal(inferPhotoKind('An empty seat on a quiet train, with no one sitting there.'), 'stimulus');
   });
 });

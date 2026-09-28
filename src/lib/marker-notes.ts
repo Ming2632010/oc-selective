@@ -45,6 +45,23 @@ export function isPhotoKind(value: unknown): value is PhotoKind {
   return typeof value === 'string' && (PHOTO_KIND_VALUES as readonly string[]).includes(value);
 }
 
+/** Worksheet wording vs a picture to write from, when the model omits photo_kind. */
+export function inferPhotoKind(photoQuestion: string): PhotoKind {
+  const text = photoQuestion.trim();
+  if (!text) return 'stimulus';
+  const first = text.split('\n')[0]?.trim() ?? text;
+  if (
+    /^(write|explain|describe|imagine|create|compose|retell|discuss|argue|persuade|report|read)\b/i.test(
+      first,
+    )
+  ) {
+    return 'question';
+  }
+  if (/\?/.test(first)) return 'question';
+  if (/\b(your task|the question|in your writing)\b/i.test(text)) return 'question';
+  return 'stimulus';
+}
+
 export type MarkerNotes = {
   version: number;
   summary: string;
@@ -68,15 +85,20 @@ export function photoTaskCardCopy(notes: {
   verdict: { text: string; tone: string } | null;
 } | null {
   if (!notes.photo_question && !notes.task_match) return null;
-  const stimulus = notes.photo_kind === 'stimulus';
-  const heading = stimulus
-    ? 'What the photo shows'
-    : notes.task_match === 'unread' && !notes.photo_question
-      ? 'From the photo'
+  const unreadEmpty = notes.task_match === 'unread' && !notes.photo_question;
+  const inferredKind =
+    notes.photo_kind ?? (notes.photo_question && !unreadEmpty ? inferPhotoKind(notes.photo_question) : undefined);
+  const stimulus = inferredKind === 'stimulus';
+  const heading = unreadEmpty
+    ? 'From the photo'
+    : stimulus
+      ? 'What the photo shows'
       : 'Question from the photo';
-  const fallback = stimulus
-    ? 'TrialSeed could see the photo, but did not write a short description of it.'
-    : 'TrialSeed could not copy a clear question from the photo.';
+  const fallback = unreadEmpty
+    ? 'TrialSeed could not copy a question or describe the picture.'
+    : stimulus
+      ? 'TrialSeed could see the photo, but did not write a short description of it.'
+      : 'TrialSeed could not copy a clear question from the photo.';
   return {
     heading,
     body: notes.photo_question?.trim() || null,

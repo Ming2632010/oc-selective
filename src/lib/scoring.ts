@@ -4,6 +4,7 @@ import {
   combineRemoteMarkerNotes,
   isPhotoKind,
   isTaskMatch,
+  inferPhotoKind,
   type MarkerNotes,
   type PhotoKind,
   type TaskMatch,
@@ -441,6 +442,9 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
   });
   if (input.promptImage && !notes.task_match) {
     notes = { ...notes, task_match: 'unread' };
+  }
+  if (input.promptImage && notes.photo_question && !notes.photo_kind) {
+    notes = { ...notes, photo_kind: inferPhotoKind(notes.photo_question) };
   }
 
   return normalizeResult({ ...parsed, word_count: parsed.word_count ?? wc }, input.content, notes);

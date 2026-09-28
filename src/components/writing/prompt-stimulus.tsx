@@ -58,8 +58,7 @@ export function PromptStimulus({
           </button>
           {customPhoto ? (
             <figcaption className="mt-1 text-xs text-stone-500">
-              Tap the photo to make it bigger.
-              {!description ? ' Write from what you can see in the photo.' : ''}
+              Tap the photo to make it bigger. Write from what you can see in the photo.
             </figcaption>
           ) : null}
         </figure>
