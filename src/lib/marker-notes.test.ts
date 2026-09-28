@@ -136,6 +136,19 @@ describe('normalizeMarkerNotes', () => {
     const notes = normalizeMarkerNotes({ annotations: [{ kind: 'spelling' }] }, 'Hello.');
     assert.equal(notes.annotations.length, 0);
   });
+
+  it('keeps the question read from a custom-task photo', () => {
+    const notes = normalizeMarkerNotes(
+      {
+        summary: 'The writing did not answer the photo question.',
+        photo_question: 'Write a news report about this playground.',
+        task_match: 'no',
+      },
+      'I like pizza.',
+    );
+    assert.equal(notes.photo_question, 'Write a news report about this playground.');
+    assert.equal(notes.task_match, 'no');
+  });
 });
 
 describe('combineRemoteMarkerNotes', () => {
