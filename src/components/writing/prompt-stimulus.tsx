@@ -48,7 +48,7 @@ export function PromptStimulus({
           <button type="button" onClick={() => setOpen(true)} className="block w-full">
             <img
               src={image}
-              alt={customPhoto ? 'Writing question photo' : 'Writing stimulus'}
+              alt={customPhoto ? 'Writing task photo' : 'Writing stimulus'}
               className={
                 customPhoto
                   ? 'max-h-[70vh] w-full rounded-md bg-stone-50 object-contain'
@@ -58,7 +58,7 @@ export function PromptStimulus({
           </button>
           {customPhoto ? (
             <figcaption className="mt-1 text-xs text-stone-500">
-              Tap the photo to make it bigger.
+              Tap the photo to make it bigger. Write from what you can see in the photo.
             </figcaption>
           ) : null}
         </figure>
@@ -72,7 +72,7 @@ export function PromptStimulus({
         >
           <img
             src={image}
-            alt="Writing question photo, larger view"
+            alt="Writing task photo, larger view"
             className="max-h-[92vh] max-w-[92vw] object-contain"
           />
         </button>

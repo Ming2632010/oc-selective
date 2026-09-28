@@ -136,7 +136,7 @@ export async function POST(request: Request) {
     }
     if (!input.question && !input.image) {
       return NextResponse.json(
-        { error: 'Type the question, or add a photo of it.' },
+        { error: 'Type the question, or add a photo of the question or picture.' },
         { status: 400 },
       );
     }
