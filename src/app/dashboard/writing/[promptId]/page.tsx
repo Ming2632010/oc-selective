@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ExamWarmup } from '@/components/writing/exam-warmup';
+import { LeaveGuard } from '@/components/writing/leave-guard';
 import { PromptDecode } from '@/components/writing/prompt-decode';
 import { PromptStimulus } from '@/components/writing/prompt-stimulus';
 import { getStudentId, getToken } from '@/lib/client-auth';
@@ -485,6 +486,7 @@ export default function WritingPracticePage() {
 
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-6">
+      <LeaveGuard plan={plan} content={content} enabled={!submitting} />
       <header className="flex flex-wrap items-end justify-between gap-3 border-b border-stone-300 pb-4">
         <div>
           <p className="text-sm uppercase tracking-wide text-stone-500">
