@@ -41,7 +41,7 @@ export function MarkedScript({
     <section className="space-y-4">
       <div className="rounded-lg border border-stone-200 p-4">
         <h2 className="text-lg font-medium">TrialSeed mark-up</h2>
-        <p className="mt-1 text-sm text-stone-600">
+        <p className="mt-1 text-sm text-stone-600 print:hidden">
           Practice notes on this script against the NSW Selective writing
           criteria: spelling and punctuation (Set B), plus structure,
           vocabulary and detail (Set A). Tap a highlight to read the note.
@@ -90,7 +90,7 @@ export function MarkedScript({
                   ? 'border-[#D5A778] bg-[#FFF1E3]'
                   : 'border-[#E9D9C6] bg-[#FFF9F2]';
             return (
-              <li key={`${note.kind}-${note.start}-${index}`}>
+              <li key={`${note.kind}-${note.start}-${index}`} className="print:break-inside-avoid">
                 <button
                   type="button"
                   onClick={() => setOpen(index)}
