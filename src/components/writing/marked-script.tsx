@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   MARKER_HIGHLIGHT,
   MARKER_KIND_META,
@@ -9,6 +9,10 @@ import {
   photoTaskCardCopy,
   type MarkerNotes,
 } from '@/lib/marker-notes';
+
+export function markerNoteId(index: number) {
+  return `marker-note-${index}`;
+}
 
 function rewriteFocus(set: 'A' | 'B') {
   return set === 'A' ? 'Writing craft' : 'Sentences & accuracy';
@@ -27,7 +31,8 @@ export function MarkedScript({
   content: string;
   notes: MarkerNotes;
 }) {
-  const [open, setOpen] = useState<number | null>(notes.annotations[0] ? 0 : null);
+  const [open, setOpen] = useState<number | null>(null);
+  const noteRefs = useRef<Array<HTMLElement | null>>([]);
   const segments = useMemo(
     () => annotationSegments(content, notes.annotations),
     [content, notes.annotations],
@@ -36,6 +41,13 @@ export function MarkedScript({
     const seen = new Set(notes.annotations.map((row) => row.kind));
     return MARKER_KINDS.filter((kind) => seen.has(kind));
   }, [notes.annotations]);
+
+  function revealNote(index: number) {
+    setOpen(index);
+    const node = noteRefs.current[index];
+    if (!node) return;
+    node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 
   return (
     <section className="space-y-4">
@@ -58,22 +70,25 @@ export function MarkedScript({
             ))}
           </ul>
         ) : null}
-        <p className="mt-4 whitespace-pre-wrap text-lg leading-relaxed text-stone-900">
-          {segments.map((part, index) =>
-            part.noteIndex === null || !part.kind ? (
-              <span key={`${index}-${part.text.slice(0, 8)}`}>{part.text}</span>
-            ) : (
+        <div className="mt-4 whitespace-pre-wrap text-lg leading-relaxed text-stone-900">
+          {segments.map((part, index) => {
+            if (part.noteIndex === null || !part.kind) {
+              return <span key={`${index}-${part.text.slice(0, 8)}`}>{part.text}</span>;
+            }
+            const noteIndex = part.noteIndex;
+            return (
               <button
-                key={`${index}-${part.noteIndex}`}
+                key={`${index}-${noteIndex}`}
                 type="button"
-                onClick={() => setOpen(part.noteIndex)}
-                className={`rounded-sm px-0.5 ${MARKER_HIGHLIGHT[part.kind]}`}
+                aria-controls={markerNoteId(noteIndex)}
+                onClick={() => revealNote(noteIndex)}
+                className={`inline cursor-pointer rounded-sm border-0 px-0.5 align-baseline ${MARKER_HIGHLIGHT[part.kind]}`}
               >
                 {part.text}
               </button>
-            ),
-          )}
-        </p>
+            );
+          })}
+        </div>
       </div>
 
       {notes.annotations.length > 0 ? (
@@ -90,10 +105,17 @@ export function MarkedScript({
                   ? 'border-[#D5A778] bg-[#FFF1E3]'
                   : 'border-[#E9D9C6] bg-[#FFF9F2]';
             return (
-              <li key={`${note.kind}-${note.start}-${index}`} className="print:break-inside-avoid">
+              <li
+                key={`${note.kind}-${note.start}-${index}`}
+                id={markerNoteId(index)}
+                ref={(node) => {
+                  noteRefs.current[index] = node;
+                }}
+                className="scroll-mt-6 print:break-inside-avoid"
+              >
                 <button
                   type="button"
-                  onClick={() => setOpen(index)}
+                  onClick={() => revealNote(index)}
                   className={`w-full rounded-lg border px-4 py-3 text-left ${setClasses}`}
                 >
                   <p className="flex flex-wrap items-center gap-2 text-xs font-medium">
