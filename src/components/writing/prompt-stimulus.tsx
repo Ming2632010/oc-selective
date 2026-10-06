@@ -57,7 +57,7 @@ export function PromptStimulus({
             />
           </button>
           {customPhoto ? (
-            <figcaption className="mt-1 text-xs text-stone-500">
+            <figcaption className="mt-1 text-xs text-stone-500 print:hidden">
               Tap the photo to make it bigger. Write from what you can see in the photo.
             </figcaption>
           ) : null}
@@ -67,7 +67,7 @@ export function PromptStimulus({
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 print:hidden"
           aria-label="Close photo"
         >
           <img
