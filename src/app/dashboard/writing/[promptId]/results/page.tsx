@@ -181,6 +181,7 @@ export default function WritingResultsPage() {
   const hasPresetHints =
     !isCustom && prompt.hint_points.some((hint) => hint.trim().length > 0);
   const latestDraft = attempts[attempts.length - 1]?.draft_number ?? attempt.draft_number;
+  const taskTitle = prompt.title;
   const sittingLabel = printSittingLabel({
     kind: prompt.kind,
     draftNumber: attempt.draft_number,
@@ -189,7 +190,7 @@ export default function WritingResultsPage() {
   function printThisDraft() {
     const previous = document.title;
     document.title = printDocumentTitle({
-      taskTitle: prompt.title,
+      taskTitle,
       sittingLabel,
     });
     const restore = () => {
@@ -204,7 +205,7 @@ export default function WritingResultsPage() {
     <main className="mx-auto max-w-4xl space-y-6 p-6">
       <div className="mb-2 hidden border-b border-stone-400 pb-3 print:block">
         <p className="text-sm tracking-wide text-stone-600">TrialSeed</p>
-        <h1 className="text-2xl font-semibold text-stone-900">{prompt.title}</h1>
+        <h1 className="text-2xl font-semibold text-stone-900">{taskTitle}</h1>
         <p className="mt-1 text-sm text-stone-700">
           {sittingLabel} · {formatPrintDate(attempt.created_at)} · {attempt.word_count}{' '}
           words
