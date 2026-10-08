@@ -6,9 +6,18 @@ import { isExamStyleKind } from '@/lib/seed-prompts';
 import {
   getBonusExamAccess,
   getWritingAccessState,
+  getWritingLicence,
   getTermReviewAccess,
   hasCompletedWarmup,
+  trialBlocksPrompt,
 } from '@/lib/writing-state';
+import {
+  hasWritingProductAccess,
+  trialAllowsPracticeTask,
+  unlicensedAccessMessage,
+  writingAccessRequiredMessage,
+} from '@/lib/writing-trial';
+import { isTrialPackPromptKind } from '@/lib/writing-trial-pack';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -80,6 +89,12 @@ export async function GET(request: Request) {
       if (prompt.kind === 'custom' && (!studentId || prompt.student_id !== studentId)) {
         return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
       }
+      if (isTrialPackPromptKind(prompt.kind) && !studentId) {
+        return NextResponse.json(
+          { error: writingAccessRequiredMessage(true) },
+          { status: 403 },
+        );
+      }
 
       const isExam = isExamKind(prompt.kind);
       let includeSamples = false;
@@ -93,9 +108,15 @@ export async function GET(request: Request) {
         if (access === 'not-found') {
           return NextResponse.json({ error: 'Student not found' }, { status: 404 });
         }
-        if (access === 'unlicensed') {
+        if (!hasWritingProductAccess(access)) {
+          const licence = await getWritingLicence(userId, studentId);
           return NextResponse.json(
-            { error: 'Selective Writing access is required for this child.' },
+            {
+              error: unlicensedAccessMessage({
+                trialPack: isTrialPackPromptKind(prompt.kind),
+                hadTrial: licence.hadTrial,
+              }),
+            },
             { status: 403 },
           );
         }
@@ -112,15 +133,21 @@ export async function GET(request: Request) {
         warmupCompleted = isExam
           ? await hasCompletedWarmup(studentId, promptId)
           : true;
-        if (isExam && maxDraft < 1) {
+        const trialBlock = await trialBlocksPrompt(userId, studentId, promptId, prompt.kind);
+        if (trialBlock) {
+          return NextResponse.json(
+            { error: trialBlock.error, trial_only: true },
+            { status: trialBlock.status },
+          );
+        } else if (isExam && maxDraft < 1) {
           if (prompt.kind === 'bonus') {
-            const access = await getBonusExamAccess(studentId);
-            reviewLocked = access.locked;
-            lockReason = bonusExamLockMessage(access);
+            const examAccess = await getBonusExamAccess(studentId);
+            reviewLocked = examAccess.locked;
+            lockReason = bonusExamLockMessage(examAccess);
           } else {
-            const access = await getTermReviewAccess(studentId, prompt.module_id);
-            reviewLocked = access.locked;
-            lockReason = termReviewLockMessage(access);
+            const examAccess = await getTermReviewAccess(studentId, prompt.module_id);
+            reviewLocked = examAccess.locked;
+            lockReason = termReviewLockMessage(examAccess);
           }
         }
       }
@@ -132,7 +159,12 @@ export async function GET(request: Request) {
         samples_unlocked: includeSamples,
         max_draft: maxDraft,
         max_attempts: isExam || prompt.kind === 'custom' ? 1 : 3,
-        kind: isExam || prompt.kind === 'custom' ? prompt.kind : 'practice',
+        kind:
+          prompt.kind === 'trial'
+            ? 'trial'
+            : isExam || prompt.kind === 'custom'
+              ? prompt.kind
+              : 'practice',
         unit_locked: false,
         warmup_completed: warmupCompleted,
         lock_reason: reviewLocked ? lockReason : '',
@@ -154,30 +186,39 @@ export async function GET(request: Request) {
       );
     }
 
+    const kind =
+      kindParam === 'test' || kindParam === 'practice' || kindParam === 'all'
+        ? kindParam
+        : 'practice';
+
     if (studentId) {
       const access = await getWritingAccessState(userId, studentId);
       if (access === 'not-found') {
         return NextResponse.json({ error: 'Student not found' }, { status: 404 });
       }
-      if (access === 'unlicensed') {
+      if (!hasWritingProductAccess(access)) {
         return NextResponse.json(
-          { error: 'Selective Writing access is required for this child.' },
+          { error: writingAccessRequiredMessage() },
           { status: 403 },
         );
       }
+      if (access === 'trial') {
+        return NextResponse.json({
+          module_id: moduleId,
+          unit_locked: true,
+          kind,
+          prompts: [],
+          trial_only: true,
+        });
+      }
     }
-
-    const kind =
-      kindParam === 'test' || kindParam === 'practice' || kindParam === 'all'
-        ? kindParam
-        : 'practice';
 
     // Custom prompts are private to one student and must never be part of the
     // shared unit catalogue, including broad `kind=all` requests.
     const conditions = [
       'module_id = $1',
       'is_active = TRUE',
-      `COALESCE(kind, 'practice') <> 'custom'`,
+      `COALESCE(kind, 'practice') NOT IN ('custom', 'trial')`,
     ];
     const params: unknown[] = [moduleId];
     if (kind !== 'all') {
@@ -201,15 +242,29 @@ export async function GET(request: Request) {
       params,
     );
 
+    const licence = studentId ? await getWritingLicence(userId, studentId) : null;
     return NextResponse.json({
       module_id: moduleId,
       unit_locked: false,
       kind,
-      prompts: result.rows.map((row) => ({
-        ...stripSamples(row),
-        is_locked: false,
-        max_draft: Number(row.max_draft ?? 0),
-      })),
+      prompts: result.rows.map((row) => {
+        const maxDraft = Number(row.max_draft ?? 0);
+        let isLocked = false;
+        if (licence?.state === 'trial') {
+          const allowed = trialAllowsPracticeTask({
+            promptKind: row.kind,
+            alreadyTried: maxDraft > 0,
+            distinctTried: licence.attemptsUsed,
+            attemptLimit: licence.attemptsLimit,
+          });
+          isLocked = !allowed.ok;
+        }
+        return {
+          ...stripSamples(row),
+          is_locked: isLocked,
+          max_draft: maxDraft,
+        };
+      }),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load prompts';

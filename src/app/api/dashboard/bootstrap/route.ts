@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { isSubscriptionActive } from '@/lib/subscription';
-import { getDashboardOverview, getWritingAccessState } from '@/lib/writing-state';
+import { getDashboardOverview, getWritingLicence, applyWritingTrialLimits, trialClientFields } from '@/lib/writing-state';
+import { ensureWritingTrialColumns } from '@/lib/writing-trial-schema';
+import { getTrialPackView } from '@/lib/writing-trial-pack';
+import { hasWritingProductAccess, trialPackRecommendation } from '@/lib/writing-trial';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -11,6 +14,7 @@ export async function GET(request: Request) {
   try {
     const userId = await getAuthUserId(request);
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    await ensureWritingTrialColumns();
 
     const [userResult, studentResult, subscriptionResult] = await Promise.all([
       query<{ id: string; email: string; full_name: string }>(
@@ -24,8 +28,10 @@ export async function GET(request: Request) {
       ),
       query<{
         id: string; subject: string; student_id: string | null; status: string; expires_at: Date | null;
+        access_kind: string | null;
       }>(
-        `SELECT id, subject, student_id, status, expires_at FROM user_subscriptions
+        `SELECT id, subject, student_id, status, expires_at, COALESCE(access_kind, 'paid') AS access_kind
+         FROM user_subscriptions
          WHERE user_id = $1 ORDER BY subject ASC, created_at DESC`,
         [userId],
       ),
@@ -42,16 +48,38 @@ export async function GET(request: Request) {
     const subscriptions = subscriptionResult.rows.map((row) => ({
       ...row,
       expires_at: row.expires_at ? new Date(row.expires_at).toISOString() : null,
+      access_kind: row.access_kind === 'trial' ? 'trial' : 'paid',
       active: isSubscriptionActive(row.status, row.expires_at),
     }));
 
-    const writingAccess = selectedStudentId
-      ? await getWritingAccessState(userId, selectedStudentId)
-      : 'not-found';
-    const guidance =
-      selectedStudentId && writingAccess === 'granted'
-        ? await getDashboardOverview(selectedStudentId)
+    const licence = selectedStudentId
+      ? await getWritingLicence(userId, selectedStudentId)
+      : null;
+    const writingAccess = licence?.state ?? 'not-found';
+    const trialPack =
+      selectedStudentId && licence?.state === 'trial'
+        ? await getTrialPackView(selectedStudentId)
         : null;
+    const guidance =
+      selectedStudentId && licence && hasWritingProductAccess(licence.state)
+        ? applyWritingTrialLimits(await getDashboardOverview(selectedStudentId), licence)
+        : null;
+    if (guidance && trialPack) {
+      guidance.recommendation = trialPackRecommendation({
+        promptId: trialPack.prompt.id,
+        title: trialPack.prompt.title,
+        promptType: trialPack.prompt.prompt_type,
+        moduleId: trialPack.prompt.module_id,
+        maxDraft: trialPack.prompt.max_draft,
+      });
+      if (guidance.week_note) {
+        guidance.week_note = {
+          ...guidance.week_note,
+          next_form_label: 'Narrative',
+          next_title: trialPack.prompt.title,
+        };
+      }
+    }
 
     return NextResponse.json(
       {
@@ -61,6 +89,10 @@ export async function GET(request: Request) {
         has_active: subscriptions.some((subscription) => subscription.active),
         selected_student_id: selectedStudentId,
         writing_access: writingAccess,
+        trial: licence && writingAccess !== 'not-found'
+          ? trialClientFields(licence)
+          : null,
+        trial_pack: trialPack,
         guidance,
       },
       { headers: { 'Cache-Control': 'private, no-store' } },

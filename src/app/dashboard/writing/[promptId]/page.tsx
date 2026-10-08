@@ -4,7 +4,9 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ExamWarmup } from '@/components/writing/exam-warmup';
+import { LeaveGuard } from '@/components/writing/leave-guard';
 import { PromptDecode } from '@/components/writing/prompt-decode';
+import { PromptStimulus } from '@/components/writing/prompt-stimulus';
 import { getStudentId, getToken } from '@/lib/client-auth';
 import { parseDecodeGuide, type DecodeGuide } from '@/lib/decode-guide';
 import { examPhase, EXAM_PHASE_COPY } from '@/lib/exam-phases';
@@ -43,34 +45,6 @@ function debugSecondsFromUrl(): number | null {
   return Math.floor(raw);
 }
 
-function PromptStimulus({ prompt, showJobs }: { prompt: Prompt; showJobs: boolean }) {
-  return (
-    <section className="space-y-3 rounded-lg border border-stone-200 bg-white p-4">
-      <h2 className="text-lg font-medium">Prompt</h2>
-      {prompt.stimulus_image ? (
-        <figure>
-          <img
-            src={prompt.stimulus_image}
-            alt="Writing stimulus"
-            className="max-h-80 w-full rounded-md object-cover"
-          />
-        </figure>
-      ) : null}
-      {prompt.stimulus_quote ? (
-        <blockquote className="border-l-4 border-stone-400 pl-4 text-lg italic text-stone-800">
-          {prompt.stimulus_quote}
-        </blockquote>
-      ) : null}
-      <p className="whitespace-pre-wrap text-stone-800">{prompt.description}</p>
-      {showJobs && prompt.purpose_note ? (
-        <p className="rounded-md bg-indigo-50 px-3 py-2 text-sm text-indigo-950">
-          Two jobs: {prompt.purpose_note}
-        </p>
-      ) : null}
-    </section>
-  );
-}
-
 export default function WritingPracticePage() {
   const params = useParams<{ promptId: string }>();
   const router = useRouter();
@@ -90,6 +64,9 @@ export default function WritingPracticePage() {
   const [alreadyFinished, setAlreadyFinished] = useState(false);
   const [reviewLocked, setReviewLocked] = useState(false);
   const [needsAccess, setNeedsAccess] = useState(false);
+  const [needsTrialStart, setNeedsTrialStart] = useState(false);
+  const [needsTrialEnded, setNeedsTrialEnded] = useState(false);
+  const [needsFullYear, setNeedsFullYear] = useState(false);
   const [lockReason, setLockReason] = useState('');
   const [isTest, setIsTest] = useState(false);
   const [uiPhase, setUiPhase] = useState<UiPhase>('paper');
@@ -191,14 +168,16 @@ export default function WritingPracticePage() {
           attemptsData.kind === 'bonus';
         setIsTest(testTask);
         setPrompt({ ...p, hint_points: hints });
-        if (testTask && p.is_locked) {
+        if (p.is_locked) {
           setReviewLocked(true);
           setLockReason(
             typeof attemptsData.lock_reason === 'string' && attemptsData.lock_reason
               ? attemptsData.lock_reason
               : p.kind === 'bonus'
                 ? 'Unlock these exam papers by trying every full writing task and every term review at least once.'
-                : 'Try every full writing task in this unit at least once before the term review.',
+                : p.kind === 'test'
+                  ? 'Try every full writing task in this unit at least once before the term review.'
+                  : 'The trial includes one full writing task with three attempts. Buy a year to keep writing.',
           );
           return;
         }
@@ -230,7 +209,14 @@ export default function WritingPracticePage() {
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load writing task';
+        setNeedsTrialStart(message.includes('Start the 7-day trial'));
+        setNeedsTrialEnded(message.includes('7-day trial has ended'));
         setNeedsAccess(message.includes('Selective Writing access is required'));
+        setNeedsFullYear(
+          message.includes('in the full year') ||
+            message.includes('stays with the 7-day trial') ||
+            message.includes('Buy a year to keep writing'),
+        );
         setError(message);
       } finally {
         setLoading(false);
@@ -328,10 +314,14 @@ export default function WritingPracticePage() {
     return (
       <main className="mx-auto max-w-4xl space-y-4 p-6">
         <p className="text-sm uppercase tracking-wide text-indigo-700">
-          {prompt?.kind === 'bonus' ? 'Bonus exam paper' : 'Term review'}
+          {prompt?.kind === 'bonus'
+            ? 'Bonus exam paper'
+            : prompt?.kind === 'test'
+              ? 'Term review'
+              : 'Full writing task'}
         </p>
         <h1 className="text-2xl font-semibold text-stone-900">
-          {prompt?.title ?? 'Term review locked'}
+          {prompt?.title ?? 'This task is locked'}
         </h1>
         <p className="text-stone-700">
           {lockReason ||
@@ -367,7 +357,31 @@ export default function WritingPracticePage() {
   if (!prompt) {
     return (
       <main className="mx-auto max-w-4xl space-y-4 p-6">
-        {needsAccess ? (
+        {needsTrialStart ? (
+          <>
+            <h1 className="text-2xl font-semibold text-stone-900">
+              Start the 7-day trial first
+            </h1>
+            <p className="text-stone-700">
+              This writing task opens after you start the trial on the dashboard.
+            </p>
+            <Link href="/dashboard" className="text-sm text-indigo-700 underline">
+              Back to dashboard
+            </Link>
+          </>
+        ) : needsTrialEnded ? (
+          <>
+            <h1 className="text-2xl font-semibold text-stone-900">
+              The 7-day trial has ended
+            </h1>
+            <p className="text-stone-700">
+              Buy a year to keep this writing and keep practising.
+            </p>
+            <Link href="/subscription" className="text-sm text-indigo-700 underline">
+              Buy a year
+            </Link>
+          </>
+        ) : needsAccess ? (
           <>
             <h1 className="text-2xl font-semibold text-stone-900">
               Selective Writing access is needed
@@ -378,6 +392,21 @@ export default function WritingPracticePage() {
             <Link href="/subscription" className="text-sm text-indigo-700 underline">
               Manage Selective Writing access
             </Link>
+          </>
+        ) : needsFullYear ? (
+          <>
+            <h1 className="text-2xl font-semibold text-stone-900">
+              This paper is in the full year
+            </h1>
+            <p className="text-stone-700">{error}</p>
+            <div className="flex flex-wrap gap-4">
+              <Link href="/dashboard" className="text-sm text-indigo-700 underline">
+                Back to dashboard
+              </Link>
+              <Link href="/subscription" className="text-sm text-indigo-700 underline">
+                Buy a year
+              </Link>
+            </div>
           </>
         ) : (
           <p className="text-red-700">{error || 'Prompt unavailable'}</p>
@@ -457,6 +486,7 @@ export default function WritingPracticePage() {
 
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-6">
+      <LeaveGuard plan={plan} content={content} enabled={!submitting} />
       <header className="flex flex-wrap items-end justify-between gap-3 border-b border-stone-300 pb-4">
         <div>
           <p className="text-sm uppercase tracking-wide text-stone-500">

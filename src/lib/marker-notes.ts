@@ -31,6 +31,37 @@ export type MarkerRewrite = {
   set: MarkerSet;
 };
 
+export const TASK_MATCH_VALUES = ['yes', 'partial', 'no', 'unread'] as const;
+export type TaskMatch = (typeof TASK_MATCH_VALUES)[number];
+
+export function isTaskMatch(value: unknown): value is TaskMatch {
+  return typeof value === 'string' && (TASK_MATCH_VALUES as readonly string[]).includes(value);
+}
+
+export const PHOTO_KIND_VALUES = ['question', 'stimulus'] as const;
+export type PhotoKind = (typeof PHOTO_KIND_VALUES)[number];
+
+export function isPhotoKind(value: unknown): value is PhotoKind {
+  return typeof value === 'string' && (PHOTO_KIND_VALUES as readonly string[]).includes(value);
+}
+
+/** Worksheet wording vs a picture to write from, when the model omits photo_kind. */
+export function inferPhotoKind(photoQuestion: string): PhotoKind {
+  const text = photoQuestion.trim();
+  if (!text) return 'stimulus';
+  const first = text.split('\n')[0]?.trim() ?? text;
+  if (
+    /^(write|explain|describe|imagine|create|compose|retell|discuss|argue|persuade|report|read)\b/i.test(
+      first,
+    )
+  ) {
+    return 'question';
+  }
+  if (/\?/.test(first)) return 'question';
+  if (/\b(your task|the question|in your writing)\b/i.test(text)) return 'question';
+  return 'stimulus';
+}
+
 export type MarkerNotes = {
   version: number;
   summary: string;
@@ -38,7 +69,80 @@ export type MarkerNotes = {
   next_steps: string[];
   annotations: MarkerAnnotation[];
   rewrites: MarkerRewrite[];
+  photo_question?: string;
+  task_match?: TaskMatch;
+  photo_kind?: PhotoKind;
 };
+
+export function photoTaskCardCopy(notes: {
+  photo_question?: string;
+  task_match?: TaskMatch;
+  photo_kind?: PhotoKind;
+}): {
+  heading: string;
+  body: string | null;
+  fallback: string;
+  verdict: { text: string; tone: string } | null;
+} | null {
+  if (!notes.photo_question && !notes.task_match) return null;
+  const unreadEmpty = notes.task_match === 'unread' && !notes.photo_question;
+  const inferredKind =
+    notes.photo_kind ?? (notes.photo_question && !unreadEmpty ? inferPhotoKind(notes.photo_question) : undefined);
+  const stimulus = inferredKind === 'stimulus';
+  const heading = unreadEmpty
+    ? 'From the photo'
+    : stimulus
+      ? 'What the photo shows'
+      : 'Question from the photo';
+  const fallback = unreadEmpty
+    ? 'TrialSeed could not copy a question or describe the picture.'
+    : stimulus
+      ? 'TrialSeed could see the photo, but did not write a short description of it.'
+      : 'TrialSeed could not copy a clear question from the photo.';
+  return {
+    heading,
+    body: notes.photo_question?.trim() || null,
+    fallback,
+    verdict: photoTaskMatchCopy(notes.task_match, stimulus),
+  };
+}
+
+function photoTaskMatchCopy(
+  match: TaskMatch | undefined,
+  stimulus: boolean,
+): { text: string; tone: string } | null {
+  if (match === 'yes') {
+    return {
+      text: stimulus
+        ? 'This writing is based on that photo.'
+        : 'This writing answers that question.',
+      tone: 'text-emerald-800',
+    };
+  }
+  if (match === 'partial') {
+    return {
+      text: stimulus
+        ? 'This writing only partly uses what is in the photo. Set A is marked for that.'
+        : 'This writing only partly answers that question. Set A is marked for that.',
+      tone: 'text-amber-800',
+    };
+  }
+  if (match === 'no') {
+    return {
+      text: stimulus
+        ? 'This writing is not based on that photo. Set A (content, form, purpose) is marked low because of that.'
+        : 'This writing does not answer that question. Set A (content, form, purpose) is marked low because of that.',
+      tone: 'text-red-800',
+    };
+  }
+  if (match === 'unread') {
+    return {
+      text: 'TrialSeed could not use this photo. Try a clearer picture, or type a short instruction.',
+      tone: 'text-stone-600',
+    };
+  }
+  return null;
+}
 
 export const MARKER_KIND_META: Record<
   MarkerKind,
@@ -697,6 +801,8 @@ export function normalizeMarkerNotes(raw: unknown, content: string): MarkerNotes
     }
   }
 
+  const photoQuestion =
+    typeof row.photo_question === 'string' ? row.photo_question.trim().slice(0, 2_000) : '';
   const versionRaw = Number(row.version);
   return {
     version: Number.isFinite(versionRaw) ? versionRaw : 0,
@@ -705,6 +811,9 @@ export function normalizeMarkerNotes(raw: unknown, content: string): MarkerNotes
     next_steps: uniqueStrings(Array.isArray(row.next_steps) ? row.next_steps.map(String) : []),
     annotations: annotations.sort((a, b) => a.start - b.start || a.end - b.end),
     rewrites: rewrites.slice(0, 4),
+    ...(photoQuestion ? { photo_question: photoQuestion } : {}),
+    ...(isTaskMatch(row.task_match) ? { task_match: row.task_match } : {}),
+    ...(isPhotoKind(row.photo_kind) ? { photo_kind: row.photo_kind } : {}),
   };
 }
 
@@ -717,6 +826,9 @@ function mergeAgainstContent(base: MarkerNotes, extra: MarkerNotes, content: str
       next_steps: [...extra.next_steps, ...base.next_steps],
       annotations: [...extra.annotations, ...base.annotations],
       rewrites: extra.rewrites.length > 0 ? extra.rewrites : base.rewrites,
+      photo_question: extra.photo_question || base.photo_question,
+      task_match: extra.task_match || base.task_match,
+      photo_kind: extra.photo_kind || base.photo_kind,
     },
     content,
   );
@@ -1066,7 +1178,9 @@ export function markerNotesFromUnknown(raw: unknown, content: string): MarkerNot
     !notes.summary &&
     notes.annotations.length === 0 &&
     notes.rewrites.length === 0 &&
-    notes.strengths.length === 0
+    notes.strengths.length === 0 &&
+    !notes.photo_question &&
+    !notes.task_match
   ) {
     return null;
   }

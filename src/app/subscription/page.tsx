@@ -22,6 +22,7 @@ type SubscriptionItem = {
   student_id: string | null;
   status: string;
   expires_at: string | null;
+  access_kind?: 'paid' | 'trial';
   active: boolean;
 };
 
@@ -177,7 +178,7 @@ export default function SubscriptionPage() {
           <p className="mt-1 text-sm text-warm-muted">
             {canBuyKy1Maths
               ? `K–Y1 Maths is $${KY1_SUBJECT_PRICE_AUD} AUD for one year. Access lasts twelve months from the day you buy.`
-              : `Selective Writing is $${SUBJECT_PRICE_AUD} AUD for one year. Access lasts twelve months from the day you buy. More subjects are on the way.`}
+              : `Selective Writing is $${SUBJECT_PRICE_AUD} AUD for one year. The paid year starts from the day you buy.`}
           </p>
         </div>
         <Link
@@ -389,7 +390,7 @@ function OfferCard({
           <h2 className="text-xl font-semibold text-warm-ink">{label}</h2>
           <p className="mt-1 text-sm text-warm-muted">{blurb}</p>
         </div>
-        {active ? (
+        {active && active.access_kind !== 'trial' ? (
           <span className="whitespace-nowrap rounded-full bg-[#E3EFE6] px-2.5 py-0.5 text-xs font-medium text-brand-dark">
             Active
           </span>
@@ -409,7 +410,7 @@ function OfferCard({
         <p className="mt-4 font-serif text-2xl font-semibold text-warm-ink">Coming soon</p>
       )}
 
-      {active ? (
+      {active && active.access_kind !== 'trial' ? (
         <div className="mt-4 flex-1 space-y-2 text-sm text-warm-muted">
           <p>
             Active
@@ -425,14 +426,23 @@ function OfferCard({
           </button>
         </div>
       ) : available ? (
-        <button
-          type="button"
-          onClick={onBuy}
-          disabled={busy || !canBuy}
-          className="mt-6 rounded-full bg-terracotta px-4 py-2.5 text-sm font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
-        >
-          {busy ? 'Redirecting…' : `Buy 1 year · $${price}`}
-        </button>
+        <div className="mt-6 space-y-3">
+          {active?.access_kind === 'trial' ? (
+            <p className="text-sm text-warm-muted">
+              Trial in progress
+              {active.expires_at ? ` until ${new Date(active.expires_at).toLocaleDateString()}` : ''}.
+              Buy a year to keep this work.
+            </p>
+          ) : null}
+          <button
+            type="button"
+            onClick={onBuy}
+            disabled={busy || !canBuy}
+            className="w-full rounded-full bg-terracotta px-4 py-2.5 text-sm font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
+          >
+            {busy ? 'Redirecting…' : `Buy 1 year · $${price}`}
+          </button>
+        </div>
       ) : (
         <p className="mt-6 border-t border-warm-divider pt-4 text-sm leading-relaxed text-warm-muted">
           We&apos;re carefully preparing this subject. It will open at the same ${price} yearly

@@ -4,7 +4,10 @@ import {
   annotationSegments,
   buildMarkerNotesHeuristic,
   combineRemoteMarkerNotes,
+  inferPhotoKind,
+  markerNotesFromUnknown,
   normalizeMarkerNotes,
+  photoTaskCardCopy,
 } from './marker-notes';
 
 describe('buildMarkerNotesHeuristic', () => {
@@ -136,6 +139,41 @@ describe('normalizeMarkerNotes', () => {
     const notes = normalizeMarkerNotes({ annotations: [{ kind: 'spelling' }] }, 'Hello.');
     assert.equal(notes.annotations.length, 0);
   });
+
+  it('keeps the question read from a custom-task photo', () => {
+    const notes = normalizeMarkerNotes(
+      {
+        summary: 'The writing did not answer the photo question.',
+        photo_question: 'Write a news report about this playground.',
+        task_match: 'no',
+      },
+      'I like pizza.',
+    );
+    assert.equal(notes.photo_question, 'Write a news report about this playground.');
+    assert.equal(notes.task_match, 'no');
+  });
+
+  it('keeps a picture-stimulus description from a custom-task photo', () => {
+    const notes = normalizeMarkerNotes(
+      {
+        summary: 'The writing did not use the photo.',
+        photo_kind: 'stimulus',
+        photo_question: 'A wet playground with empty swings after rain.',
+        task_match: 'no',
+      },
+      'I like pizza.',
+    );
+    assert.equal(notes.photo_kind, 'stimulus');
+    assert.equal(notes.photo_question, 'A wet playground with empty swings after rain.');
+    assert.equal(notes.task_match, 'no');
+  });
+});
+
+describe('markerNotesFromUnknown', () => {
+  it('keeps unread photo-match notes even without a copied question', () => {
+    const notes = markerNotesFromUnknown({ task_match: 'unread' }, 'I like pizza.');
+    assert.equal(notes?.task_match, 'unread');
+  });
 });
 
 describe('combineRemoteMarkerNotes', () => {
@@ -156,6 +194,32 @@ describe('combineRemoteMarkerNotes', () => {
     assert.equal(combined.summary, 'Model summary.');
     assert.ok(combined.annotations.some((row) => row.kind === 'spelling'));
     assert.equal(combined.rewrites[0].improved.includes('guardian'), true);
+  });
+
+  it('keeps the photo question from the remote marker notes', () => {
+    const content = 'I like pizza.';
+    const local = buildMarkerNotesHeuristic({ content, promptType: 'news_report' });
+    const combined = combineRemoteMarkerNotes(content, local, {
+      summary: 'The writing did not answer the photo question.',
+      photo_question: 'Write a news report about this playground.',
+      task_match: 'no',
+    });
+    assert.equal(combined.photo_question, 'Write a news report about this playground.');
+    assert.equal(combined.task_match, 'no');
+  });
+
+  it('keeps a picture-stimulus description from the remote marker notes', () => {
+    const content = 'I like pizza.';
+    const local = buildMarkerNotesHeuristic({ content, promptType: 'narrative' });
+    const combined = combineRemoteMarkerNotes(content, local, {
+      summary: 'The writing did not use the photo.',
+      photo_kind: 'stimulus',
+      photo_question: 'A wet playground with empty swings after rain.',
+      task_match: 'no',
+    });
+    assert.equal(combined.photo_kind, 'stimulus');
+    assert.equal(combined.photo_question, 'A wet playground with empty swings after rain.');
+    assert.equal(combined.task_match, 'no');
   });
 });
 
@@ -189,5 +253,52 @@ describe('annotationSegments', () => {
       ['After', ' the Storm'],
     );
     assert.equal(segments[0]?.kind, 'punctuation');
+  });
+});
+
+describe('photoTaskCardCopy', () => {
+  it('uses question wording for a photographed written task', () => {
+    const card = photoTaskCardCopy({
+      photo_kind: 'question',
+      photo_question: 'Write a news report about this playground.',
+      task_match: 'no',
+    });
+    assert.equal(card?.heading, 'Question from the photo');
+    assert.equal(card?.body, 'Write a news report about this playground.');
+    assert.match(card?.verdict?.text ?? '', /does not answer that question/);
+  });
+
+  it('uses picture wording when the photo is a stimulus, not a written question', () => {
+    const card = photoTaskCardCopy({
+      photo_kind: 'stimulus',
+      photo_question: 'A wet playground with empty swings after rain.',
+      task_match: 'no',
+    });
+    assert.equal(card?.heading, 'What the photo shows');
+    assert.equal(card?.body, 'A wet playground with empty swings after rain.');
+    assert.match(card?.verdict?.text ?? '', /not based on that photo/);
+  });
+
+  it('treats a scene description as a picture task when photo_kind is missing', () => {
+    const card = photoTaskCardCopy({
+      photo_question: 'An empty seat on a quiet train, with no one sitting there.',
+      task_match: 'no',
+    });
+    assert.equal(card?.heading, 'What the photo shows');
+    assert.match(card?.verdict?.text ?? '', /not based on that photo/);
+  });
+
+  it('does not call an unread photo a visible scene', () => {
+    const card = photoTaskCardCopy({ task_match: 'unread' });
+    assert.equal(card?.heading, 'From the photo');
+    assert.match(card?.fallback ?? '', /could not copy a question or describe the picture/);
+  });
+});
+
+describe('inferPhotoKind', () => {
+  it('treats copied task wording as a question and a scene as a stimulus', () => {
+    assert.equal(inferPhotoKind('Write a news report about this playground.'), 'question');
+    assert.equal(inferPhotoKind('What happened at the night market?'), 'question');
+    assert.equal(inferPhotoKind('An empty seat on a quiet train, with no one sitting there.'), 'stimulus');
   });
 });

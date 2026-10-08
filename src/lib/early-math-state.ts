@@ -82,6 +82,7 @@ export async function getMathsAccessState(
                 AND subscription.user_id = student.user_id
                 AND subscription.subject = 'math'
                 AND subscription.status = 'active'
+                AND COALESCE(subscription.access_kind, 'paid') <> 'trial'
                 AND (subscription.expires_at IS NULL OR subscription.expires_at > NOW())
             ) AS granted
      FROM students student

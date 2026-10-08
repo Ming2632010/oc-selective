@@ -6,6 +6,7 @@ import { isPurchasableSubject, isSubject, priceIdForPurchase } from '@/lib/subje
 import { usesMathsDashboard, usesWritingDashboard } from '@/lib/student-grades';
 import { isRateLimited } from '@/lib/rate-limit';
 import { isMissingStripeCustomer } from '@/lib/stripe-customer';
+import { ensureWritingTrialColumns } from '@/lib/writing-trial-schema';
 import type Stripe from 'stripe';
 
 export const runtime = 'nodejs';
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    await ensureWritingTrialColumns();
     if (isRateLimited(`checkout:${userId}`, 5, 10 * 60 * 1000)) {
       return NextResponse.json({ error: 'Too many checkout attempts. Try again shortly.' }, { status: 429 });
     }
@@ -85,6 +87,7 @@ export async function POST(request: Request) {
       `SELECT id FROM user_subscriptions
        WHERE user_id = $1 AND student_id = $2 AND subject = $3
          AND status = 'active' AND (expires_at IS NULL OR expires_at > NOW())
+         AND COALESCE(access_kind, 'paid') <> 'trial'
        LIMIT 1`,
       [userId, studentId, subject],
     );

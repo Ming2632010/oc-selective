@@ -4,9 +4,15 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { SeedAwardBanner } from '@/components/writing/seed-patch';
-import { MarkedScript, MarkerSummary } from '@/components/writing/marked-script';
+import { MarkedScript, MarkerSummary, PhotoQuestionCard } from '@/components/writing/marked-script';
+import { PromptStimulus } from '@/components/writing/prompt-stimulus';
 import { markerNotesFromUnknown } from '@/lib/marker-notes';
 import { getStudentId, getToken } from '@/lib/client-auth';
+import {
+  formatPrintDate,
+  printDocumentTitle,
+  printSittingLabel,
+} from '@/lib/writing-print';
 
 type Attempt = {
   id: string;
@@ -29,14 +35,19 @@ type Attempt = {
   checked_hint_3: boolean;
   word_count: number;
   has_seen_sample: boolean;
+  created_at?: string | null;
 };
 
 type Prompt = {
   id: string;
   title: string;
+  description?: string | null;
   hint_points: string[];
   sample_answer_high?: string;
   kind?: 'practice' | 'test' | 'bonus' | 'custom';
+  stimulus_image?: string | null;
+  stimulus_quote?: string | null;
+  purpose_note?: string | null;
 };
 
 export default function WritingResultsPage() {
@@ -170,21 +181,51 @@ export default function WritingResultsPage() {
   const hasPresetHints =
     !isCustom && prompt.hint_points.some((hint) => hint.trim().length > 0);
   const latestDraft = attempts[attempts.length - 1]?.draft_number ?? attempt.draft_number;
+  const taskTitle = prompt.title;
+  const sittingLabel = printSittingLabel({
+    kind: prompt.kind,
+    draftNumber: attempt.draft_number,
+  });
+
+  function printThisDraft() {
+    const previous = document.title;
+    document.title = printDocumentTitle({
+      taskTitle,
+      sittingLabel,
+    });
+    const restore = () => {
+      document.title = previous;
+      window.removeEventListener('afterprint', restore);
+    };
+    window.addEventListener('afterprint', restore);
+    window.print();
+  }
 
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-6">
-      <header className="border-b border-stone-300 pb-4">
+      <div className="mb-2 hidden border-b border-stone-400 pb-3 print:block">
+        <p className="text-sm tracking-wide text-stone-600">TrialSeed</p>
+        <h1 className="text-2xl font-semibold text-stone-900">{taskTitle}</h1>
+        <p className="mt-1 text-sm text-stone-700">
+          {sittingLabel} · {formatPrintDate(attempt.created_at)} · {attempt.word_count}{' '}
+          words
+        </p>
+      </div>
+
+      <header className="border-b border-stone-300 pb-4 print:hidden">
         <p className="text-sm uppercase tracking-wide text-stone-500">
           {isTest
             ? prompt.kind === 'bonus'
               ? 'Results · Bonus exam paper · one sitting'
               : 'Results · Term review · one sitting'
-            : `Results · Draft ${attempt.draft_number}/3`}
+            : isCustom
+              ? 'Results · Custom task · one attempt'
+              : `Results · Draft ${attempt.draft_number}/3`}
         </p>
         <h1 className="text-3xl font-semibold">{prompt.title}</h1>
-        {isTest ? (
+        {isTest || isCustom ? (
           <p className="mt-2 text-sm text-stone-600">
-            This test cannot be sat again. Your sitting is saved here.
+            This {isCustom ? 'custom task' : 'test'} cannot be sat again. Your sitting is saved here.
           </p>
         ) : (
           <p className="mt-2 text-sm text-stone-600">
@@ -213,14 +254,32 @@ export default function WritingResultsPage() {
             ))}
           </div>
         ) : null}
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={printThisDraft}
+            className="rounded-md border border-stone-900 px-4 py-2"
+          >
+            Print / save PDF
+          </button>
+          <p className="mt-2 text-sm text-stone-600">
+            Opens the print box. Choose Save as PDF, or print this draft.
+          </p>
+        </div>
       </header>
 
       {awards.length > 0 ? (
-        <SeedAwardBanner
-          total={awards.reduce((sum, row) => sum + row.seeds, 0)}
-          lines={awards}
-        />
+        <div className="print:hidden">
+          <SeedAwardBanner
+            total={awards.reduce((sum, row) => sum + row.seeds, 0)}
+            lines={awards}
+          />
+        </div>
       ) : null}
+
+      <PromptStimulus prompt={prompt} showJobs={!isTest && !isCustom} />
+
+      {notes ? <PhotoQuestionCard notes={notes} /> : null}
 
       <section className="grid gap-3 sm:grid-cols-3">
         <ScoreCard
@@ -259,9 +318,11 @@ export default function WritingResultsPage() {
               value={breakdown.grammar}
             />
           </ul>
-          <ScoreRadar breakdown={breakdown} />
+          <div className="print:hidden">
+            <ScoreRadar breakdown={breakdown} />
+          </div>
         </div>
-        <p className="mt-3 text-sm text-stone-600">{attempt.word_count} words</p>
+        <p className="mt-3 text-sm text-stone-600 print:hidden">{attempt.word_count} words</p>
       </section>
 
       {notes ? <MarkerSummary notes={notes} /> : (
@@ -303,7 +364,14 @@ export default function WritingResultsPage() {
         </section>
       )}
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3 print:hidden">
+        <button
+          type="button"
+          onClick={printThisDraft}
+          className="rounded-md border border-stone-900 px-4 py-2"
+        >
+          Print / save PDF
+        </button>
         {!isTest && !isCustom && latestDraft < 3 ? (
           <Link
             href={`/dashboard/writing/${promptId}`}
@@ -343,11 +411,11 @@ export default function WritingResultsPage() {
       </div>
 
       {nextTask ? (
-        <p className="text-sm text-stone-600">{nextTask.reason}</p>
+        <p className="text-sm text-stone-600 print:hidden">{nextTask.reason}</p>
       ) : null}
 
       {showSamples && samplesUnlocked && !isTest ? (
-        <section className="space-y-4 rounded-lg border border-stone-200 p-4">
+        <section className="space-y-4 rounded-lg border border-stone-200 p-4 print:hidden">
           <div>
             <h3 className="font-medium">Sample answer</h3>
             <p className="mt-2 whitespace-pre-wrap text-stone-800">
@@ -375,16 +443,16 @@ function ScoreCard({
     <div
       className={`rounded-lg border p-4 ${
         highlight
-          ? 'border-stone-900 bg-stone-900 text-white'
+          ? 'border-stone-900 bg-stone-900 text-white print:bg-white print:text-stone-900'
           : 'border-stone-200 bg-stone-50'
       }`}
     >
-      <p className={`text-sm ${highlight ? 'text-stone-300' : 'text-stone-500'}`}>
+      <p className={`text-sm ${highlight ? 'text-stone-300 print:text-stone-500' : 'text-stone-500'}`}>
         {label}
       </p>
       <p className="text-2xl font-semibold">{value}</p>
       {hint ? (
-        <p className={`mt-1 text-xs ${highlight ? 'text-stone-300' : 'text-stone-500'}`}>
+        <p className={`mt-1 text-xs ${highlight ? 'text-stone-300 print:text-stone-500' : 'text-stone-500'}`}>
           {hint}
         </p>
       ) : null}

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
+import { loadCustomTaskImageForStudent } from '@/lib/custom-task-image';
 import { scoreWritingAttempt } from '@/lib/scoring';
 import {
   buildMarkerNotesHeuristic,
@@ -17,11 +18,16 @@ import {
   getBonusExamAccess,
   getGuidanceForStudent,
   hasCompletedWarmup,
+  applyWritingTrialLimits,
   getWritingExamSession,
   getWritingAccessState,
+  getWritingLicence,
   getNextRecommendation,
   getTermReviewAccess,
+  trialBlocksPrompt,
 } from '@/lib/writing-state';
+import { hasWritingProductAccess, unlicensedAccessMessage } from '@/lib/writing-trial';
+import { isTrialPackPromptKind } from '@/lib/writing-trial-pack';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -55,19 +61,35 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'student_id is required' }, { status: 400 });
     }
 
-    const access = await getWritingAccessState(userId, studentId);
-    if (access === 'not-found') {
+    const licence = await getWritingLicence(userId, studentId);
+    if (licence.state === 'not-found') {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
-    if (access === 'unlicensed') {
+    if (!hasWritingProductAccess(licence.state)) {
+      let trialPack = false;
+      if (promptId) {
+        const kindRow = await query<{ kind: string }>(
+          `SELECT COALESCE(kind, 'practice') AS kind FROM prompts WHERE id = $1 LIMIT 1`,
+          [promptId],
+        );
+        trialPack = isTrialPackPromptKind(kindRow.rows[0]?.kind);
+      }
       return NextResponse.json(
-        { error: 'Selective Writing access is required for this child.' },
+        {
+          error: unlicensedAccessMessage({
+            trialPack,
+            hadTrial: licence.hadTrial,
+          }),
+        },
         { status: 403 },
       );
     }
 
     if (!promptId) {
-      const guidance = await getGuidanceForStudent(studentId);
+      const guidance = applyWritingTrialLimits(
+        await getGuidanceForStudent(studentId),
+        licence,
+      );
       return NextResponse.json({
         progress: guidance.progress,
         unlocked_unit: guidance.unlocked_unit,
@@ -161,15 +183,21 @@ export async function GET(request: Request) {
     const samplesUnlocked = !examStyle && maxDraft >= 3;
     let reviewLocked = false;
     let lockReason = '';
-    if (examStyle && maxDraft < 1) {
+    const trialBlock = await trialBlocksPrompt(userId, studentId, promptId, prompt.kind);
+    if (trialBlock) {
+      return NextResponse.json(
+        { error: trialBlock.error, trial_only: true },
+        { status: trialBlock.status },
+      );
+    } else if (examStyle && maxDraft < 1) {
       if (prompt.kind === 'bonus') {
-        const access = await getBonusExamAccess(studentId);
-        reviewLocked = access.locked;
-        lockReason = bonusExamLockMessage(access);
+        const examAccess = await getBonusExamAccess(studentId);
+        reviewLocked = examAccess.locked;
+        lockReason = bonusExamLockMessage(examAccess);
       } else {
-        const access = await getTermReviewAccess(studentId, prompt.module_id);
-        reviewLocked = access.locked;
-        lockReason = termReviewLockMessage(access);
+        const examAccess = await getTermReviewAccess(studentId, prompt.module_id);
+        reviewLocked = examAccess.locked;
+        lockReason = termReviewLockMessage(examAccess);
       }
     }
 
@@ -194,7 +222,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       awards,
       attempts: hydrated,
-      recommendation,
+      recommendation: licence.state === 'trial' ? null : recommendation,
       prompt: publicPrompt,
       samples_unlocked: samplesUnlocked,
       max_draft: maxDraft,
@@ -262,18 +290,6 @@ export async function POST(request: Request) {
     if (access === 'not-found') {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
-    if (access === 'unlicensed') {
-      return NextResponse.json(
-        { error: 'Selective Writing access is required for this child.' },
-        { status: 403 },
-      );
-    }
-    if (isRateLimited(`writing-score:${studentId}`, 10, 60 * 60 * 1000)) {
-      return NextResponse.json(
-        { error: 'Too many submissions. Please wait before submitting another response.' },
-        { status: 429 },
-      );
-    }
 
     const promptResult = await query<{
       id: string;
@@ -298,6 +314,17 @@ export async function POST(request: Request) {
     }
     if (prompt.kind === 'custom' && prompt.student_id !== studentId) {
       return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
+    }
+
+    const trialBlock = await trialBlocksPrompt(userId, studentId, promptId, prompt.kind);
+    if (trialBlock) {
+      return NextResponse.json({ error: trialBlock.error }, { status: trialBlock.status });
+    }
+    if (isRateLimited(`writing-score:${studentId}`, 10, 60 * 60 * 1000)) {
+      return NextResponse.json(
+        { error: 'Too many submissions. Please wait before submitting another response.' },
+        { status: 429 },
+      );
     }
 
     const isExam = isExamStyleKind(prompt.kind);
@@ -377,6 +404,11 @@ export async function POST(request: Request) {
       ? (prompt.hint_points as string[])
       : [];
 
+    const customImage =
+      prompt.kind === 'custom'
+        ? await loadCustomTaskImageForStudent({ promptId, studentId })
+        : null;
+
     const scored = await scoreWritingAttempt({
       content,
       hintPoints: isExam ? [] : hintPoints,
@@ -384,6 +416,7 @@ export async function POST(request: Request) {
       promptTitle: prompt.title,
       promptDescription: prompt.description,
       examStyle: isExam,
+      promptImage: customImage,
     });
 
     if (isExam && !(await claimWritingExamSubmission(studentId, promptId))) {
@@ -436,7 +469,10 @@ export async function POST(request: Request) {
       wordCount: scored.word_count,
       timeSpentSeconds: timeSpent,
     });
-    const guidance = await getGuidanceForStudent(studentId);
+    const guidance = applyWritingTrialLimits(
+      await getGuidanceForStudent(studentId),
+      await getWritingLicence(userId, studentId),
+    );
 
     return NextResponse.json(
       {

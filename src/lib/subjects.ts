@@ -17,7 +17,7 @@ export const SUBJECT_LABELS: Record<Subject, string> = {
 
 export const SUBJECT_BLURBS: Record<Subject, string> = {
   writing: 'Selective writing with timed drafts and AI feedback.',
-  math: 'Timed problem sets across the selective maths syllabus.',
+  math: 'Selective maths problem sets. This exam subject is still being prepared.',
   thinking: 'Thinking Skills reasoning and pattern practice.',
   reading: 'Reading comprehension passages and questions.',
 };

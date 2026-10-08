@@ -10,10 +10,14 @@ import {
   type MiniMarkResult,
 } from '@/lib/mini-item-kinds';
 import {
-  assertOwnedStudent,
   awardMiniSeeds,
   extraIsUnlocked,
+  getWritingLicence,
+  trialBlocksMini,
+  visibleTrialMiniDrills,
 } from '@/lib/writing-state';
+import { unlicensedAccessMessage, writingAccessRequiredMessage } from '@/lib/writing-trial';
+import { isTrialPackDrillSource } from '@/lib/writing-trial-pack';
 import { typeLabel } from '@/lib/units';
 
 export const runtime = 'nodejs';
@@ -54,7 +58,12 @@ function publicDrill(row: DrillRow) {
     stem: row.stem,
     options: Array.isArray(row.options) ? row.options : [],
     sort_order: row.sort_order,
-    source: row.source === 'seed' || !row.source ? 'seed' : 'ai',
+    source:
+      row.source === 'trial'
+        ? 'trial'
+        : row.source === 'seed' || !row.source
+          ? 'seed'
+          : 'ai',
     item_kind: itemKind,
     prompt: publicMiniPrompt(itemKind, row.prompt),
   };
@@ -63,6 +72,12 @@ function publicDrill(row: DrillRow) {
 const DRILL_COLUMNS = `id, slug, module_id, prompt_type, skill, title, stem, options,
                 correct_index, explanation, sort_order, source, student_id,
                 item_kind, prompt`;
+
+function nextClippedSlug(drills: { slug: string }[], currentSlug: string) {
+  const index = drills.findIndex((row) => row.slug === currentSlug);
+  if (index < 0) return drills[0]?.slug ?? null;
+  return drills[index + 1]?.slug ?? null;
+}
 
 function seedBucket(source: string | null | undefined, studentId: string | null) {
   return !studentId && (source === 'seed' || !source) ? 0 : 1;
@@ -183,13 +198,6 @@ export async function GET(request: Request) {
     const studentId = searchParams.get('student_id');
     const slug = searchParams.get('slug');
 
-    if (studentId) {
-      const owned = await assertOwnedStudent(userId, studentId);
-      if (!owned) {
-        return NextResponse.json({ error: 'Student not found' }, { status: 404 });
-      }
-    }
-
     if (slug) {
       const result = await query<DrillRow>(
         `SELECT ${DRILL_COLUMNS}
@@ -208,6 +216,18 @@ export async function GET(request: Request) {
       if (drill.source === 'extra') {
         if (!studentId || !(await extraIsUnlocked(studentId, drill.id))) {
           return NextResponse.json({ error: 'Drill not found' }, { status: 404 });
+        }
+      }
+      if (isTrialPackDrillSource(drill.source) && !studentId) {
+        return NextResponse.json(
+          { error: writingAccessRequiredMessage(true) },
+          { status: 403 },
+        );
+      }
+      if (studentId) {
+        const trialBlock = await trialBlocksMini(userId, studentId, drill);
+        if (trialBlock) {
+          return NextResponse.json({ error: trialBlock.error }, { status: trialBlock.status });
         }
       }
 
@@ -238,17 +258,26 @@ export async function GET(request: Request) {
           })
         : null;
 
+      let nextSlug = await nextDrillSlug(
+        drill.module_id,
+        drill.sort_order,
+        studentId,
+        drill.source,
+        drill.student_id,
+      );
+      if (studentId) {
+        const licence = await getWritingLicence(userId, studentId);
+        if (licence.state === 'trial') {
+          const visible = await visibleTrialMiniDrills(studentId);
+          nextSlug = nextClippedSlug(visible, drill.slug);
+        }
+      }
+
       return NextResponse.json({
         drill: publicDrill(drill),
         last_attempt: last ? publicAttempt(last) : null,
         attempts: history.map(publicAttempt),
-        next_slug: await nextDrillSlug(
-          drill.module_id,
-          drill.sort_order,
-          studentId,
-          drill.source,
-          drill.student_id,
-        ),
+        next_slug: nextSlug,
         reveal: marked
           ? {
               correct_index: drill.correct_index,
@@ -266,6 +295,48 @@ export async function GET(request: Request) {
         { error: 'module_id must be an integer between 1 and 11' },
         { status: 400 },
       );
+    }
+
+    const licence = studentId ? await getWritingLicence(userId, studentId) : null;
+    if (licence?.state === 'not-found') {
+      return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    }
+    if (licence?.state === 'unlicensed') {
+      return NextResponse.json(
+        { error: writingAccessRequiredMessage(false) },
+        { status: 403 },
+      );
+    }
+    if (licence?.state === 'trial') {
+      const pack = await query<DrillRow>(
+        `SELECT ${DRILL_COLUMNS}
+         FROM mini_drills
+         WHERE source = 'trial' AND is_active = TRUE AND student_id IS NULL
+         ORDER BY sort_order ASC`,
+      );
+      const attempted = studentId
+        ? await query<{ drill_id: string }>(
+            `SELECT DISTINCT drill_id FROM mini_drill_attempts WHERE student_id = $1`,
+            [studentId],
+          )
+        : { rows: [] as { drill_id: string }[] };
+      const done = new Set(attempted.rows.map((row) => row.drill_id));
+      return NextResponse.json({
+        module_id: moduleId,
+        drills: pack.rows.map((row) => ({
+          ...publicDrill(row),
+          attempted: done.has(row.id),
+        })),
+        extra: {
+          can_generate: false,
+          remaining_today: 0,
+          remaining_unit: 0,
+          suggested_skills: [],
+          reason: '',
+        },
+        trial_mini: { used: licence.miniUsed, limit: licence.miniLimit },
+        trial_only: true,
+      });
     }
 
     const drills = await query<DrillRow>(
@@ -309,16 +380,16 @@ export async function GET(request: Request) {
       done = new Set(attempts.rows.map((row) => row.drill_id));
     }
 
+    const visibleRows = drills.rows;
+
     return NextResponse.json({
       module_id: moduleId,
-      drills: drills.rows.map((row) => ({
+      drills: visibleRows.map((row) => ({
         ...publicDrill(row),
         attempted: done.has(row.id),
       })),
-      // Generation capacity is computed only when the student asks for more
-      // practice, rather than adding several database round trips to every
-      // unit-page load.
       extra: null,
+      trial_mini: null,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load drills';
@@ -371,11 +442,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const owned = await assertOwnedStudent(userId, studentId);
-    if (!owned) {
-      return NextResponse.json({ error: 'Student not found' }, { status: 404 });
-    }
-
     const drillResult = await query<DrillRow>(
       `SELECT ${DRILL_COLUMNS}
        FROM mini_drills
@@ -392,6 +458,10 @@ export async function POST(request: Request) {
     }
     if (drill.source === 'extra' && !(await extraIsUnlocked(studentId, drill.id))) {
       return NextResponse.json({ error: 'Drill not found' }, { status: 404 });
+    }
+    const trialBlock = await trialBlocksMini(userId, studentId, drill);
+    if (trialBlock) {
+      return NextResponse.json({ error: trialBlock.error }, { status: trialBlock.status });
     }
 
     const kind = drillKind(drill);
@@ -458,19 +528,26 @@ export async function POST(request: Request) {
       alreadyTried: (prior.rowCount ?? prior.rows.length) > 0,
     });
 
+    let nextSlug = await nextDrillSlug(
+      drill.module_id,
+      drill.sort_order,
+      studentId,
+      drill.source,
+      drill.student_id,
+    );
+    const licence = await getWritingLicence(userId, studentId);
+    if (licence.state === 'trial') {
+      const visible = await visibleTrialMiniDrills(studentId);
+      nextSlug = nextClippedSlug(visible, drill.slug);
+    }
+
     return NextResponse.json({
       is_correct: marked.isCorrect,
       correct_index: drill.correct_index,
       explanation: marked.explanation,
       sample: marked.sample ?? null,
       checks: marked.checks,
-      next_slug: await nextDrillSlug(
-        drill.module_id,
-        drill.sort_order,
-        studentId,
-        drill.source,
-        drill.student_id,
-      ),
+      next_slug: nextSlug,
       drill: publicDrill(drill),
       award,
       attempt: saved.rows[0] ? publicAttempt(saved.rows[0]) : null,

@@ -31,7 +31,7 @@ type MiniDrillCard = {
   skill: MiniSkill;
   title: string;
   attempted: boolean;
-  source?: 'seed' | 'ai';
+  source?: 'seed' | 'ai' | 'trial';
   item_kind?: MiniItemKind;
 };
 
@@ -50,6 +50,11 @@ type ExtraMeta = {
   remaining_unit: number;
   suggested_skills: MiniSkill[];
   reason: string;
+};
+
+type TrialMiniInfo = {
+  used: number;
+  limit: number;
 };
 
 function draftStatusLabel(maxDraft: number): string {
@@ -80,6 +85,7 @@ export default function UnitPage() {
   const [prompts, setPrompts] = useState<PromptWithStatus[]>([]);
   const [drills, setDrills] = useState<MiniDrillCard[]>([]);
   const [extra, setExtra] = useState<ExtraMeta | null>(null);
+  const [trialMini, setTrialMini] = useState<TrialMiniInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -108,12 +114,17 @@ export default function UnitPage() {
           apiFetch(`/api/prompts?module_id=${unitId}&kind=practice&student_id=${studentId}`),
           apiFetch(`/api/writing/drills?module_id=${unitId}&student_id=${studentId}`),
         ]);
+        if (promptRes.data.trial_only || drillRes.data.trial_only) {
+          router.replace('/dashboard');
+          return;
+        }
         if (!promptRes.response.ok) {
           throw new Error(promptRes.data.error || 'Failed to load prompts');
         }
         const list = (promptRes.data.prompts as Prompt[]) || [];
         setDrills((drillRes.data.drills as MiniDrillCard[]) || []);
         setExtra((drillRes.data.extra as ExtraMeta | null) ?? null);
+        setTrialMini((drillRes.data.trial_mini as TrialMiniInfo | null) ?? null);
         setPrompts(
           list.map((prompt) => ({
             ...prompt,
@@ -206,13 +217,14 @@ export default function UnitPage() {
           <div>
             <h2 className="text-lg font-semibold text-stone-900">Mini practice</h2>
             <p className="mt-1 text-sm text-stone-600">
-              Multiple-choice plus short writing: spelling, rewrite, sentence
+              {trialMini
+                ? `The trial includes ${trialMini.limit} mini questions. Tried questions keep your answer so you can open them again. ${trialMini.used}/${trialMini.limit} used.`
+                : `Multiple-choice plus short writing: spelling, rewrite, sentence
               order, and 1–2 sentence practice — at Selective Year 5–6 level.
-              Tried questions keep your answer so you can open them again.{' '}
-              {miniDone}/{drills.length} tried.
+              Tried questions keep your answer so you can open them again. ${miniDone}/${drills.length} tried.`}
             </p>
           </div>
-          {!extra || extra.can_generate ? (
+          {trialMini ? null : !extra || extra.can_generate ? (
             <button
               type="button"
               onClick={() => void generateMore()}
@@ -238,6 +250,13 @@ export default function UnitPage() {
         ) : extra?.reason ? (
           <p className="text-sm text-stone-600">{extra.reason}</p>
         ) : null}
+        {drills.length === 0 ? (
+          <p className="text-sm text-stone-600">
+            {trialMini
+              ? 'The trial includes 10 mini questions. Buy a year for mini practice in every unit.'
+              : 'No mini practice in this unit yet.'}
+          </p>
+        ) : (
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {drills.map((drill) => (
             <li key={drill.slug}>
@@ -269,6 +288,7 @@ export default function UnitPage() {
             </li>
           ))}
         </ul>
+        )}
       </section>
 
       <section className="space-y-3">
@@ -290,11 +310,14 @@ export default function UnitPage() {
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <Link
                       href={
-                        prompt.maxDraft >= 3
+                        prompt.is_locked
+                          ? '#'
+                          : prompt.maxDraft >= 3
                           ? `/dashboard/writing/${prompt.id}/results`
                           : `/dashboard/writing/${prompt.id}`
                       }
-                      className="space-y-1.5 hover:underline"
+                      onClick={prompt.is_locked ? (event) => event.preventDefault() : undefined}
+                      className={`space-y-1.5 ${prompt.is_locked ? 'cursor-not-allowed opacity-70' : 'hover:underline'}`}
                     >
                       <span className="rounded-md bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-700">
                         {typeLabel(prompt.prompt_type)}
@@ -310,7 +333,11 @@ export default function UnitPage() {
                     </span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-3 text-sm">
-                    {prompt.maxDraft >= 3 ? (
+                    {prompt.is_locked ? (
+                      <p className="mt-3 text-sm text-stone-600">
+                        The trial includes one full writing task with three attempts. Buy a year to start this one.
+                      </p>
+                    ) : prompt.maxDraft >= 3 ? (
                       <Link
                         href={`/dashboard/writing/${prompt.id}/results`}
                         className="font-medium text-indigo-700 hover:underline"

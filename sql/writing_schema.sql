@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS prompts (
   is_locked BOOLEAN NOT NULL DEFAULT TRUE,
   time_limit_minutes INTEGER NOT NULL DEFAULT 30,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
-  kind TEXT NOT NULL DEFAULT 'practice' CHECK (kind IN ('practice', 'test', 'bonus', 'custom')),
+  kind TEXT NOT NULL DEFAULT 'practice' CHECK (kind IN ('practice', 'test', 'bonus', 'custom', 'trial')),
   student_id UUID REFERENCES students (id) ON DELETE CASCADE,
   stimulus_image TEXT,
   stimulus_quote TEXT,
@@ -59,7 +59,7 @@ ALTER TABLE prompts
   ADD COLUMN IF NOT EXISTS student_id UUID REFERENCES students (id) ON DELETE CASCADE;
 ALTER TABLE prompts DROP CONSTRAINT IF EXISTS prompts_kind_check;
 ALTER TABLE prompts
-  ADD CONSTRAINT prompts_kind_check CHECK (kind IN ('practice', 'test', 'bonus', 'custom'));
+  ADD CONSTRAINT prompts_kind_check CHECK (kind IN ('practice', 'test', 'bonus', 'custom', 'trial'));
 ALTER TABLE prompts ADD COLUMN IF NOT EXISTS stimulus_image TEXT;
 ALTER TABLE prompts ADD COLUMN IF NOT EXISTS stimulus_quote TEXT;
 ALTER TABLE prompts ADD COLUMN IF NOT EXISTS purposes TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];

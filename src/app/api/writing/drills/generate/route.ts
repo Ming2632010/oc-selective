@@ -3,9 +3,11 @@ import { getAuthUserId } from '@/lib/auth';
 import {
   assertOwnedStudent,
   deactivateCopiedExtraDrills,
+  getWritingLicence,
   unlockExtraPack,
 } from '@/lib/writing-state';
 import { isRateLimited } from '@/lib/rate-limit';
+import { trialMiniLimitMessage } from '@/lib/writing-trial';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,6 +38,22 @@ export async function POST(request: Request) {
     const owned = await assertOwnedStudent(userId, studentId);
     if (!owned) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    }
+    const licence = await getWritingLicence(userId, studentId);
+    if (licence.state === 'trial') {
+      return NextResponse.json(
+        {
+          error: trialMiniLimitMessage(),
+          extra: {
+            can_generate: false,
+            remaining_today: 0,
+            remaining_unit: 0,
+            suggested_skills: [],
+            reason: trialMiniLimitMessage(),
+          },
+        },
+        { status: 403 },
+      );
     }
     if (isRateLimited(`drill-generation:${studentId}`, 5, 60 * 60 * 1000)) {
       return NextResponse.json(

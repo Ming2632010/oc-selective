@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   apiFetch,
@@ -12,6 +12,12 @@ import {
   setStudentId,
 } from '@/lib/client-auth';
 import { typeLabel, UNIT_GROUPS, unitsByGroup, WRITING_TYPES, type UnitGroup } from '@/lib/units';
+import { CUSTOM_TASK_IMAGE_ACCEPT, prepareCustomTaskImage } from '@/lib/prepare-custom-task-image';
+import {
+  trialEndedKeepWorkMessage,
+  trialInProgressMessage,
+} from '@/lib/writing-trial';
+import { MINI_SKILL_LABELS, type MiniSkill } from '@/lib/seed-mini-drills';
 import { WritingProgressLine, type HistoryPoint } from '@/components/writing/progress-line';
 import { SeedPatch, type SeedPatchData } from '@/components/writing/seed-patch';
 import { WeekNote } from '@/components/writing/week-note';
@@ -52,6 +58,7 @@ type SubscriptionItem = {
   student_id: string | null;
   status: string;
   expires_at: string | null;
+  access_kind?: 'paid' | 'trial';
   active: boolean;
 };
 
@@ -105,6 +112,7 @@ type Recommendation = {
   module_id: number;
   next_draft: number;
   reason: string;
+  completed?: boolean;
 };
 
 type CustomTask = {
@@ -113,6 +121,7 @@ type CustomTask = {
   description: string;
   prompt_type: string;
   max_draft: number;
+  stimulus_image?: string | null;
 };
 
 const EXPIRY_WARNING_DAYS = 7;
@@ -123,23 +132,146 @@ const GROUP_BLURBS: Record<UnitGroup, string> = {
   Persuasive: 'Convince and influence',
 };
 
+function DashboardGroupRow({
+  title,
+  blurb,
+  action,
+  expanded,
+  onClick,
+  locked = false,
+}: {
+  title: string;
+  blurb: string;
+  action: string;
+  expanded: boolean;
+  onClick?: () => void;
+  locked?: boolean;
+}) {
+  const className =
+    'flex w-full items-baseline justify-between gap-3 rounded-lg border border-brand-dark p-4 text-left text-white shadow-card';
+  const style = {
+    background: 'linear-gradient(145deg, #1E3F33 0%, #2D5A4A 58%, #4A7A64 100%)',
+  };
+  const content = (
+    <>
+      <span className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="text-sm font-bold uppercase tracking-wide whitespace-nowrap">
+          {title}
+        </span>
+        <span className="text-sm text-white/80">{blurb}</span>
+      </span>
+      <span className="shrink-0 text-sm font-semibold text-[#F0C9A8]">{action}</span>
+    </>
+  );
+  if (locked) {
+    return (
+      <div className={`${className} cursor-default`} style={style} aria-disabled="true">
+        {content}
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={expanded}
+      className={className}
+      style={style}
+    >
+      {content}
+    </button>
+  );
+}
+
+function miniSkillLabel(skill: string) {
+  return MINI_SKILL_LABELS[skill as MiniSkill] ?? skill;
+}
+
+type WritingTrialInfo = {
+  eligible: boolean;
+  active: boolean;
+  had_trial?: boolean;
+  days_left: number | null;
+  attempts_used: number;
+  attempts_limit: number;
+  drafts_used?: number;
+  drafts_limit?: number;
+  mini_used?: number;
+  mini_limit?: number;
+  expires_at: string | null;
+};
+
+type TrialPackInfo = {
+  prompt: {
+    id: string;
+    title: string;
+    description: string;
+    prompt_type: string;
+    module_id: number;
+    max_draft: number;
+  };
+  drills: Array<{
+    id: string;
+    slug: string;
+    title: string;
+    skill: string;
+    attempted: boolean;
+  }>;
+};
+
 function subscriptionBanner(
   sub: SubscriptionState | null,
   studentId: string | null,
+  trial: WritingTrialInfo | null,
 ): {
   tone: 'warn' | 'info';
   message: string;
 } | null {
-  if (!sub) return null;
+  if (!studentId) return null;
 
-  const writingAccess = sub.subscriptions.find(
+  const writingAccess = sub?.subscriptions.find(
     (item) => item.subject === 'writing' && item.student_id === studentId && item.active,
   );
   if (!writingAccess) {
+    if (trial?.eligible) {
+      return {
+        tone: 'info',
+        message:
+          'Press Start 7-day trial to begin. No card needed: 10 mini questions and one full writing task with three attempts.',
+      };
+    }
+    if (trial?.had_trial) {
+      return {
+        tone: 'warn',
+        message: trialEndedKeepWorkMessage(),
+      };
+    }
     return {
       tone: 'warn',
-      message:
-        'This child does not have Selective Writing access yet.',
+      message: 'This child does not have Selective Writing access yet.',
+    };
+  }
+
+  if (writingAccess.access_kind === 'trial') {
+    const daysLeft =
+      trial?.days_left ??
+      (writingAccess.expires_at
+        ? Math.max(
+            0,
+            Math.ceil(
+              (new Date(writingAccess.expires_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000),
+            ),
+          )
+        : 0);
+    return {
+      tone: 'info',
+      message: trialInProgressMessage({
+        daysLeft,
+        draftsUsed: trial?.drafts_used ?? 0,
+        draftsLimit: trial?.drafts_limit ?? 3,
+        miniUsed: trial?.mini_used ?? 0,
+        miniLimit: trial?.mini_limit ?? 10,
+      }),
     };
   }
 
@@ -206,9 +338,18 @@ export default function DashboardPage() {
   const [customTasks, setCustomTasks] = useState<CustomTask[]>([]);
   const [customLoaded, setCustomLoaded] = useState(false);
   const [customQuestion, setCustomQuestion] = useState('');
+  const [customImage, setCustomImage] = useState<File | null>(null);
+  const [customImagePreview, setCustomImagePreview] = useState<string | null>(null);
+  const [customImageBusy, setCustomImageBusy] = useState(false);
+  const customImageInputRef = useRef<HTMLInputElement | null>(null);
+  const customImagePickRef = useRef(0);
   const [customType, setCustomType] = useState('narrative');
   const [customCreating, setCustomCreating] = useState(false);
   const [mathsOverview, setMathsOverview] = useState<MathsOverview | null>(null);
+  const [writingTrial, setWritingTrial] = useState<WritingTrialInfo | null>(null);
+  const [trialPack, setTrialPack] = useState<TrialPackInfo | null>(null);
+  const [trialGroupOpen, setTrialGroupOpen] = useState(false);
+  const [startingTrial, setStartingTrial] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -233,6 +374,9 @@ export default function DashboardPage() {
       setHistory([]);
       setRecommendation(null);
       setMathsOverview(null);
+      setWritingTrial(null);
+      setTrialPack(null);
+      setTrialGroupOpen(false);
       setExpandedGroups([]);
       setLoadedGroups({});
       setCustomOpen(false);
@@ -275,9 +419,17 @@ export default function DashboardPage() {
       setWeekNote(guidance?.week_note ?? null);
       setHistory(guidance?.history ?? []);
       setRecommendation(guidance?.recommendation ?? null);
+      setWritingTrial((res.data.trial as WritingTrialInfo | null) ?? null);
+      setTrialPack((res.data.trial_pack as TrialPackInfo | null) ?? null);
+      const isTrial = (res.data.writing_access as string | undefined) === 'trial';
+      setTrialGroupOpen(isTrial);
       const selectedStudent = studentList.find((student) => student.id === selected);
       const hasMathsAccess = ((res.data.subscriptions as SubscriptionItem[]) || []).some(
-        (item) => item.subject === 'math' && item.student_id === selected && item.active,
+        (item) =>
+          item.subject === 'math' &&
+          item.student_id === selected &&
+          item.active &&
+          item.access_kind !== 'trial',
       );
       if (
         selected &&
@@ -296,7 +448,7 @@ export default function DashboardPage() {
         UNIT_GROUPS.find((group) =>
           unitsByGroup(group).some((unit) => unit.id === guidance?.recommendation?.module_id),
         ) ?? 'Creative';
-      if (selected && guidance) {
+      if (selected && guidance && !isTrial) {
         setExpandedGroups([suggestedGroup]);
         void loadGroup(selected, suggestedGroup);
       }
@@ -314,6 +466,7 @@ export default function DashboardPage() {
   }, [router]);
 
   async function loadGroup(studentId: string, group: UnitGroup) {
+    if (writingTrial?.active) return;
     if (loadedGroups[group] || groupLoading === group) return;
     setGroupLoading(group);
     try {
@@ -342,6 +495,7 @@ export default function DashboardPage() {
   }
 
   function toggleGroup(group: UnitGroup) {
+    if (writingTrial?.active) return;
     const opening = !expandedGroups.includes(group);
     setExpandedGroups((current) =>
       opening ? [...current, group] : current.filter((item) => item !== group),
@@ -358,6 +512,7 @@ export default function DashboardPage() {
   }
 
   async function toggleCustomTasks() {
+    if (writingTrial?.active) return;
     const opening = !customOpen;
     setCustomOpen(opening);
     if (opening) {
@@ -369,30 +524,92 @@ export default function DashboardPage() {
     }
   }
 
+  function clearCustomImage() {
+    setCustomImage(null);
+    setCustomImagePreview((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return null;
+    });
+    if (customImageInputRef.current) customImageInputRef.current.value = '';
+  }
+
+  async function onPickCustomImage(file: File | null) {
+    const pick = ++customImagePickRef.current;
+    if (!file) {
+      clearCustomImage();
+      setCustomImageBusy(false);
+      return;
+    }
+    setCustomImageBusy(true);
+    setError(null);
+    try {
+      const prepared = await prepareCustomTaskImage(file);
+      if (pick !== customImagePickRef.current) return;
+      setCustomImagePreview((current) => {
+        if (current) URL.revokeObjectURL(current);
+        return URL.createObjectURL(prepared);
+      });
+      setCustomImage(prepared);
+    } catch (err) {
+      if (pick !== customImagePickRef.current) return;
+      clearCustomImage();
+      setError(err instanceof Error ? err.message : 'Could not read that photo.');
+    } finally {
+      if (pick === customImagePickRef.current) setCustomImageBusy(false);
+    }
+  }
+
   async function onCreateCustomTask(event: FormEvent) {
     event.preventDefault();
     if (!selectedStudentId) return;
+    if (!customQuestion.trim() && !customImage) {
+      setError('Type the question, or add a photo of the question or picture.');
+      return;
+    }
     setCustomCreating(true);
     setError(null);
     try {
+      const body = new FormData();
+      body.append('student_id', selectedStudentId);
+      body.append('prompt_type', customType);
+      if (customQuestion.trim()) body.append('question', customQuestion.trim());
+      if (customImage) body.append('image', customImage);
       const res = await apiFetch('/api/writing/custom-tasks', {
         method: 'POST',
-        body: JSON.stringify({
-          student_id: selectedStudentId,
-          question: customQuestion,
-          prompt_type: customType,
-        }),
+        body,
       });
       if (!res.response.ok) throw new Error(res.data.error || 'Could not create custom task');
       const task = res.data.task as { id?: unknown } | undefined;
       if (!task || typeof task.id !== 'string' || !task.id) {
         throw new Error('Custom task was created, but its workspace could not be opened.');
       }
+      clearCustomImage();
+      setCustomQuestion('');
       router.push(`/dashboard/writing/${task.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create custom task');
     } finally {
       setCustomCreating(false);
+    }
+  }
+
+  async function startWritingTrial() {
+    if (!selectedStudentId || startingTrial) return;
+    setStartingTrial(true);
+    setError(null);
+    try {
+      const res = await apiFetch('/api/subscription/start-trial', {
+        method: 'POST',
+        body: JSON.stringify({ student_id: selectedStudentId }),
+      });
+      if (!res.response.ok) {
+        throw new Error(res.data.error || 'Could not start the trial');
+      }
+      await loadDashboard(selectedStudentId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not start the trial');
+    } finally {
+      setStartingTrial(false);
     }
   }
 
@@ -449,7 +666,8 @@ export default function DashboardPage() {
     (item) =>
       item.subject === 'math' &&
       item.student_id === selectedStudentId &&
-      item.active,
+      item.active &&
+      item.access_kind !== 'trial',
   );
   const mathsPlayMode = showMaths && Boolean(selectedMathsAccess) && !mathsParentView;
 
@@ -522,23 +740,40 @@ export default function DashboardPage() {
 
       {(() => {
         if (!showWriting) return null;
-        const banner = subscriptionBanner(subscription, selectedStudentId);
+        const banner = subscriptionBanner(subscription, selectedStudentId, writingTrial);
         if (!banner) return null;
         const classes =
           banner.tone === 'warn'
             ? 'border-amber-300 bg-amber-50 text-amber-900'
             : 'border-[#C9DDD0] bg-[#EEF6F0] text-brand-dark';
+        const canStartTrial = Boolean(writingTrial?.eligible && !selectedWritingAccess);
         return (
           <div
             className={`flex flex-wrap items-center justify-between gap-3 rounded-md border px-4 py-3 ${classes}`}
           >
             <p className="text-sm">{banner.message}</p>
-            <Link
-              href="/subscription"
-              className="rounded-full bg-terracotta px-3 py-1.5 text-sm font-medium text-white hover:bg-terracotta-hover"
-            >
-              Manage subscription
-            </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              {canStartTrial ? (
+                <button
+                  type="button"
+                  onClick={() => void startWritingTrial()}
+                  disabled={startingTrial || !selectedStudentId}
+                  className="rounded-full bg-terracotta px-3 py-1.5 text-sm font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
+                >
+                  {startingTrial ? 'Starting…' : 'Start 7-day trial'}
+                </button>
+              ) : null}
+              <Link
+                href="/subscription"
+                className={
+                  canStartTrial
+                    ? 'rounded-full border border-brand px-3 py-1.5 text-sm font-medium text-brand hover:bg-[#EDF3ED]'
+                    : 'rounded-full bg-terracotta px-3 py-1.5 text-sm font-medium text-white hover:bg-terracotta-hover'
+                }
+              >
+                Manage subscription
+              </Link>
+            </div>
           </div>
         );
       })()}
@@ -706,7 +941,55 @@ export default function DashboardPage() {
 
           {showMaths ? null : !showWriting && yearProgram ? (
             <ProgramComingSoon program={yearProgram} />
-          ) : selectedWritingAccess ? (
+          ) : !selectedWritingAccess ? (
+            <section className="space-y-4 rounded-lg border border-warm-border bg-warm-card p-6 shadow-card">
+              {writingTrial?.had_trial && !writingTrial.eligible ? (
+                <>
+                  <h2 className="text-lg font-semibold text-warm-ink">
+                    The 7-day trial has ended
+                  </h2>
+                  <p className="text-sm text-warm-muted">
+                    This child has already used a 7-day trial. Buy a year to keep
+                    that writing and open the 11 writing units. Term reviews,
+                    bonus papers, and custom tasks stay in the full year.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-lg font-semibold text-warm-ink">Try Selective Writing</h2>
+                  <p className="text-sm text-warm-muted">
+                    7 days to decide. The 10 mini questions and one full writing task
+                    stay closed until you start the trial. After you start, you get
+                    three attempts on that task, with the same timer and notes as the
+                    paid year. Term reviews, bonus papers, and custom tasks stay in
+                    the full year.
+                  </p>
+                </>
+              )}
+              <div className="flex flex-wrap gap-3">
+                {writingTrial?.eligible ? (
+                  <button
+                    type="button"
+                    onClick={() => void startWritingTrial()}
+                    disabled={startingTrial || !selectedStudentId}
+                    className="rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
+                  >
+                    {startingTrial ? 'Starting…' : 'Start 7-day trial'}
+                  </button>
+                ) : writingTrial?.had_trial ? null : (
+                  <p className="text-sm text-warm-muted">
+                    Add a Year 4–7 profile to start a trial.
+                  </p>
+                )}
+                <Link
+                  href="/subscription"
+                  className="rounded-full border border-brand px-4 py-2 text-sm font-medium text-brand hover:bg-[#EDF3ED]"
+                >
+                  Buy a year · $99
+                </Link>
+              </div>
+            </section>
+          ) : (
             <>
           {recommendation ? (
             <section className="rounded-lg border border-[#D6E3D8] bg-[#EEF6F0] p-5 shadow-card">
@@ -718,66 +1001,159 @@ export default function DashboardPage() {
               </h2>
               <p className="mt-2 text-sm text-warm-muted">{recommendation.reason}</p>
               <Link
-                href={`/dashboard/writing/${recommendation.prompt_id}`}
+                href={
+                  recommendation.completed
+                    ? `/dashboard/writing/${recommendation.prompt_id}/results`
+                    : `/dashboard/writing/${recommendation.prompt_id}`
+                }
                 className="mt-4 inline-flex rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover"
               >
-                {recommendation.next_draft === 1
-                  ? 'Start this task'
-                  : `Continue draft ${recommendation.next_draft}`}
+                {recommendation.completed
+                  ? 'View results'
+                  : recommendation.next_draft === 1
+                    ? 'Start this task'
+                    : `Continue draft ${recommendation.next_draft}`}
               </Link>
             </section>
           ) : null}
 
-          <SeedPatch patch={rewards} />
-          <WeekNote note={weekNote} />
-
-          <div className="grid w-full gap-4 lg:grid-cols-2">
-            <WritingProgressLine history={history} />
-            {selectedStudentId ? (
-              <SubjectChat studentId={selectedStudentId} subject="writing" />
-            ) : null}
-          </div>
+          {selectedWritingAccess.access_kind === 'trial' ? null : (
+            <>
+              <SeedPatch patch={rewards} />
+              <WeekNote note={weekNote} />
+              <div className="grid w-full gap-4 lg:grid-cols-2">
+                <WritingProgressLine history={history} />
+                {selectedStudentId ? (
+                  <SubjectChat studentId={selectedStudentId} subject="writing" />
+                ) : null}
+              </div>
+            </>
+          )}
 
           <section className="space-y-8">
+            {selectedWritingAccess.access_kind === 'trial' ? (
+              trialPack ? (
+              <div id="trial-pack" className="space-y-4">
+                <DashboardGroupRow
+                  title="Free Trial"
+                  blurb="10 minis and one writing task"
+                  action={trialGroupOpen ? 'Close' : 'View pack'}
+                  expanded={trialGroupOpen}
+                  onClick={() => setTrialGroupOpen((open) => !open)}
+                />
+                {trialGroupOpen ? (
+                  <div className="space-y-4">
+                    <SeedPatch patch={rewards} />
+                    {selectedStudentId ? (
+                      <SubjectChat studentId={selectedStudentId} subject="writing" />
+                    ) : null}
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {trialPack.drills.map((drill, index) => (
+                        <Link
+                          key={drill.id}
+                          href={`/dashboard/unit/${trialPack.prompt.module_id}/practice/${drill.slug}`}
+                          className="group flex flex-col justify-between rounded-lg border border-warm-border bg-warm-card p-5 shadow-card transition hover:border-brand"
+                        >
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-semibold uppercase tracking-wide text-warm-subtle">
+                                Question {index + 1}
+                              </span>
+                              <span
+                                className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                  drill.attempted
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : 'bg-stone-100 text-stone-600'
+                                }`}
+                              >
+                                {drill.attempted ? 'Tried' : 'Open'}
+                              </span>
+                            </div>
+                            <h4 className="text-lg font-semibold text-warm-ink">
+                              {drill.title}
+                            </h4>
+                            <p className="text-sm text-warm-muted">
+                              {miniSkillLabel(drill.skill)}
+                            </p>
+                          </div>
+                        </Link>
+                      ))}
+                      <Link
+                        href={
+                          trialPack.prompt.max_draft >= 3
+                            ? `/dashboard/writing/${trialPack.prompt.id}/results`
+                            : `/dashboard/writing/${trialPack.prompt.id}`
+                        }
+                        className="group flex flex-col justify-between rounded-lg border border-warm-border bg-warm-card p-5 shadow-card transition hover:border-brand"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold uppercase tracking-wide text-warm-subtle">
+                              Writing task
+                            </span>
+                            <span
+                              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                trialPack.prompt.max_draft >= 3
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : trialPack.prompt.max_draft > 0
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-stone-100 text-stone-600'
+                              }`}
+                            >
+                              {trialPack.prompt.max_draft >= 3
+                                ? 'Completed'
+                                : trialPack.prompt.max_draft > 0
+                                  ? `Draft ${trialPack.prompt.max_draft}/3`
+                                  : 'Not started'}
+                            </span>
+                          </div>
+                          <h4 className="text-lg font-semibold text-warm-ink">
+                            {trialPack.prompt.title}
+                          </h4>
+                          <p className="text-sm text-warm-muted">
+                            Narrative · 30 minutes · {trialPack.prompt.max_draft}/3 drafts
+                          </p>
+                        </div>
+                      </Link>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+              ) : (
+                <p className="text-sm text-warm-muted">
+                  Your trial pack is still loading. Refresh to see the 10 mini
+                  questions and one writing task.
+                </p>
+              )
+            ) : null}
+
+            {selectedWritingAccess.access_kind === 'trial' ? null : (
             <div>
               <h2 className="text-lg font-medium text-warm-ink">Writing units</h2>
               <p className="mt-1 text-sm text-warm-muted">
-                Start any unit. Each one has mini practice and three full
-                writing tasks. Term reviews stay locked until you have tried
-                every full writing task in that unit at least once. One
-                sitting, one attempt only.
+                Start any unit. Each one has mini practice and three full writing tasks. Term reviews stay locked until you have tried every full writing task in that unit at least once. One sitting, one attempt only.
               </p>
             </div>
+            )}
             {UNIT_GROUPS.map((group) => {
               const groupUnits = unitsByGroup(group);
               const groupTests = termTests.filter((test) =>
                 groupUnits.some((unit) => unit.id === test.module_id),
               );
-              const expanded = expandedGroups.includes(group);
+              const trialLocked = selectedWritingAccess.access_kind === 'trial';
+              const expanded = !trialLocked && expandedGroups.includes(group);
               const loadingGroup = groupLoading === group;
 
               return (
               <div key={group} className="space-y-4">
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(group)}
-                  aria-expanded={expanded}
-                  className="flex w-full items-baseline justify-between gap-3 rounded-lg border border-brand-dark p-4 text-left text-white shadow-card"
-                  style={{
-                    background:
-                      'linear-gradient(145deg, #1E3F33 0%, #2D5A4A 58%, #4A7A64 100%)',
-                  }}
-                >
-                  <span className="flex items-baseline gap-3">
-                    <span className="text-sm font-bold uppercase tracking-wide">
-                      {group}
-                    </span>
-                    <span className="text-sm text-white/80">{GROUP_BLURBS[group]}</span>
-                  </span>
-                  <span className="shrink-0 text-sm font-semibold text-[#F0C9A8]">
-                    {expanded ? 'Close' : 'View units'}
-                  </span>
-                </button>
+                <DashboardGroupRow
+                  title={group}
+                  blurb={GROUP_BLURBS[group]}
+                  action={trialLocked ? 'Locked' : expanded ? 'Close' : 'View units'}
+                  expanded={expanded}
+                  locked={trialLocked}
+                  onClick={trialLocked ? undefined : () => toggleGroup(group)}
+                />
                 {expanded && loadingGroup ? (
                   <p className="px-1 text-sm text-warm-muted">Loading {group.toLowerCase()} units…</p>
                 ) : null}
@@ -852,11 +1228,11 @@ export default function DashboardPage() {
                         Term review
                       </h4>
                       <p className="mt-1 text-sm text-warm-muted">
-                        {groupTests.length} test
-                        {groupTests.length === 1 ? '' : 's'} — one for each{' '}
-                        {group.toLowerCase()} unit. Unlock a review by trying
-                        all three full writing tasks in that unit. Exam-style:
-                        one sitting, AI marking, no re-attempt.
+                        {selectedWritingAccess.access_kind === 'trial'
+                          ? 'Term reviews stay in the full year. The trial is 10 mini questions and one full writing task with three attempts.'
+                          : `${groupTests.length} test${
+                              groupTests.length === 1 ? '' : 's'
+                            } — one for each ${group.toLowerCase()} unit. Unlock a review by trying all three full writing tasks in that unit. Exam-style: one sitting, AI marking, no re-attempt.`}
                       </p>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -885,7 +1261,9 @@ export default function DashboardPage() {
                                   ? `Sat · ${test.overall_score}/25`
                                   : 'Sat · marked'
                                 : test.locked
-                                  ? total > 0
+                                  ? selectedWritingAccess.access_kind === 'trial'
+                                    ? 'Locked · in the full year'
+                                    : total > 0
                                     ? `Locked · ${tried}/${total} writing tasks tried`
                                     : 'Locked · try the unit writing tasks first'
                                   : 'Ready · not started'}
@@ -921,6 +1299,24 @@ export default function DashboardPage() {
               );
             })}
 
+            {selectedWritingAccess.access_kind === 'trial' ? (
+              <>
+                <DashboardGroupRow
+                  title="Custom tasks"
+                  blurb="Your own writing questions"
+                  action="Locked"
+                  expanded={false}
+                  locked
+                />
+                <DashboardGroupRow
+                  title="Bonus exam papers"
+                  blurb="Exam-style writing, after the course"
+                  action="Locked"
+                  expanded={false}
+                  locked
+                />
+              </>
+            ) : (
             <div className="space-y-4">
               <button
                 type="button"
@@ -944,10 +1340,10 @@ export default function DashboardPage() {
                 <section className="space-y-4 rounded-lg border border-warm-border bg-warm-card p-5 shadow-card">
                   <p className="text-sm text-warm-muted">
                     Add up to 20 personal tasks for this student. Each task has one timed attempt and one TrialSeed mark.
+                    If the task is a worksheet or a picture to write from, add a photo. You can type extra instructions as well.
                   </p>
                   <form onSubmit={onCreateCustomTask} className="space-y-3">
                     <textarea
-                      required
                       maxLength={2000}
                       value={customQuestion}
                       onChange={(event) => setCustomQuestion(event.target.value)}
@@ -955,6 +1351,38 @@ export default function DashboardPage() {
                       placeholder="Paste or write your own writing question…"
                       className="w-full rounded-lg border border-warm-border p-3"
                     />
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-warm-ink">
+                        Photo of the question or picture
+                        <input
+                          ref={customImageInputRef}
+                          type="file"
+                          accept={CUSTOM_TASK_IMAGE_ACCEPT}
+                          onChange={(event) => void onPickCustomImage(event.target.files?.[0] ?? null)}
+                          className="mt-1 block w-full text-sm text-warm-muted file:mr-3 file:rounded-full file:border-0 file:bg-terracotta file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
+                        />
+                      </label>
+                      {customImagePreview ? (
+                        <div className="flex items-start gap-3">
+                          <img
+                            src={customImagePreview}
+                            alt="Preview of the task photo"
+                            className="h-28 w-28 rounded-lg object-contain bg-white ring-1 ring-warm-border"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void onPickCustomImage(null)}
+                            className="text-sm text-warm-muted underline"
+                          >
+                            Remove photo
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-warm-subtle">
+                          A phone photo of a worksheet, or a picture to write from, is fine. Large photos are resized automatically.
+                        </p>
+                      )}
+                    </div>
                     <div className="flex flex-wrap gap-3">
                       <select
                         value={customType}
@@ -967,10 +1395,10 @@ export default function DashboardPage() {
                       </select>
                       <button
                         type="submit"
-                        disabled={customCreating || customTasks.length >= 20}
+                        disabled={customCreating || customImageBusy || customTasks.length >= 20 || (!customQuestion.trim() && !customImage)}
                         className="rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                       >
-                        {customCreating ? 'Adding…' : 'Add My Own Task'}
+                        {customCreating ? 'Adding…' : customImageBusy ? 'Preparing photo…' : 'Add My Own Task'}
                       </button>
                     </div>
                   </form>
@@ -988,7 +1416,16 @@ export default function DashboardPage() {
                             {typeLabel(task.prompt_type)}
                           </p>
                           <p className="mt-1 font-semibold text-warm-ink">{task.title}</p>
-                          <p className="mt-2 line-clamp-3 text-sm text-warm-muted">{task.description}</p>
+                          {task.stimulus_image ? (
+                            <img
+                              src={task.stimulus_image}
+                              alt=""
+                              className="mt-2 h-28 w-full rounded-md bg-white object-contain ring-1 ring-warm-border"
+                            />
+                          ) : null}
+                          <p className="mt-2 line-clamp-3 text-sm text-warm-muted">
+                            {task.description.trim() || (task.stimulus_image ? 'Write from this photo' : '')}
+                          </p>
                           <p className="mt-3 text-sm text-brand">
                             {task.max_draft > 0 ? 'View saved result' : 'Start task'}
                           </p>
@@ -1001,8 +1438,9 @@ export default function DashboardPage() {
                 </section>
               ) : null}
             </div>
+            )}
 
-            {bonusPapers ? (
+            {bonusPapers && selectedWritingAccess.access_kind !== 'trial' ? (
               <section
                 data-testid="bonus-exam-papers"
                 className="relative overflow-hidden rounded-lg border border-brand-dark p-6 text-white shadow-float"
@@ -1029,10 +1467,7 @@ export default function DashboardPage() {
                         Exam-style writing, after the course
                       </h3>
                       <p className="mt-2 max-w-2xl text-sm text-white/80">
-                        Original TrialSeed papers in the forms used on recent
-                        Selective writing tests. One sitting, 30 minutes, no
-                        re-attempt. Unlock them by trying every full writing
-                        task and every term review at least once.
+                        Original TrialSeed papers in the forms used on recent Selective writing tests. One sitting, 30 minutes, no re-attempt. Unlock them by trying every full writing task and every term review at least once.
                       </p>
                     </div>
                     <span className="rounded-full border border-[#E5B993] bg-[#C49B7A] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
@@ -1103,21 +1538,6 @@ export default function DashboardPage() {
             ) : null}
           </section>
             </>
-          ) : (
-            <section className="rounded-lg border border-amber-300 bg-amber-50 p-5 text-amber-900">
-              <h2 className="font-serif text-xl font-semibold">Writing access needed</h2>
-              <p className="mt-1 text-sm">
-                {activeStudent?.name ?? 'This child'} has a separate profile, so their
-                work stays private and is never mixed with another child’s work. Choose
-                a yearly Selective Writing access for this child to start.
-              </p>
-              <Link
-                href="/subscription"
-                className="mt-4 inline-flex rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover"
-              >
-                Manage this child&apos;s access
-              </Link>
-            </section>
           )}
         </>
       )}
