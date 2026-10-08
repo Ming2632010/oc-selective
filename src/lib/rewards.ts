@@ -120,19 +120,25 @@ export function seedsForMini(input: {
   isCorrect: boolean;
   alreadyTried: boolean;
   miniSeedsToday: number;
+  kind?: 'mini' | 'maths';
 }): { seeds: number; label: string; capped: boolean } {
   let seeds: number;
   let label: string;
+  const maths = input.kind === 'maths';
 
   if (input.alreadyTried) {
     seeds = input.isCorrect ? 1 : 0;
-    label = input.isCorrect ? 'Mini retry — correct' : 'Mini retry';
+    if (maths) {
+      label = input.isCorrect ? 'Maths retry — correct' : 'Maths retry';
+    } else {
+      label = input.isCorrect ? 'Mini retry — correct' : 'Mini retry';
+    }
   } else if (input.isCorrect) {
     seeds = 3;
-    label = 'Mini practice — correct';
+    label = maths ? 'Maths question — correct' : 'Mini practice — correct';
   } else {
     seeds = 1;
-    label = 'Mini practice — tried';
+    label = maths ? 'Maths question — tried' : 'Mini practice — tried';
   }
 
   const room = Math.max(0, MINI_DAILY_SEED_CAP - input.miniSeedsToday);

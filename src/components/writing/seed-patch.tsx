@@ -19,13 +19,58 @@ export type SeedPatchData = {
   recent: { seeds: number; label: string; source: string }[];
 };
 
-export function SeedPatch({ patch }: { patch: SeedPatchData | null }) {
+export function SeedPatch({
+  patch,
+  variant = 'writing',
+  parentView = false,
+  compact = false,
+}: {
+  patch: SeedPatchData | null;
+  variant?: 'writing' | 'maths';
+  parentView?: boolean;
+  compact?: boolean;
+}) {
+  const maths = variant === 'maths';
+  if (maths && !parentView) {
+    const seeds = patch?.lifetime_seeds ?? 0;
+    const stage = patch?.stage.label ?? 'Sprout';
+    return (
+      <section
+        className={`w-full overflow-hidden rounded-3xl border border-amber-200/80 bg-[#f6f1e6] text-center ${
+          compact ? 'px-3 py-3' : 'px-5 pb-6 pt-8 shadow-float'
+        }`}
+      >
+        <p
+          className={`font-serif font-semibold leading-none text-stone-900 ${
+            compact ? 'text-2xl' : 'text-[48px]'
+          }`}
+          aria-label={`${seeds} ${seeds === 1 ? 'seed' : 'seeds'}`}
+        >
+          {seeds}
+        </p>
+        <p className={`text-stone-600 ${compact ? 'mt-1 text-sm' : 'mt-2 text-lg'}`}>
+          {seeds === 1 ? 'seed' : 'seeds'}
+          <span className="mx-2 text-stone-300" aria-hidden>
+            ·
+          </span>
+          <span>{stage}</span>
+        </p>
+        <SeedGardenScene
+          stageId={patch?.stage.id ?? 'sprout'}
+          showStageRail={false}
+          className={`mx-auto ${compact ? 'mt-3' : 'mt-5 max-w-3xl'}`}
+        />
+      </section>
+    );
+  }
   if (!patch) {
     return (
       <section className="rounded-xl border border-amber-200/80 bg-[#f6f1e6] p-5">
         <h2 className="text-lg font-semibold text-stone-900">Seed Patch</h2>
         <p className="mt-1 text-sm text-stone-600">
-          Seeds appear after the first mini question or writing task.
+          {maths
+            ? 'Seeds appear after the first Maths question.'
+            : 'Seeds appear after the first mini question or writing task.'}
         </p>
       </section>
     );
@@ -105,23 +150,27 @@ export function SeedPatch({ patch }: { patch: SeedPatchData | null }) {
         </div>
         <div className="rounded-lg bg-white/80 p-3">
           <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
-            Focused writing
+            {maths ? 'Practice this week' : 'Focused writing'}
           </p>
           <p className="mt-1 text-sm text-stone-800">
-            {patch.focused_minutes_week} minute
-            {patch.focused_minutes_week === 1 ? '' : 's'} this week
+            {maths
+              ? `${patch.plot_days} day${patch.plot_days === 1 ? '' : 's'} on the plot`
+              : `${patch.focused_minutes_week} minute${
+                  patch.focused_minutes_week === 1 ? '' : 's'
+                } this week`}
           </p>
           <p className="mt-1 text-xs text-stone-500">
-            From full tasks and term reviews, not the timer sitting idle.
+            {maths
+              ? 'Show up on consecutive Sydney days. A rain cheque covers one missed day.'
+              : 'From full tasks and term reviews, not the timer sitting idle.'}
           </p>
         </div>
       </div>
 
       <p className="mt-4 text-xs leading-relaxed text-stone-600">
-        Mini questions grow the patch a little (capped each day). Full drafts pay
-        more. Term reviews pay the most — sitting, your mark, and a focused
-        exam sitting all count. Show up on consecutive Sydney days to keep the
-        plot; a rain cheque covers one missed day.
+        {maths
+          ? 'Each Maths question grows the patch a little, with a daily cap so tapping through does not replace sitting together. Show up on consecutive Sydney days to keep the plot; a rain cheque covers one missed day.'
+          : 'Mini questions grow the patch a little (capped each day). Full drafts pay more. Term reviews pay the most — sitting, your mark, and a focused exam sitting all count. Show up on consecutive Sydney days to keep the plot; a rain cheque covers one missed day.'}
       </p>
 
       {patch.recent.length > 0 ? (

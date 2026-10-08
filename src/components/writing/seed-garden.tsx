@@ -6,9 +6,11 @@ type StageId = (typeof GROWTH_STAGES)[number]['id'];
 export function SeedGardenScene({
   stageId,
   className,
+  showStageRail = true,
 }: {
   stageId: string;
   className?: string;
+  showStageRail?: boolean;
 }) {
   const stage = (
     GROWTH_STAGES.some((row) => row.id === stageId) ? stageId : 'sprout'
@@ -45,6 +47,7 @@ export function SeedGardenScene({
           ))}
         </ol>
       </div>
+      {showStageRail ? (
       <ol className="mt-2 grid grid-cols-6 gap-1">
         {GROWTH_STAGES.map((row, index) => {
           const state =
@@ -70,6 +73,7 @@ export function SeedGardenScene({
           );
         })}
       </ol>
+      ) : null}
     </figure>
   );
 }

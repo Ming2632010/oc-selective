@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { publicPrograms } from '@/lib/programs';
 import { getSiteUrl } from '@/lib/site';
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -7,18 +8,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   return [
     { url: base, lastModified, changeFrequency: 'weekly', priority: 1 },
-    {
-      url: `${base}/selective-trial`,
+    ...publicPrograms().map((program) => ({
+      url: `${base}${program.href}`,
       lastModified,
-      changeFrequency: 'weekly',
+      changeFrequency: 'weekly' as const,
       priority: 0.9,
-    },
-    {
-      url: `${base}/oc-trial`,
-      lastModified,
-      changeFrequency: 'weekly',
-      priority: 0.9,
-    },
+    })),
     {
       url: `${base}/register`,
       lastModified,

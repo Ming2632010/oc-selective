@@ -66,6 +66,27 @@ describe('seedsForMini', () => {
     assert.equal(award.seeds, 1);
     assert.equal(award.capped, true);
   });
+
+  it('names Maths awards as Maths questions, not mini practice', () => {
+    assert.equal(
+      seedsForMini({
+        isCorrect: true,
+        alreadyTried: false,
+        miniSeedsToday: 0,
+        kind: 'maths',
+      }).label,
+      'Maths question — correct',
+    );
+    assert.equal(
+      seedsForMini({
+        isCorrect: false,
+        alreadyTried: false,
+        miniSeedsToday: 0,
+        kind: 'maths',
+      }).label,
+      'Maths question — tried',
+    );
+  });
 });
 
 describe('seedsForWriting', () => {

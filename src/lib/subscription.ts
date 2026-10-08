@@ -43,6 +43,12 @@ export function activeWritingEntitlementSql(): string {
           AND (expires_at IS NULL OR expires_at > NOW())`;
 }
 
+export function activeMathEntitlementSql(): string {
+  return `status = 'active'
+          AND subject = 'math'
+          AND (expires_at IS NULL OR expires_at > NOW())`;
+}
+
 /** Infer the human-facing plan name from stored subscription state. */
 export function planFromStatus(
   status: string | null | undefined,

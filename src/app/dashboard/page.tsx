@@ -21,7 +21,18 @@ import { MINI_SKILL_LABELS, type MiniSkill } from '@/lib/seed-mini-drills';
 import { WritingProgressLine, type HistoryPoint } from '@/components/writing/progress-line';
 import { SeedPatch, type SeedPatchData } from '@/components/writing/seed-patch';
 import { WeekNote } from '@/components/writing/week-note';
+import { ProgramComingSoon } from '@/components/dashboard/program-coming-soon';
+import {
+  DEFAULT_STUDENT_GRADE,
+  STUDENT_GRADES,
+  isStudentGrade,
+  programForGrade,
+  usesMathsDashboard,
+  usesWritingDashboard,
+} from '@/lib/student-grades';
+import { KY1_SUBJECT_PRICE_AUD } from '@/lib/subjects';
 import type { WeekNoteData } from '@/lib/week-note';
+import { MathsHome, type MathsOverview } from '@/components/dashboard/maths-home';
 
 const SubjectChat = dynamic(
   () => import('@/components/writing/subject-chat').then((module) => module.SubjectChat),
@@ -334,6 +345,7 @@ export default function DashboardPage() {
   const customImagePickRef = useRef(0);
   const [customType, setCustomType] = useState('narrative');
   const [customCreating, setCustomCreating] = useState(false);
+  const [mathsOverview, setMathsOverview] = useState<MathsOverview | null>(null);
   const [writingTrial, setWritingTrial] = useState<WritingTrialInfo | null>(null);
   const [trialPack, setTrialPack] = useState<TrialPackInfo | null>(null);
   const [trialGroupOpen, setTrialGroupOpen] = useState(false);
@@ -342,8 +354,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   const [newName, setNewName] = useState('');
-  const [newGrade, setNewGrade] = useState('Year 5');
+  const [newGrade, setNewGrade] = useState(DEFAULT_STUDENT_GRADE);
   const [creating, setCreating] = useState(false);
+  const [mathsParentView, setMathsParentView] = useState(false);
 
   async function loadDashboard(requestedStudentId?: string | null) {
     if (!getToken()) {
@@ -360,6 +373,7 @@ export default function DashboardPage() {
       setWeekNote(null);
       setHistory([]);
       setRecommendation(null);
+      setMathsOverview(null);
       setWritingTrial(null);
       setTrialPack(null);
       setTrialGroupOpen(false);
@@ -383,7 +397,8 @@ export default function DashboardPage() {
         throw new Error(res.data.error || 'Failed to load dashboard');
       }
       setUserName(res.data.user?.full_name || res.data.user?.email || 'there');
-      setStudents((res.data.students as Student[]) || []);
+      const studentList = (res.data.students as Student[]) || [];
+      setStudents(studentList);
       setSubscription({
         subscriptions: (res.data.subscriptions as SubscriptionItem[]) || [],
         has_active: Boolean(res.data.has_active),
@@ -408,6 +423,27 @@ export default function DashboardPage() {
       setTrialPack((res.data.trial_pack as TrialPackInfo | null) ?? null);
       const isTrial = (res.data.writing_access as string | undefined) === 'trial';
       setTrialGroupOpen(isTrial);
+      const selectedStudent = studentList.find((student) => student.id === selected);
+      const hasMathsAccess = ((res.data.subscriptions as SubscriptionItem[]) || []).some(
+        (item) =>
+          item.subject === 'math' &&
+          item.student_id === selected &&
+          item.active &&
+          item.access_kind !== 'trial',
+      );
+      if (
+        selected &&
+        selectedStudent &&
+        usesMathsDashboard(selectedStudent.grade) &&
+        hasMathsAccess
+      ) {
+        const mathsRes = await apiFetch(`/api/maths/overview?student_id=${selected}`);
+        if (mathsRes.response.ok) {
+          setMathsOverview(mathsRes.data as MathsOverview);
+        }
+      } else {
+        setMathsOverview(null);
+      }
       const suggestedGroup =
         UNIT_GROUPS.find((group) =>
           unitsByGroup(group).some((unit) => unit.id === guidance?.recommendation?.module_id),
@@ -617,15 +653,58 @@ export default function DashboardPage() {
 
   const activeStudent =
     students.find((s) => s.id === selectedStudentId) ?? null;
+  const showWriting = usesWritingDashboard(activeStudent?.grade ?? '');
+  const showMaths = usesMathsDashboard(activeStudent?.grade ?? '');
+  const yearProgram = activeStudent ? programForGrade(activeStudent.grade) : null;
   const selectedWritingAccess = subscription?.subscriptions.find(
     (item) =>
       item.subject === 'writing' &&
       item.student_id === selectedStudentId &&
       item.active,
   );
+  const selectedMathsAccess = subscription?.subscriptions.find(
+    (item) =>
+      item.subject === 'math' &&
+      item.student_id === selectedStudentId &&
+      item.active &&
+      item.access_kind !== 'trial',
+  );
+  const mathsPlayMode = showMaths && Boolean(selectedMathsAccess) && !mathsParentView;
 
   return (
     <main className="mx-auto max-w-5xl space-y-8 p-6">
+      {mathsPlayMode ? (
+        <header className="flex justify-end">
+          <details className="relative">
+            <summary className="cursor-pointer list-none rounded-full px-2 py-1 text-xl leading-none text-warm-subtle hover:text-warm-ink [&::-webkit-details-marker]:hidden">
+              <span aria-hidden>⋯</span>
+              <span className="sr-only">Grown-ups menu</span>
+            </summary>
+            <div className="absolute right-0 z-20 mt-2 w-48 rounded-xl border border-warm-border bg-white p-2 shadow-float">
+              <button
+                type="button"
+                onClick={() => setMathsParentView(true)}
+                className="block w-full rounded-lg px-3 py-2 text-left text-sm text-warm-ink hover:bg-[#F7F5F0]"
+              >
+                Grown-ups
+              </button>
+              <Link
+                href="/subscription"
+                className="block rounded-lg px-3 py-2 text-sm text-warm-ink hover:bg-[#F7F5F0]"
+              >
+                Subscription
+              </Link>
+              <button
+                type="button"
+                onClick={logout}
+                className="block w-full rounded-lg px-3 py-2 text-left text-sm text-warm-ink hover:bg-[#F7F5F0]"
+              >
+                Log out
+              </button>
+            </div>
+          </details>
+        </header>
+      ) : (
       <header
         className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand-dark p-5 text-white shadow-float"
         style={{
@@ -653,12 +732,14 @@ export default function DashboardPage() {
           </button>
         </div>
       </header>
+      )}
 
       {error ? (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
       ) : null}
 
       {(() => {
+        if (!showWriting) return null;
         const banner = subscriptionBanner(subscription, selectedStudentId, writingTrial);
         if (!banner) return null;
         const classes =
@@ -704,13 +785,13 @@ export default function DashboardPage() {
               Let&apos;s set up a student profile
             </h2>
             <p className="mt-1 text-sm text-warm-muted">
-              Add the student who will be practising so we can track their
-              progress across all eleven units.
+              Add the student who will be practising. Choose their school year
+              so we can show the right path.
             </p>
           </div>
           <form
             onSubmit={onCreateStudent}
-            className="grid gap-3 sm:grid-cols-[1fr_10rem_auto]"
+            className="grid gap-3 sm:grid-cols-[1fr_12rem_auto]"
           >
             <input
               required
@@ -721,10 +802,12 @@ export default function DashboardPage() {
             />
             <select
               value={newGrade}
-              onChange={(e) => setNewGrade(e.target.value)}
+              onChange={(e) => {
+                if (isStudentGrade(e.target.value)) setNewGrade(e.target.value);
+              }}
               className="rounded-lg border border-warm-border bg-warm-card px-3 py-2"
             >
-              {['Year 4', 'Year 5', 'Year 6', 'Year 7'].map((g) => (
+              {STUDENT_GRADES.map((g) => (
                 <option key={g} value={g}>
                   {g}
                 </option>
@@ -741,7 +824,10 @@ export default function DashboardPage() {
         </section>
       ) : (
         <>
-          <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warm-border bg-warm-card p-4 shadow-card">
+          {!mathsPlayMode ? (
+          <section
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warm-border bg-warm-card p-4 shadow-card"
+          >
             <div>
               <p className="text-sm text-warm-subtle">Student</p>
               <p className="text-lg font-medium text-warm-ink">
@@ -749,14 +835,26 @@ export default function DashboardPage() {
                 <span className="text-warm-subtle">· {activeStudent?.grade}</span>
               </p>
             </div>
-            {students.length > 1 ? (
-              <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {showMaths && mathsParentView ? (
+                <button
+                  type="button"
+                  onClick={() => setMathsParentView(false)}
+                  className="rounded-full px-4 py-2 text-sm text-warm-ink hover:bg-[#F7F5F0]"
+                >
+                  Back to the game
+                </button>
+              ) : null}
+              {students.length > 1 ? (
+              <div className="flex flex-wrap justify-center gap-2">
                 {students.map((student) => (
                   <button
                     key={student.id}
                     type="button"
                     onClick={() => onSelectStudent(student.id)}
-                    className={`rounded-full px-3 py-2 text-sm ${
+                    className={`rounded-full px-4 py-2 ${
+                      showMaths ? 'text-lg' : 'text-sm'
+                    } ${
                       selectedStudentId === student.id
                         ? 'bg-brand text-white'
                         : 'border border-warm-border bg-warm-card text-warm-ink hover:border-brand'
@@ -766,10 +864,84 @@ export default function DashboardPage() {
                   </button>
                 ))}
               </div>
-            ) : null}
+              ) : null}
+            </div>
           </section>
+          ) : null}
 
-          {!selectedWritingAccess ? (
+          {showMaths ? (
+            selectedMathsAccess ? (
+            <MathsHome
+              overview={mathsOverview}
+              grade={activeStudent?.grade ?? 'Kindergarten'}
+              parentView={mathsParentView}
+            />
+            ) : (
+            <section className="rounded-lg border border-amber-300 bg-amber-50 p-5 text-amber-900">
+              <h2 className="font-serif text-xl font-semibold">K–Y1 Maths access needed</h2>
+              <p className="mt-1 text-sm">
+                {activeStudent?.name ?? 'This child'} can start Kindergarten and Year 1
+                Maths after a one-year access is chosen. It is ${KY1_SUBJECT_PRICE_AUD}{' '}
+                AUD, paid once.
+              </p>
+              <Link
+                href="/subscription"
+                className="mt-4 inline-flex rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover"
+              >
+                Buy K–Y1 Maths
+              </Link>
+            </section>
+            )
+          ) : null}
+
+          {!mathsPlayMode ? (
+          <section className="space-y-3 rounded-lg border border-warm-border bg-warm-card p-4 shadow-card">
+            <div>
+              <h2 className="text-lg font-semibold text-warm-ink">Add another child</h2>
+              <p className="text-sm text-warm-muted">
+                Each child has their own progress. Year 4–7 profiles use
+                Selective Writing. Kindergarten and Year 1 profiles use K–Y1
+                Maths. Later years open as those paths are ready.
+              </p>
+            </div>
+            <form
+              onSubmit={onCreateStudent}
+              className="grid gap-3 sm:grid-cols-[1fr_12rem_auto]"
+            >
+              <input
+                required
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Child name"
+                className="rounded-lg border border-warm-border bg-warm-card px-3 py-2"
+              />
+              <select
+                value={newGrade}
+                onChange={(e) => {
+                if (isStudentGrade(e.target.value)) setNewGrade(e.target.value);
+              }}
+                className="rounded-lg border border-warm-border bg-warm-card px-3 py-2"
+              >
+                {STUDENT_GRADES.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="submit"
+                disabled={creating}
+                className="rounded-full bg-terracotta px-4 py-2 font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
+              >
+                {creating ? 'Adding…' : 'Add child'}
+              </button>
+            </form>
+          </section>
+          ) : null}
+
+          {showMaths ? null : !showWriting && yearProgram ? (
+            <ProgramComingSoon program={yearProgram} />
+          ) : !selectedWritingAccess ? (
             <section className="space-y-4 rounded-lg border border-warm-border bg-warm-card p-6 shadow-card">
               {writingTrial?.had_trial && !writingTrial.eligible ? (
                 <>
@@ -1367,45 +1539,6 @@ export default function DashboardPage() {
           </section>
             </>
           )}
-
-          <section className="space-y-3 rounded-lg border border-warm-border bg-warm-card p-4 shadow-card">
-            <div>
-              <h2 className="text-lg font-semibold text-warm-ink">Add another child</h2>
-              <p className="text-sm text-warm-muted">
-                Each child has their own progress and needs their own Selective Writing access.
-              </p>
-            </div>
-            <form
-              onSubmit={onCreateStudent}
-              className="grid gap-3 sm:grid-cols-[1fr_10rem_auto]"
-            >
-              <input
-                required
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="Child name"
-                className="rounded-lg border border-warm-border bg-warm-card px-3 py-2"
-              />
-              <select
-                value={newGrade}
-                onChange={(e) => setNewGrade(e.target.value)}
-                className="rounded-lg border border-warm-border bg-warm-card px-3 py-2"
-              >
-                {['Year 4', 'Year 5', 'Year 6', 'Year 7'].map((g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="submit"
-                disabled={creating}
-                className="rounded-full bg-terracotta px-4 py-2 font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
-              >
-                {creating ? 'Adding…' : 'Add child'}
-              </button>
-            </form>
-          </section>
         </>
       )}
     </main>

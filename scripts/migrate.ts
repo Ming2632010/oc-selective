@@ -9,6 +9,8 @@ const files = [
   'sql/release_migration.sql',
   'sql/writing_trial.sql',
   'sql/custom_task_images.sql',
+  'sql/early_math.sql',
+  'sql/early_math_unit7.sql',
 ];
 
 async function main() {
@@ -29,6 +31,10 @@ async function main() {
   } finally {
     await pool.end();
   }
+
+  const { seedEarlyMathContent } = await import('../src/lib/early-math-state');
+  await seedEarlyMathContent();
+  console.log('Seeded K–Y1 Maths questions without replacing student work.');
 }
 
 main().catch((error) => {

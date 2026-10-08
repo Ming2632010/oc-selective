@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { getAppUrl, getStripeClient } from '@/lib/stripe';
-import { isAvailableSubject, isSubject, priceIdForSubject } from '@/lib/subjects';
+import { isPurchasableSubject, isSubject, priceIdForPurchase } from '@/lib/subjects';
+import { usesMathsDashboard, usesWritingDashboard } from '@/lib/student-grades';
 import { isRateLimited } from '@/lib/rate-limit';
 import { isMissingStripeCustomer } from '@/lib/stripe-customer';
 import { ensureWritingTrialColumns } from '@/lib/writing-trial-schema';
@@ -46,21 +47,41 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    if (!isAvailableSubject(subject)) {
-      return NextResponse.json(
-        { error: 'This subject is coming soon. Selective Writing is available now.' },
-        { status: 409 },
-      );
-    }
     if (!studentId) {
       return NextResponse.json({ error: 'student_id is required' }, { status: 400 });
     }
-    const student = await query<{ id: string }>(
-      `SELECT id FROM students WHERE id = $1 AND user_id = $2 AND is_active = TRUE LIMIT 1`,
+    const student = await query<{ id: string; grade: string }>(
+      `SELECT id, grade FROM students WHERE id = $1 AND user_id = $2 AND is_active = TRUE LIMIT 1`,
       [studentId, userId],
     );
     if (!student.rows[0]) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    }
+    const grade = student.rows[0].grade;
+    if (!isPurchasableSubject(subject, grade)) {
+      if (subject === 'math' && !usesMathsDashboard(grade)) {
+        return NextResponse.json(
+          {
+            error:
+              'K–Y1 Maths is for Kindergarten and Year 1 profiles. Selective Math is not for sale yet.',
+          },
+          { status: 409 },
+        );
+      }
+      if (subject === 'writing' && !usesWritingDashboard(grade)) {
+        return NextResponse.json(
+          {
+            error: usesMathsDashboard(grade)
+              ? 'Selective Writing is for Year 4–7 profiles. This child can buy K–Y1 Maths instead.'
+              : 'Selective Writing is for Year 4–7 profiles. Year-level courses for this child are not for sale yet.',
+          },
+          { status: 409 },
+        );
+      }
+      return NextResponse.json(
+        { error: 'This subject is coming soon. Selective Writing and K–Y1 Maths are available now.' },
+        { status: 409 },
+      );
     }
     const existing = await query<{ id: string }>(
       `SELECT id FROM user_subscriptions
@@ -72,12 +93,17 @@ export async function POST(request: Request) {
     );
     if (existing.rows[0]) {
       return NextResponse.json(
-        { error: 'This student already has active Selective Writing access.' },
+        {
+          error:
+            subject === 'math'
+              ? 'This student already has active K–Y1 Maths access.'
+              : 'This student already has active Selective Writing access.',
+        },
         { status: 409 },
       );
     }
 
-    const priceId = priceIdForSubject(subject);
+    const priceId = priceIdForPurchase(subject, grade);
     if (!priceId) {
       return NextResponse.json(
         { error: `No Stripe price configured for subject "${subject}"` },

@@ -20,8 +20,15 @@ export default function SubscriptionConfirmPage() {
       attempts += 1;
       const res = await apiFetch('/api/subscription/status');
       const subscriptions = Array.isArray(res.data.subscriptions) ? res.data.subscriptions : [];
-      if (subscriptions.some((sub: { student_id?: string; subject?: string; active?: boolean }) =>
-        sub.student_id === studentId && sub.subject === 'writing' && sub.active,
+      if (subscriptions.some((sub: {
+        student_id?: string;
+        subject?: string;
+        active?: boolean;
+        access_kind?: string;
+      }) =>
+        sub.student_id === studentId &&
+        sub.active &&
+        sub.access_kind !== 'trial',
       )) {
         window.clearInterval(timer);
         router.replace('/dashboard');
