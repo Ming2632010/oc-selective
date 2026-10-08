@@ -5,14 +5,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch, getStudentId, getToken, setStudentId as persistStudentId } from '@/lib/client-auth';
 import {
+  KY1_SUBJECT_PRICE_AUD,
   SUBJECTS,
   SUBJECT_BLURBS,
   SUBJECT_LABELS,
   SUBJECT_PRICE_AUD,
-  isAvailableSubject,
+  isPurchasableSubject,
+  priceAudForPurchase,
   type Subject,
 } from '@/lib/subjects';
-import { usesWritingDashboard } from '@/lib/student-grades';
+import { usesMathsDashboard, usesWritingDashboard } from '@/lib/student-grades';
 
 type SubscriptionItem = {
   id: string;
@@ -91,7 +93,9 @@ export default function SubscriptionPage() {
 
   const hasBilling = (data?.subscriptions?.length ?? 0) > 0;
   const selectedStudent = students.find((student) => student.id === studentId) ?? null;
-  const canBuyWriting = usesWritingDashboard(selectedStudent?.grade ?? '');
+  const selectedGrade = selectedStudent?.grade ?? '';
+  const canBuyWriting = usesWritingDashboard(selectedGrade);
+  const canBuyKy1Maths = usesMathsDashboard(selectedGrade);
   const unassignedWriting = (data?.subscriptions ?? []).find(
     (subscription) =>
       subscription.subject === 'writing' && subscription.active && !subscription.student_id,
@@ -171,9 +175,9 @@ export default function SubscriptionPage() {
           <p className="text-sm uppercase tracking-wide text-warm-subtle">Subscription</p>
           <h1 className="text-3xl font-semibold text-warm-ink">Choose your subjects</h1>
           <p className="mt-1 text-sm text-warm-muted">
-            Selective Writing is ${SUBJECT_PRICE_AUD} AUD for one year. Access
-            lasts twelve months from the day you buy. More subjects are on the
-            way.
+            {canBuyKy1Maths
+              ? `K–Y1 Maths is $${KY1_SUBJECT_PRICE_AUD} AUD for one year. Access lasts twelve months from the day you buy.`
+              : `Selective Writing is $${SUBJECT_PRICE_AUD} AUD for one year. Access lasts twelve months from the day you buy. More subjects are on the way.`}
           </p>
         </div>
         <Link
@@ -221,7 +225,13 @@ export default function SubscriptionPage() {
               Add a child profile on the <Link href="/dashboard">dashboard</Link> before purchasing access.
             </p>
           ) : null}
-          {selectedStudent && !canBuyWriting ? (
+          {selectedStudent && canBuyKy1Maths ? (
+            <p className="rounded-md border border-[#C9DDD0] bg-[#EEF6F0] px-4 py-3 text-sm text-brand-dark">
+              {selectedStudent.name} is in {selectedStudent.grade}. K–Y1 Maths
+              is open now at ${KY1_SUBJECT_PRICE_AUD} AUD for one year. English
+              and Reading for this path are still coming soon.
+            </p>
+          ) : selectedStudent && !canBuyWriting ? (
             <p className="rounded-md border border-[#C9DDD0] bg-[#EEF6F0] px-4 py-3 text-sm text-brand-dark">
               {selectedStudent.name} is in {selectedStudent.grade}. Year-level
               courses for this path are not for sale yet. Selective Writing is
@@ -249,83 +259,79 @@ export default function SubscriptionPage() {
             </section>
           ) : null}
         <section className="grid gap-4 sm:grid-cols-2">
-          {SUBJECTS.map((subject) => {
-            const active = activeBySubject.get(subject);
-            const available = isAvailableSubject(subject);
-            return (
-              <div
-                key={subject}
-                className="flex flex-col rounded-lg border border-warm-border bg-warm-card p-6 shadow-card"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-xl font-semibold text-warm-ink">
-                      {SUBJECT_LABELS[subject]}
-                    </h2>
-                    <p className="mt-1 text-sm text-warm-muted">
-                      {SUBJECT_BLURBS[subject]}
-                    </p>
-                  </div>
-                  {active ? (
-                    <span className="whitespace-nowrap rounded-full bg-[#E3EFE6] px-2.5 py-0.5 text-xs font-medium text-brand-dark">
-                      Active
-                    </span>
-                  ) : !available ? (
-                    <span className="whitespace-nowrap rounded-full bg-[#F0EBE3] px-2.5 py-0.5 text-xs font-medium text-warm-muted">
-                      Coming soon
-                    </span>
-                  ) : null}
-                </div>
-
-                {available || active ? (
-                  <p className="mt-4 font-serif text-3xl font-semibold text-warm-ink">
-                    ${SUBJECT_PRICE_AUD} AUD{' '}
-                    <span className="text-base font-normal text-warm-subtle">/ year</span>
-                  </p>
-                ) : (
-                  <p className="mt-4 font-serif text-2xl font-semibold text-warm-ink">
-                    Coming soon
-                  </p>
-                )}
-
-                {active ? (
-                  <div className="mt-4 flex-1 space-y-2 text-sm text-warm-muted">
-                    <p>
-                      Active
-                      {active.expires_at
-                        ? ` until ${new Date(active.expires_at).toLocaleDateString()}`
-                        : ''}
-                      .
-                    </p>
-                    <button
-                      type="button"
-                      onClick={manage}
-                      disabled={managing}
-                      className="mt-2 rounded-full border border-brand px-4 py-2 text-sm font-medium text-brand disabled:opacity-60"
-                    >
-                      {managing ? 'Opening…' : 'View receipts'}
-                    </button>
-                  </div>
-                ) : available ? (
-                  <button
-                    type="button"
-                    onClick={() => subscribe(subject)}
-                    disabled={busy === subject || !studentId || !canBuyWriting}
-                    className="mt-6 rounded-full bg-terracotta px-4 py-2.5 text-sm font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
-                  >
-                    {busy === subject
-                      ? 'Redirecting…'
-                      : `Buy 1 year · $${SUBJECT_PRICE_AUD}`}
-                  </button>
-                ) : (
-                  <p className="mt-6 border-t border-warm-divider pt-4 text-sm leading-relaxed text-warm-muted">
-                    We&apos;re carefully preparing this subject. It will open at the
-                    same ${SUBJECT_PRICE_AUD} yearly price.
-                  </p>
-                )}
-              </div>
-            );
-          })}
+          {canBuyKy1Maths
+            ? [
+                {
+                  key: 'math',
+                  subject: 'math' as const,
+                  label: 'K–Y1 Maths',
+                  blurb:
+                    'See amounts, count, break numbers, and solve short stories. Seed Patch grows as they practise.',
+                  available: true,
+                  comingSoonPrice: KY1_SUBJECT_PRICE_AUD,
+                },
+                {
+                  key: 'english',
+                  subject: null,
+                  label: 'English',
+                  blurb:
+                    'Sounds, sentences, and first writing at this year level. Notes stay short so a parent and child can read them together.',
+                  available: false,
+                  comingSoonPrice: KY1_SUBJECT_PRICE_AUD,
+                },
+                {
+                  key: 'reading',
+                  subject: null,
+                  label: 'Reading',
+                  blurb:
+                    'Shared books and simple questions. Notes show what they understood, and where to look again.',
+                  available: false,
+                  comingSoonPrice: KY1_SUBJECT_PRICE_AUD,
+                },
+              ].map((offer) => {
+                const active = offer.subject ? activeBySubject.get(offer.subject) : undefined;
+                const price = offer.subject
+                  ? priceAudForPurchase(offer.subject, selectedGrade)
+                  : offer.comingSoonPrice;
+                return (
+                  <OfferCard
+                    key={offer.key}
+                    label={offer.label}
+                    blurb={offer.blurb}
+                    price={price}
+                    available={offer.available}
+                    active={active}
+                    busy={offer.subject ? busy === offer.subject : false}
+                    managing={managing}
+                    canBuy={Boolean(studentId && offer.available)}
+                    onBuy={
+                      offer.subject
+                        ? () => subscribe(offer.subject as Subject)
+                        : undefined
+                    }
+                    onManage={manage}
+                  />
+                );
+              })
+            : SUBJECTS.map((subject) => {
+                const active = activeBySubject.get(subject);
+                const available = isPurchasableSubject(subject, selectedGrade);
+                return (
+                  <OfferCard
+                    key={subject}
+                    label={SUBJECT_LABELS[subject]}
+                    blurb={SUBJECT_BLURBS[subject]}
+                    price={priceAudForPurchase(subject, selectedGrade)}
+                    available={available}
+                    active={active}
+                    busy={busy === subject}
+                    managing={managing}
+                    canBuy={Boolean(studentId && canBuyWriting && available)}
+                    onBuy={() => subscribe(subject)}
+                    onManage={manage}
+                  />
+                );
+              })}
         </section>
         </>
       )}
@@ -350,5 +356,89 @@ export default function SubscriptionPage() {
         ) : null}
       </p>
     </main>
+  );
+}
+
+function OfferCard({
+  label,
+  blurb,
+  price,
+  available,
+  active,
+  busy,
+  managing,
+  canBuy,
+  onBuy,
+  onManage,
+}: {
+  label: string;
+  blurb: string;
+  price: number;
+  available: boolean;
+  active?: SubscriptionItem;
+  busy: boolean;
+  managing: boolean;
+  canBuy: boolean;
+  onBuy?: () => void;
+  onManage: () => void;
+}) {
+  return (
+    <div className="flex flex-col rounded-lg border border-warm-border bg-warm-card p-6 shadow-card">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold text-warm-ink">{label}</h2>
+          <p className="mt-1 text-sm text-warm-muted">{blurb}</p>
+        </div>
+        {active ? (
+          <span className="whitespace-nowrap rounded-full bg-[#E3EFE6] px-2.5 py-0.5 text-xs font-medium text-brand-dark">
+            Active
+          </span>
+        ) : !available ? (
+          <span className="whitespace-nowrap rounded-full bg-[#F0EBE3] px-2.5 py-0.5 text-xs font-medium text-warm-muted">
+            Coming soon
+          </span>
+        ) : null}
+      </div>
+
+      {available || active ? (
+        <p className="mt-4 font-serif text-3xl font-semibold text-warm-ink">
+          ${price} AUD{' '}
+          <span className="text-base font-normal text-warm-subtle">/ year</span>
+        </p>
+      ) : (
+        <p className="mt-4 font-serif text-2xl font-semibold text-warm-ink">Coming soon</p>
+      )}
+
+      {active ? (
+        <div className="mt-4 flex-1 space-y-2 text-sm text-warm-muted">
+          <p>
+            Active
+            {active.expires_at ? ` until ${new Date(active.expires_at).toLocaleDateString()}` : ''}.
+          </p>
+          <button
+            type="button"
+            onClick={onManage}
+            disabled={managing}
+            className="mt-2 rounded-full border border-brand px-4 py-2 text-sm font-medium text-brand disabled:opacity-60"
+          >
+            {managing ? 'Opening…' : 'View receipts'}
+          </button>
+        </div>
+      ) : available ? (
+        <button
+          type="button"
+          onClick={onBuy}
+          disabled={busy || !canBuy}
+          className="mt-6 rounded-full bg-terracotta px-4 py-2.5 text-sm font-medium text-white hover:bg-terracotta-hover disabled:opacity-60"
+        >
+          {busy ? 'Redirecting…' : `Buy 1 year · $${price}`}
+        </button>
+      ) : (
+        <p className="mt-6 border-t border-warm-divider pt-4 text-sm leading-relaxed text-warm-muted">
+          We&apos;re carefully preparing this subject. It will open at the same ${price} yearly
+          price.
+        </p>
+      )}
+    </div>
   );
 }

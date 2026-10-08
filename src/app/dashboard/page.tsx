@@ -24,6 +24,7 @@ import {
   usesMathsDashboard,
   usesWritingDashboard,
 } from '@/lib/student-grades';
+import { KY1_SUBJECT_PRICE_AUD } from '@/lib/subjects';
 import type { WeekNoteData } from '@/lib/week-note';
 import { MathsHome, type MathsOverview } from '@/components/dashboard/maths-home';
 
@@ -275,11 +276,21 @@ export default function DashboardPage() {
       setHistory(guidance?.history ?? []);
       setRecommendation(guidance?.recommendation ?? null);
       const selectedStudent = studentList.find((student) => student.id === selected);
-      if (selected && selectedStudent && usesMathsDashboard(selectedStudent.grade)) {
+      const hasMathsAccess = ((res.data.subscriptions as SubscriptionItem[]) || []).some(
+        (item) => item.subject === 'math' && item.student_id === selected && item.active,
+      );
+      if (
+        selected &&
+        selectedStudent &&
+        usesMathsDashboard(selectedStudent.grade) &&
+        hasMathsAccess
+      ) {
         const mathsRes = await apiFetch(`/api/maths/overview?student_id=${selected}`);
         if (mathsRes.response.ok) {
           setMathsOverview(mathsRes.data as MathsOverview);
         }
+      } else {
+        setMathsOverview(null);
       }
       const suggestedGroup =
         UNIT_GROUPS.find((group) =>
@@ -434,10 +445,17 @@ export default function DashboardPage() {
       item.student_id === selectedStudentId &&
       item.active,
   );
+  const selectedMathsAccess = subscription?.subscriptions.find(
+    (item) =>
+      item.subject === 'math' &&
+      item.student_id === selectedStudentId &&
+      item.active,
+  );
+  const mathsPlayMode = showMaths && Boolean(selectedMathsAccess) && !mathsParentView;
 
   return (
     <main className="mx-auto max-w-5xl space-y-8 p-6">
-      {showMaths && !mathsParentView ? (
+      {mathsPlayMode ? (
         <header className="flex justify-end">
           <details className="relative">
             <summary className="cursor-pointer list-none rounded-full px-2 py-1 text-xl leading-none text-warm-subtle hover:text-warm-ink [&::-webkit-details-marker]:hidden">
@@ -571,7 +589,7 @@ export default function DashboardPage() {
         </section>
       ) : (
         <>
-          {!(showMaths && !mathsParentView) ? (
+          {!mathsPlayMode ? (
           <section
             className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warm-border bg-warm-card p-4 shadow-card"
           >
@@ -617,14 +635,31 @@ export default function DashboardPage() {
           ) : null}
 
           {showMaths ? (
+            selectedMathsAccess ? (
             <MathsHome
               overview={mathsOverview}
               grade={activeStudent?.grade ?? 'Kindergarten'}
               parentView={mathsParentView}
             />
+            ) : (
+            <section className="rounded-lg border border-amber-300 bg-amber-50 p-5 text-amber-900">
+              <h2 className="font-serif text-xl font-semibold">K–Y1 Maths access needed</h2>
+              <p className="mt-1 text-sm">
+                {activeStudent?.name ?? 'This child'} can start Kindergarten and Year 1
+                Maths after a one-year access is chosen. It is ${KY1_SUBJECT_PRICE_AUD}{' '}
+                AUD, paid once.
+              </p>
+              <Link
+                href="/subscription"
+                className="mt-4 inline-flex rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover"
+              >
+                Buy K–Y1 Maths
+              </Link>
+            </section>
+            )
           ) : null}
 
-          {!showMaths || mathsParentView ? (
+          {!mathsPlayMode ? (
           <section className="space-y-3 rounded-lg border border-warm-border bg-warm-card p-4 shadow-card">
             <div>
               <h2 className="text-lg font-semibold text-warm-ink">Add another child</h2>

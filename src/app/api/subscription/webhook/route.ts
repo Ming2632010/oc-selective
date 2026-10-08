@@ -3,7 +3,7 @@ import type Stripe from 'stripe';
 import { query } from '@/lib/db';
 import { sendPaymentFailedReminder } from '@/lib/email';
 import { getStripeClient, getWebhookSecret } from '@/lib/stripe';
-import { isAvailableSubject, isSubject, priceIdForSubject } from '@/lib/subjects';
+import { isPurchasableSubject, isSubject, priceIdForPurchase } from '@/lib/subjects';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -46,7 +46,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const subject = session.metadata?.subject as string | undefined;
   const studentId = session.metadata?.studentId as string | undefined;
 
-  if (!userId || !studentId || !subject || !isSubject(subject) || !isAvailableSubject(subject)) {
+  if (!userId || !studentId || !subject || !isSubject(subject)) {
     console.warn(
       '[subscription/webhook] checkout.session.completed missing/invalid userId or subject',
     );
@@ -61,16 +61,20 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const discount = session.discounts?.[0];
   const promotionCodeId = idOf(discount?.promotion_code);
   const couponId = idOf(discount?.coupon);
-  if (!priceId || priceId !== priceIdForSubject(subject)) {
-    console.warn('[subscription/webhook] checkout session has an unexpected price');
-    return;
-  }
-  const student = await query<{ id: string }>(
-    `SELECT id FROM students WHERE id = $1 AND user_id = $2 LIMIT 1`,
+  const student = await query<{ id: string; grade: string }>(
+    `SELECT id, grade FROM students WHERE id = $1 AND user_id = $2 LIMIT 1`,
     [studentId, userId],
   );
   if (!student.rows[0]) {
     console.warn('[subscription/webhook] checkout session has an invalid student');
+    return;
+  }
+  if (!isPurchasableSubject(subject, student.rows[0].grade)) {
+    console.warn('[subscription/webhook] checkout session subject is not for sale for this child');
+    return;
+  }
+  if (!priceId || priceId !== priceIdForPurchase(subject, student.rows[0].grade)) {
+    console.warn('[subscription/webhook] checkout session has an unexpected price');
     return;
   }
   const customerId = idOf(session.customer);

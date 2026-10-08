@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { isEarlyMathUnitId } from '@/lib/early-math';
 import {
-  assertMathsStudent,
   getMathsItem,
   listMathsUnit,
+  requireLicensedMathsStudent,
   submitMathsAnswer,
 } from '@/lib/early-math-state';
 
@@ -22,9 +22,9 @@ export async function GET(request: Request) {
     if (!studentId) {
       return NextResponse.json({ error: 'student_id is required' }, { status: 400 });
     }
-    const student = await assertMathsStudent(userId, studentId);
-    if (!student) {
-      return NextResponse.json({ error: 'Maths is for Kindergarten and Year 1 profiles' }, { status: 403 });
+    const licensed = await requireLicensedMathsStudent(userId, studentId);
+    if ('error' in licensed) {
+      return NextResponse.json({ error: licensed.error }, { status: licensed.status });
     }
 
     const slug = url.searchParams.get('slug');
@@ -64,9 +64,9 @@ export async function POST(request: Request) {
     if (!body.student_id || !body.slug) {
       return NextResponse.json({ error: 'student_id and slug are required' }, { status: 400 });
     }
-    const student = await assertMathsStudent(userId, body.student_id);
-    if (!student) {
-      return NextResponse.json({ error: 'Maths is for Kindergarten and Year 1 profiles' }, { status: 403 });
+    const licensed = await requireLicensedMathsStudent(userId, body.student_id);
+    if ('error' in licensed) {
+      return NextResponse.json({ error: licensed.error }, { status: licensed.status });
     }
 
     const result = await submitMathsAnswer({

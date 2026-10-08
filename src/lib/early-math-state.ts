@@ -68,6 +68,52 @@ export async function assertMathsStudent(userId: string, studentId: string) {
   return student;
 }
 
+export type MathsAccessState = 'granted' | 'unlicensed' | 'not-found' | 'wrong-grade';
+
+export async function getMathsAccessState(
+  userId: string,
+  studentId: string,
+): Promise<MathsAccessState> {
+  const result = await query<{ grade: string; granted: boolean }>(
+    `SELECT student.grade,
+            EXISTS (
+              SELECT 1 FROM user_subscriptions subscription
+              WHERE subscription.student_id = student.id
+                AND subscription.user_id = student.user_id
+                AND subscription.subject = 'math'
+                AND subscription.status = 'active'
+                AND (subscription.expires_at IS NULL OR subscription.expires_at > NOW())
+            ) AS granted
+     FROM students student
+     WHERE student.id = $1
+       AND student.user_id = $2
+     LIMIT 1`,
+    [studentId, userId],
+  );
+  const student = result.rows[0];
+  if (!student) return 'not-found';
+  if (!usesMathsDashboard(student.grade)) return 'wrong-grade';
+  return student.granted ? 'granted' : 'unlicensed';
+}
+
+export async function requireLicensedMathsStudent(userId: string, studentId: string) {
+  const access = await getMathsAccessState(userId, studentId);
+  if (access === 'not-found') {
+    return { error: 'Student not found', status: 404 as const };
+  }
+  if (access === 'wrong-grade') {
+    return { error: 'Maths is for Kindergarten and Year 1 profiles', status: 403 as const };
+  }
+  if (access === 'unlicensed') {
+    return { error: 'K–Y1 Maths access is required for this child.', status: 403 as const };
+  }
+  const student = await assertMathsStudent(userId, studentId);
+  if (!student) {
+    return { error: 'Maths is for Kindergarten and Year 1 profiles', status: 403 as const };
+  }
+  return { student };
+}
+
 type ItemRow = {
   id: string;
   slug: string;

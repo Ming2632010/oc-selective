@@ -72,7 +72,14 @@ export default function MathsUnitPage() {
         <p className="mt-2 text-warm-muted">{unit?.blurb}</p>
       </header>
       {error ? (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+        <div className="space-y-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p>{error}</p>
+          {error.includes('access is required') ? (
+            <Link href="/subscription" className="inline-flex font-medium text-brand hover:text-brand-dark">
+              Buy K–Y1 Maths
+            </Link>
+          ) : null}
+        </div>
       ) : null}
       {firstOpen ? (
         <Link

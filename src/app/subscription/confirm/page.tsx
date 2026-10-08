@@ -21,7 +21,7 @@ export default function SubscriptionConfirmPage() {
       const res = await apiFetch('/api/subscription/status');
       const subscriptions = Array.isArray(res.data.subscriptions) ? res.data.subscriptions : [];
       if (subscriptions.some((sub: { student_id?: string; subject?: string; active?: boolean }) =>
-        sub.student_id === studentId && sub.subject === 'writing' && sub.active,
+        sub.student_id === studentId && sub.active,
       )) {
         window.clearInterval(timer);
         router.replace('/dashboard');

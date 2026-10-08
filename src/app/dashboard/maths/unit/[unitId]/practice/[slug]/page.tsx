@@ -92,7 +92,14 @@ export default function MathsPracticePage() {
           ← {unit?.title ?? 'Back'}
         </Link>
         {error ? (
-          <p className="rounded-2xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+          <div className="space-y-3 rounded-2xl bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p>{error}</p>
+            {error.includes('access is required') ? (
+              <Link href="/subscription" className="inline-flex font-medium text-brand hover:text-brand-dark">
+                Buy K–Y1 Maths
+              </Link>
+            ) : null}
+          </div>
         ) : null}
         {items.map((item, index) => (
           <QuestionCard

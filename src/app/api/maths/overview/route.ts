@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
-import { getMathsOverview, assertMathsStudent } from '@/lib/early-math-state';
+import { getMathsOverview, requireLicensedMathsStudent } from '@/lib/early-math-state';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,11 +14,11 @@ export async function GET(request: Request) {
     if (!studentId) {
       return NextResponse.json({ error: 'student_id is required' }, { status: 400 });
     }
-    const student = await assertMathsStudent(userId, studentId);
-    if (!student) {
-      return NextResponse.json({ error: 'Maths is for Kindergarten and Year 1 profiles' }, { status: 403 });
+    const licensed = await requireLicensedMathsStudent(userId, studentId);
+    if ('error' in licensed) {
+      return NextResponse.json({ error: licensed.error }, { status: licensed.status });
     }
-    const overview = await getMathsOverview(studentId, student.grade);
+    const overview = await getMathsOverview(studentId, licensed.student.grade);
     return NextResponse.json(overview, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load Maths';
