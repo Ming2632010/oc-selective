@@ -32,7 +32,7 @@ async function main() {
     await pool.end();
   }
 
-  const { seedEarlyMathContent } = await import('../src/lib/early-math-state');
+  const { seedEarlyMathContent } = await import('../src/lib/seed-early-math-db');
   await seedEarlyMathContent();
   console.log('Seeded K–Y1 Maths questions without replacing student work.');
 }
