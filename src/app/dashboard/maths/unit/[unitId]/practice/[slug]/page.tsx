@@ -146,6 +146,7 @@ function QuestionCard({
     isCorrect: boolean;
     explanation: string;
     parentPrompt: string;
+    correctIndex: number | null;
   } | null>(null);
   const [award, setAward] = useState<{
     total: number;
@@ -177,6 +178,8 @@ function QuestionCard({
         isCorrect: Boolean(res.data.isCorrect),
         explanation: String(res.data.explanation ?? ''),
         parentPrompt: String(res.data.parentPrompt ?? item.parentPrompt),
+        correctIndex:
+          typeof res.data.correctIndex === 'number' ? res.data.correctIndex : null,
       });
       setAward(res.data.award ?? null);
       onChecked();
@@ -190,7 +193,13 @@ function QuestionCard({
   return (
     <section
       data-question-card
-      className="space-y-5 rounded-[2rem] border-2 border-[#E8D9B0] bg-[#FFFCF3] p-5 shadow-[3px_5px_0_rgba(61,53,46,0.08)] sm:p-6"
+      className={`space-y-5 rounded-[2rem] border-2 p-5 shadow-[3px_5px_0_rgba(61,53,46,0.08)] sm:p-6 ${
+        result?.isCorrect
+          ? 'border-[#2D5A4A] bg-[#F3F9F4]'
+          : result
+            ? 'border-terracotta bg-[#FFF6F2]'
+            : 'border-[#E8D9B0] bg-[#FFFCF3]'
+      }`}
     >
       {number ? (
         <p className="flex justify-center">
@@ -218,11 +227,11 @@ function QuestionCard({
               disabled={Boolean(result)}
               onClick={() => setChosen(index)}
               aria-label={item.options[index] ?? `Picture ${index + 1}`}
-              className={`rounded-[1.4rem] border-[3px] px-3 py-3 ${
-                chosen === index
-                  ? 'border-[#2D5A4A] bg-[#EEF6F0]'
-                  : 'border-[#E8D9B0] bg-white hover:border-terracotta'
-              }`}
+              className={`rounded-[1.4rem] border-[3px] px-3 py-3 ${choiceMarkClass(
+                result,
+                chosen === index,
+                index,
+              )}`}
             >
               <PictureTray
                 icon={picture.icon}
@@ -236,6 +245,9 @@ function QuestionCard({
         <NumberPad
           value={answerText}
           disabled={Boolean(result)}
+          mark={
+            result ? (result.isCorrect ? 'correct' : 'incorrect') : null
+          }
           onChange={setAnswerText}
         />
       ) : (
@@ -254,11 +266,7 @@ function QuestionCard({
                 onClick={() => setChosen(index)}
                 className={`min-h-20 rounded-[1.4rem] border-[3px] px-3 py-3 ${
                   toy ? '' : 'text-2xl font-bold sm:text-3xl'
-                } ${
-                  chosen === index
-                    ? 'border-[#2D5A4A] bg-[#EEF6F0] text-brand-dark'
-                    : 'border-[#E8D9B0] bg-white text-warm-ink hover:border-terracotta'
-                }`}
+                } ${choiceMarkClass(result, chosen === index, index)}`}
               >
                 {toy ? (
                   <span className="flex flex-col items-center gap-1">
@@ -291,13 +299,13 @@ function QuestionCard({
       ) : (
         <div className="space-y-3">
           <p
-            className={`rounded-2xl px-4 py-3 text-lg font-medium ${
+            className={`rounded-2xl border-2 px-4 py-3 text-lg font-medium ${
               result.isCorrect
-                ? 'bg-[#E3EFE6] text-brand-dark'
-                : 'bg-[#FFF1D6] text-warm-ink'
+                ? 'border-[#2D5A4A] bg-[#DCEEE3] text-brand-dark'
+                : 'border-terracotta bg-[#FBE4DC] text-[#8A3A28]'
             }`}
           >
-            {result.isCorrect ? 'Yes!' : 'Try again next time.'} {result.explanation}
+            {result.isCorrect ? 'Yes!' : 'Not this time.'} {result.explanation}
           </p>
           <details className="rounded-2xl bg-white/70 px-4 py-3 text-sm text-warm-muted">
             <summary className="cursor-pointer font-medium text-warm-ink">Grown-ups</summary>
@@ -309,6 +317,24 @@ function QuestionCard({
       )}
     </section>
   );
+}
+
+function choiceMarkClass(
+  result: { isCorrect: boolean; correctIndex: number | null } | null,
+  isChosen: boolean,
+  index: number,
+): string {
+  const isRightChoice = result?.correctIndex === index;
+  if (result && isRightChoice) {
+    return 'border-[#2D5A4A] bg-[#DCEEE3] text-brand-dark';
+  }
+  if (result && isChosen && !result.isCorrect) {
+    return 'border-terracotta bg-[#FBE4DC] text-[#8A3A28]';
+  }
+  if (isChosen) {
+    return 'border-[#2D5A4A] bg-[#EEF6F0] text-brand-dark';
+  }
+  return 'border-[#E8D9B0] bg-white text-warm-ink hover:border-terracotta';
 }
 
 function pictureChoices(stimulus?: MathStimulus) {
@@ -375,15 +401,29 @@ function NumberPad({
   value,
   onChange,
   disabled,
+  mark = null,
 }: {
   value: string;
   onChange: (next: string) => void;
   disabled: boolean;
+  mark?: 'correct' | 'incorrect' | null;
 }) {
   const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+  const valueTone =
+    mark === 'correct'
+      ? 'bg-[#DCEEE3] text-brand-dark ring-4 ring-[#2D5A4A]'
+      : mark === 'incorrect'
+        ? 'bg-[#FBE4DC] text-[#8A3A28] ring-4 ring-terracotta'
+        : 'text-warm-ink';
   return (
     <div className="space-y-4">
-      <p className="text-center text-6xl font-bold text-warm-ink">{value || '?'}</p>
+      <p className="text-center">
+        <span
+          className={`inline-flex min-w-24 items-center justify-center rounded-[1.4rem] px-5 py-2 text-6xl font-bold ${valueTone}`}
+        >
+          {value || '?'}
+        </span>
+      </p>
       <div className="mx-auto grid max-w-xs grid-cols-5 gap-2">
         {keys.map((key) => (
           <button

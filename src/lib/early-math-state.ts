@@ -324,6 +324,7 @@ export async function submitMathsAnswer(input: {
     isCorrect: mark.isCorrect,
     explanation: mark.explanation,
     parentPrompt: row.parent_prompt,
+    correctIndex: row.correct_index,
     nextSlug: next.rows[0]?.slug ?? null,
     award,
   };
