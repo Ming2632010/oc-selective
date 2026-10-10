@@ -356,7 +356,6 @@ export default function DashboardPage() {
   const [newName, setNewName] = useState('');
   const [newGrade, setNewGrade] = useState(DEFAULT_STUDENT_GRADE);
   const [creating, setCreating] = useState(false);
-  const [mathsParentView, setMathsParentView] = useState(false);
 
   async function loadDashboard(requestedStudentId?: string | null) {
     if (!getToken()) {
@@ -669,42 +668,8 @@ export default function DashboardPage() {
       item.active &&
       item.access_kind !== 'trial',
   );
-  const mathsPlayMode = showMaths && Boolean(selectedMathsAccess) && !mathsParentView;
-
   return (
     <main className="mx-auto max-w-5xl space-y-8 p-6">
-      {mathsPlayMode ? (
-        <header className="flex justify-end">
-          <details className="relative">
-            <summary className="cursor-pointer list-none rounded-full px-2 py-1 text-xl leading-none text-warm-subtle hover:text-warm-ink [&::-webkit-details-marker]:hidden">
-              <span aria-hidden>⋯</span>
-              <span className="sr-only">Grown-ups menu</span>
-            </summary>
-            <div className="absolute right-0 z-20 mt-2 w-48 rounded-xl border border-warm-border bg-white p-2 shadow-float">
-              <button
-                type="button"
-                onClick={() => setMathsParentView(true)}
-                className="block w-full rounded-lg px-3 py-2 text-left text-sm text-warm-ink hover:bg-[#F7F5F0]"
-              >
-                Grown-ups
-              </button>
-              <Link
-                href="/subscription"
-                className="block rounded-lg px-3 py-2 text-sm text-warm-ink hover:bg-[#F7F5F0]"
-              >
-                Subscription
-              </Link>
-              <button
-                type="button"
-                onClick={logout}
-                className="block w-full rounded-lg px-3 py-2 text-left text-sm text-warm-ink hover:bg-[#F7F5F0]"
-              >
-                Log out
-              </button>
-            </div>
-          </details>
-        </header>
-      ) : (
       <header
         className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand-dark p-5 text-white shadow-float"
         style={{
@@ -732,7 +697,6 @@ export default function DashboardPage() {
           </button>
         </div>
       </header>
-      )}
 
       {error ? (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
@@ -824,7 +788,6 @@ export default function DashboardPage() {
         </section>
       ) : (
         <>
-          {!mathsPlayMode ? (
           <section
             className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warm-border bg-warm-card p-4 shadow-card"
           >
@@ -836,15 +799,6 @@ export default function DashboardPage() {
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
-              {showMaths && mathsParentView ? (
-                <button
-                  type="button"
-                  onClick={() => setMathsParentView(false)}
-                  className="rounded-full px-4 py-2 text-sm text-warm-ink hover:bg-[#F7F5F0]"
-                >
-                  Back to the game
-                </button>
-              ) : null}
               {students.length > 1 ? (
               <div className="flex flex-wrap justify-center gap-2">
                 {students.map((student) => (
@@ -867,14 +821,13 @@ export default function DashboardPage() {
               ) : null}
             </div>
           </section>
-          ) : null}
 
           {showMaths ? (
             selectedMathsAccess ? (
             <MathsHome
               overview={mathsOverview}
               grade={activeStudent?.grade ?? 'Kindergarten'}
-              parentView={mathsParentView}
+              parentView
             />
             ) : (
             <section className="rounded-lg border border-amber-300 bg-amber-50 p-5 text-amber-900">
@@ -894,7 +847,6 @@ export default function DashboardPage() {
             )
           ) : null}
 
-          {!mathsPlayMode ? (
           <section className="space-y-3 rounded-lg border border-warm-border bg-warm-card p-4 shadow-card">
             <div>
               <h2 className="text-lg font-semibold text-warm-ink">Add another child</h2>
@@ -937,7 +889,6 @@ export default function DashboardPage() {
               </button>
             </form>
           </section>
-          ) : null}
 
           {showMaths ? null : !showWriting && yearProgram ? (
             <ProgramComingSoon program={yearProgram} />
