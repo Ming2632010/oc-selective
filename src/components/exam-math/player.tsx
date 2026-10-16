@@ -6,6 +6,8 @@ import {
   EXAM_MATH_CHOICES,
   emptySittingAnswers,
   examMathInstructions,
+  examMathMetaLine,
+  examMathSittingIsTimed,
   formatCountdown,
   markChoiceClass,
   sittingProgress,
@@ -49,20 +51,21 @@ export function ExamMathPlayer({
   const progress = sittingProgress(answers);
   const instructions = examMathInstructions(kind);
   const inSitting = phase === 'sitting';
+  const timed = examMathSittingIsTimed(timeLimitSeconds);
 
   useEffect(() => {
-    if (!inSitting) return;
+    if (!inSitting || !timed) return;
     const timer = window.setInterval(() => {
       setSecondsLeft((prev) => Math.max(0, prev - 1));
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [inSitting]);
+  }, [inSitting, timed]);
 
   useEffect(() => {
-    if (!inSitting || secondsLeft > 0) return;
+    if (!inSitting || !timed || secondsLeft > 0) return;
     setTimedOut(true);
     setPhase('results');
-  }, [inSitting, secondsLeft]);
+  }, [inSitting, timed, secondsLeft]);
 
   useEffect(() => {
     if (!inSitting) return;
@@ -123,7 +126,7 @@ export function ExamMathPlayer({
         <p className="text-sm uppercase tracking-wide text-warm-subtle">{title}</p>
         <h1 className="font-serif text-3xl font-semibold text-warm-ink">{instructions.heading}</h1>
         <p className="text-warm-muted">
-          {instructions.questions} questions · {instructions.minutes} minutes · five options A–E
+          {examMathMetaLine(instructions.questions, timeLimitSeconds)}
         </p>
         <ul className="list-disc space-y-2 pl-5 text-sm text-warm-ink">
           {instructions.points.map((point) => (
@@ -225,23 +228,27 @@ export function ExamMathPlayer({
               Question {index + 1} of {questions.length}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setTimerHidden((value) => !value)}
-              className="rounded-full border border-white/50 px-3 py-1 text-xs font-medium hover:bg-white/10"
-            >
-              {timerHidden ? 'Show timer' : 'Hide timer'}
-            </button>
-            <p
-              className={`rounded-md px-3 py-1 font-mono text-lg ${
-                secondsLeft < 60 ? 'bg-[#8A3A28] text-white' : 'bg-white/10 text-white'
-              } ${timerHidden ? 'invisible' : ''}`}
-              aria-hidden={timerHidden}
-            >
-              {formatCountdown(secondsLeft)}
-            </p>
-          </div>
+          {timed ? (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setTimerHidden((value) => !value)}
+                className="rounded-full border border-white/50 px-3 py-1 text-xs font-medium hover:bg-white/10"
+              >
+                {timerHidden ? 'Show timer' : 'Hide timer'}
+              </button>
+              <p
+                className={`rounded-md px-3 py-1 font-mono text-lg ${
+                  secondsLeft < 60 ? 'bg-[#8A3A28] text-white' : 'bg-white/10 text-white'
+                } ${timerHidden ? 'invisible' : ''}`}
+                aria-hidden={timerHidden}
+              >
+                {formatCountdown(secondsLeft)}
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-white/80">No timer</p>
+          )}
         </div>
       </header>
 

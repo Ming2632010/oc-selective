@@ -41,8 +41,9 @@ export default function SelectiveMathMiniPage() {
       <p className="text-sm uppercase tracking-wide text-warm-subtle">Selective Math</p>
       <h1 className="font-serif text-3xl font-semibold text-warm-ink">Mini exams</h1>
       <p className="max-w-2xl text-sm text-warm-muted">
-        100 short computer sittings. Each has 12 questions and 14 minutes, at
-        the same pace as the placement test. {readyCount} of 100 are ready.
+        100 short computer sittings. Each has 12 questions and no timer, so
+        the student can work through them without the exam clock. {readyCount}{' '}
+        of 100 are ready.
       </p>
       <ExamMathBandLegend kind="mini" />
       <ExamMathSetGrid sets={sets} />

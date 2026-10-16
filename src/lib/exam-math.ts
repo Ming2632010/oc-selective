@@ -3,7 +3,8 @@ export type ExamMathChoice = (typeof EXAM_MATH_CHOICES)[number];
 
 export const EXAM_MATH_MINI_COUNT = 100;
 export const EXAM_MATH_MINI_QUESTIONS = 12;
-export const EXAM_MATH_MINI_SECONDS = 14 * 60;
+/** Mini exams are untimed practice. Full papers keep the 40-minute exam clock. */
+export const EXAM_MATH_MINI_SECONDS = 0;
 
 export const EXAM_MATH_PAPER_COUNT = 20;
 export const EXAM_MATH_PAPER_QUESTIONS = 35;
@@ -112,6 +113,17 @@ export function findExamMathSet(kind: ExamMathSetKind, setNumber: number): ExamM
   return examMathCatalogue().find((set) => set.kind === kind && set.setNumber === setNumber) ?? null;
 }
 
+export function examMathSittingIsTimed(timeLimitSeconds: number): boolean {
+  return timeLimitSeconds > 0;
+}
+
+export function examMathMetaLine(questionCount: number, timeLimitSeconds: number): string {
+  if (examMathSittingIsTimed(timeLimitSeconds)) {
+    return `${questionCount} questions · ${timeLimitSeconds / 60} minutes · five options A–E`;
+  }
+  return `${questionCount} questions · no timer · five options A–E`;
+}
+
 export function formatCountdown(totalSeconds: number): string {
   const safe = Math.max(0, Math.floor(totalSeconds));
   const minutes = Math.floor(safe / 60);
@@ -190,11 +202,11 @@ export function examMathInstructions(kind: ExamMathSetKind | 'preview'): {
   if (kind === 'mini') {
     return {
       heading: 'Mathematical Reasoning · Mini exam',
-      minutes: EXAM_MATH_MINI_SECONDS / 60,
+      minutes: 0,
       questions: EXAM_MATH_MINI_QUESTIONS,
       points: [
         `${EXAM_MATH_MINI_QUESTIONS} multiple-choice questions. Five options, A to E.`,
-        `${EXAM_MATH_MINI_SECONDS / 60} minutes. Same pace as the placement test.`,
+        'No timer. Take the time you need, then finish when you are ready.',
         'No calculator. You may work on paper.',
         'No marks are lost for a wrong answer, so attempt every question.',
         'You can flag a question and come back before you finish.',

@@ -11,7 +11,9 @@ import {
   emptySittingAnswers,
   examMathCatalogue,
   examMathInstructions,
+  examMathMetaLine,
   examMathSetsOfKind,
+  examMathSittingIsTimed,
   findExamMathSet,
   formatCountdown,
   markChoiceClass,
@@ -31,8 +33,14 @@ describe('Selective Math catalogue', () => {
     assert.equal(examMathSetsOfKind('paper').length, 20);
     assert.equal(EXAM_MATH_MINI_QUESTIONS, 12);
     assert.equal(EXAM_MATH_PAPER_QUESTIONS, 35);
-    assert.equal(EXAM_MATH_MINI_SECONDS, 14 * 60);
+    assert.equal(EXAM_MATH_MINI_SECONDS, 0);
     assert.equal(EXAM_MATH_PAPER_SECONDS, 40 * 60);
+    assert.equal(examMathSittingIsTimed(EXAM_MATH_MINI_SECONDS), false);
+    assert.equal(examMathSittingIsTimed(EXAM_MATH_PAPER_SECONDS), true);
+    assert.equal(
+      examMathMetaLine(EXAM_MATH_MINI_QUESTIONS, EXAM_MATH_MINI_SECONDS),
+      '12 questions · no timer · five options A–E',
+    );
     assert.equal(
       catalogue.every((set) => set.isReady === false),
       true,
@@ -99,6 +107,8 @@ describe('Selective Math player helpers', () => {
     assert.equal(score.marked, 3);
     assert.equal(examMathInstructions('paper').questions, 35);
     assert.equal(examMathInstructions('mini').questions, 12);
+    assert.equal(examMathInstructions('mini').minutes, 0);
+    assert.match(examMathInstructions('mini').points[1] ?? '', /No timer/);
     assert.equal(examMathInstructions('preview').minutes, 10);
     assert.match(examMathInstructions('preview').points[0] ?? '', /try the buttons/);
     assert.equal(

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getStudentId, getToken } from '@/lib/client-auth';
 import {
+  examMathMetaLine,
   examMathNotReadyMessage,
   findExamMathSet,
   type ExamMathSetKind,
@@ -57,7 +58,7 @@ export default function SelectiveMathSitPage() {
       <p className="text-sm uppercase tracking-wide text-warm-subtle">Selective Math</p>
       <h1 className="font-serif text-3xl font-semibold text-warm-ink">{set.title}</h1>
       <p className="text-sm text-warm-muted">
-        {set.questionCount} questions · {set.timeLimitSeconds / 60} minutes · A–E
+        {examMathMetaLine(set.questionCount, set.timeLimitSeconds)}
       </p>
       <p className="rounded-lg border border-dashed border-warm-border bg-white p-5 text-sm text-warm-ink">
         {examMathNotReadyMessage(set.kind)}

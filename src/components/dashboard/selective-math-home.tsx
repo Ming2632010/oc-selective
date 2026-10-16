@@ -37,7 +37,7 @@ export function SelectiveMathLaunch() {
         <ModeLink
           href="/dashboard/selective-math/mini"
           title="Mini exams"
-          detail="100 sets · 12 questions · 14 minutes"
+          detail="100 sets · 12 questions · no timer"
         />
         <ModeLink
           href="/dashboard/selective-math/papers"
@@ -122,7 +122,7 @@ export function SelectiveMathOverview({
           href="/dashboard/selective-math/mini"
           title="Mini exams"
           count={`${readyMinis} / 100 ready`}
-          detail="12 questions, 14 minutes, mixed current-style items."
+          detail="12 questions, no timer, mixed current-style items."
         />
         <ModeCard
           href="/dashboard/selective-math/papers"
