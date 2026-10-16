@@ -11,6 +11,7 @@ const files = [
   'sql/custom_task_images.sql',
   'sql/early_math.sql',
   'sql/early_math_unit7.sql',
+  'sql/exam_math.sql',
 ];
 
 async function main() {
@@ -35,6 +36,9 @@ async function main() {
   const { seedEarlyMathContent } = await import('../src/lib/seed-early-math-db');
   await seedEarlyMathContent();
   console.log('Seeded K–Y1 Maths questions without replacing student work.');
+  const { seedExamMathSets } = await import('../src/lib/seed-exam-math-sets');
+  await seedExamMathSets();
+  console.log('Ensured Selective Math mini and paper rows without adding questions.');
 }
 
 main().catch((error) => {
