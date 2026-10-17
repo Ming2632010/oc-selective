@@ -33,6 +33,7 @@ import {
 import { KY1_SUBJECT_PRICE_AUD } from '@/lib/subjects';
 import type { WeekNoteData } from '@/lib/week-note';
 import { MathsHome, type MathsOverview } from '@/components/dashboard/maths-home';
+import { SelectiveThinkingLaunch } from '@/components/dashboard/selective-thinking-home';
 
 const SubjectChat = dynamic(
   () => import('@/components/writing/subject-chat').then((module) => module.SubjectChat),
@@ -847,13 +848,16 @@ export default function DashboardPage() {
             )
           ) : null}
 
+          {showWriting ? <SelectiveThinkingLaunch /> : null}
+
           <section className="space-y-3 rounded-lg border border-warm-border bg-warm-card p-4 shadow-card">
             <div>
               <h2 className="text-lg font-semibold text-warm-ink">Add another child</h2>
               <p className="text-sm text-warm-muted">
                 Each child has their own progress. Year 4–7 profiles use
-                Selective Writing. Kindergarten and Year 1 profiles use K–Y1
-                Maths. Later years open as those paths are ready.
+                Selective Writing, with Selective Thinking Skills being prepared.
+                Kindergarten and Year 1 profiles use K–Y1 Maths. Later years
+                open as those paths are ready.
               </p>
             </div>
             <form
