@@ -326,7 +326,7 @@ const ASK_BY_SKILL: Record<EarlyMathSkill, string> = {
   'ppw-whole': 'How many altogether?',
   'ppw-part': 'What is the missing part?',
   'compare-difference': 'How many more?',
-  'compare-quantity': 'How many does the other have?',
+  'compare-quantity': 'How many for the other?',
   'equal-groups': 'How many in each?',
   'sharing': 'How many for each?',
   'leftovers': 'How many are left over?',
@@ -397,6 +397,7 @@ const ASK_BY_SLUG: Record<string, string> = {
   'parts-five-and-friends': 'How can you see 9?',
   'parts-ten-ones-one-ten': 'What is another name?',
   'story-compare-quantity-bus': 'How many does Ali have?',
+  'story-compare-quantity-two-more': 'How many does Ben have?',
   'story-same-sentence-different-parts': 'Both make 8?',
   'place-ten-more-thirty-six': 'What is 10 more?',
   'place-ten-less-fifty': 'What is 10 less?',
@@ -442,6 +443,44 @@ const ASK_BY_SLUG: Record<string, string> = {
   'measure-shoe-blocks': 'How many blocks?',
   'measure-apple-cubes': 'How many cubes?',
   'measure-jug-cups': 'How many cups?',
+  'count-ordinal-last': 'Who is last?',
+  'count-ordinal-fourth': 'Who is fourth?',
+  'count-which-fewer-hats': 'Which has fewer?',
+  'count-compare-twelve-nine': 'Which has more?',
+  'count-order-five-two-nine': 'Smallest to biggest?',
+  'every-shorter-ribbon': 'Which is shorter?',
+  'every-name-the-square': 'Which is a square?',
+  'every-name-the-triangle': 'Which is a triangle?',
+  'every-not-a-circle': 'Which is not a circle?',
+  'every-yesterday-wednesday': 'What day was yesterday?',
+  'every-yesterday-saturday': 'What day was yesterday?',
+  'every-morning-is-sun': 'Which is morning?',
+  'every-heavier-box': 'Which is heavier?',
+  'place-ten-more-nineteen': 'What is 10 more?',
+  'place-ten-more-seventy': 'What is 10 more?',
+  'place-ten-less-twenty': 'What is 10 less?',
+  'place-ten-less-eighty': 'What is 10 less?',
+  'place-ten-less-forty-one': 'What is 10 less?',
+  'place-fifteen-is-ten-five': 'Which is 15?',
+  'place-sixteen-is-ten-six': 'Which is 16?',
+  'place-eighteen-is-ten-eight': 'Which is 18?',
+  'place-sixteen-vs-sixty': 'What is 16?',
+  'place-forty-is-four-tens': 'Which is 40?',
+  'parts-nine-and-one-ten': 'Do they make 10?',
+  'parts-two-and-eight-ten': 'Do they make 10?',
+  'parts-seven-and-three-ten': 'Do they make 10?',
+  'parts-two-and-five-ten': 'Do they make 10?',
+  'parts-four-and-four-ten': 'Do they make 10?',
+  'parts-four-is-five-less-one': 'How can you see 4?',
+  'parts-seven-is-five-two-frame': 'How can you see 7?',
+  'parts-pair-one-and-nine': 'Which pair makes 10?',
+  'parts-pair-two-and-eight': 'Which pair makes 10?',
+  'halves-two-stars': 'How many for Sam?',
+  'halves-ten-apples': 'How many for Sam?',
+  'halves-sandwich-not-equal': 'Which is not a half?',
+  'see-odd-one-not-three': 'Which one is different?',
+  'see-odd-one-not-two': 'Which one is different?',
+  'see-odd-button-among-stars': 'Which one is different?',
 };
 
 function firstWord(label: string): string {
@@ -566,7 +605,7 @@ export function kidAskForItem(item: {
       if (item.skill === 'count-one-to-one') return 'How many?';
       if (item.skill === 'skip-count') return 'Can they all pair?';
       if (item.skill === 'chance-language') return 'Will it happen?';
-      if (item.skill === 'compare-quantity') return 'How many does the other have?';
+      if (item.skill === 'compare-quantity') return 'How many for the other?';
       if (item.skill === 'ppw-whole') return 'How many altogether?';
       return 'How many altogether?';
     }

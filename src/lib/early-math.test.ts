@@ -61,11 +61,12 @@ describe('K–Y1 Maths catalogue', () => {
 
 describe('K–Y1 Maths items', () => {
   it('gives every unit a small but varied set', () => {
+    const expected = { 1: 54, 2: 60, 3: 46, 4: 50, 5: 48, 6: 92, 7: 42 };
     for (const unit of EARLY_MATH_UNITS) {
       const items = SEED_EARLY_MATH.filter((item) => item.unitId === unit.id);
-      assert.ok(items.length >= 10, `unit ${unit.id} is too thin`);
+      assert.equal(items.length, expected[unit.id as keyof typeof expected], `unit ${unit.id} count`);
     }
-    assert.ok(SEED_EARLY_MATH.length >= 100);
+    assert.equal(SEED_EARLY_MATH.length, 392);
   });
 
   it('uses unique slugs, titles, and stems so items are not reskins', () => {
@@ -174,6 +175,11 @@ describe('K–Y1 Maths items', () => {
     assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'count-which-fewer-apples')!), 'Which has fewer?');
     assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'count-ordinal-second')!), 'Who is second?');
     assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'every-shorter-pencil')!), 'Which is shorter?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'count-ordinal-last')!), 'Who is last?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'place-ten-more-nineteen')!), 'What is 10 more?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'parts-two-and-five-ten')!), 'Do they make 10?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'story-compare-quantity-two-more')!), 'How many does Ben have?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'halves-two-stars')!), 'How many for Sam?');
   });
 
   it('keeps one-to-one counting as a count of objects, not a strategy quiz', () => {

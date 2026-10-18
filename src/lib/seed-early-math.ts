@@ -6,6 +6,7 @@ import {
   type EarlyMathSkill,
   type MathStimulus,
 } from './early-math';
+import { EXTRA_EARLY_MATH_DRAFTS } from './seed-early-math-wave';
 
 type Draft = {
   slug: string;
@@ -2847,6 +2848,7 @@ const DRAFTS: Draft[] = [
     parentPrompt: 'No gaps and no overlaps.',
     difficulty: 'kindy',
   }),
+  ...EXTRA_EARLY_MATH_DRAFTS,
 ]
 
 
