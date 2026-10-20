@@ -209,11 +209,13 @@ function QuestionCard({
         </p>
       ) : null}
       <h1 className="sr-only">{item.title}</h1>
-      <p className="sr-only">{item.stem}</p>
       {hidePictureRow ? null : <MathsStimulus stimulus={item.stimulus} />}
       <p className="text-center text-2xl leading-snug font-semibold text-warm-ink sm:text-3xl">
         {kidAskForItem(item)}
       </p>
+      {item.stem && item.stem !== kidAskForItem(item) ? (
+        <p className="text-center text-base leading-snug text-warm-muted">{item.stem}</p>
+      ) : null}
       {pictures ? (
         <div
           className={`grid grid-cols-2 gap-3 ${

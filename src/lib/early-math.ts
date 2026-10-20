@@ -304,7 +304,7 @@ const ASK_BY_SKILL: Record<EarlyMathSkill, string> = {
   'subitise-perceptual': 'How many?',
   'subitise-structured': 'How many?',
   'subitise-conceptual': 'How many altogether?',
-  'count-one-to-one': 'How do you count?',
+  'count-one-to-one': 'How many?',
   'count-on': 'What comes next?',
   'cardinality': 'How many?',
   'conservation': 'Still the same?',
@@ -314,19 +314,19 @@ const ASK_BY_SKILL: Record<EarlyMathSkill, string> = {
   'before-after': 'What number?',
   'ordinal': 'Who is third?',
   'part-whole': 'Which parts?',
-  'five-wise': 'How many more?',
+  'five-wise': 'How many?',
   'ten-bonds': 'Is this 10?',
   'missing-part': 'What is the missing part?',
   'join-result': 'How many now?',
-  'join-change': 'Missing number in a + □',
-  'join-start': 'Missing start number',
+  'join-change': 'What number is missing?',
+  'join-start': 'What number is missing?',
   'separate-result': 'How many left?',
-  'separate-change': 'Missing number in a − □',
-  'separate-start': 'Missing start number',
+  'separate-change': 'What number is missing?',
+  'separate-start': 'What number is missing?',
   'ppw-whole': 'How many altogether?',
   'ppw-part': 'What is the missing part?',
   'compare-difference': 'How many more?',
-  'compare-quantity': 'How many does the other have?',
+  'compare-quantity': 'How many for the other?',
   'equal-groups': 'How many in each?',
   'sharing': 'How many for each?',
   'leftovers': 'How many are left over?',
@@ -336,7 +336,7 @@ const ASK_BY_SKILL: Record<EarlyMathSkill, string> = {
   'ten-more-less': '10 more or less?',
   'number-line': 'Which number?',
   'place-zero': 'What number is this?',
-  'shape-2d': 'Look at the shape.',
+  'shape-2d': 'Which shape?',
   'shape-3d': 'Which one rolls?',
   'position': 'Where is it?',
   'length-compare': 'Which is longer?',
@@ -344,7 +344,7 @@ const ASK_BY_SKILL: Record<EarlyMathSkill, string> = {
   'capacity-compare': 'Which holds more?',
   'time-hour': 'What time is it?',
   'time-half': 'What time is it?',
-  'days-sequence': 'When?',
+  'days-sequence': 'What day is next?',
   'picture-graph': 'Which has the most?',
   'tally': 'How many?',
   'chance-language': 'Will it happen?',
@@ -366,19 +366,45 @@ const ASK_BY_SLUG: Record<string, string> = {
   'count-thirteen-not-thirty': 'What is 13?',
   'count-compare-eleven-eight': 'Which has more?',
   'count-on-from-six': 'How many now?',
-  'count-after-eighteen': 'What comes after?',
-  'count-before-eleven': 'What comes before?',
-  'count-one-to-one-keep-track': 'How do you count?',
+  'count-after-eighteen': 'What comes after 18?',
+  'count-before-eleven': 'What comes before 11?',
+  'count-one-to-one-keep-track': 'How many pegs?',
+  'count-more-garden-leaves': 'How many more on top?',
+  'count-more-lunch-pears': 'How many more than Mia?',
+  'count-which-fewer-apples': 'Which has fewer?',
+  'count-more-hats-than-bags': 'How many more on hook?',
+  'count-ordinal-second': 'Who is second?',
+  'count-ordinal-first': 'Who is first?',
+  'parts-empty-to-five': 'How many more to 5?',
+  'parts-six-is-five-one': 'How can you see 6?',
+  'parts-eight-is-five-three': 'How can you see 8?',
+  'parts-pair-that-makes-ten': 'Which pair makes 10?',
+  'parts-three-and-seven-ten': 'Which pair makes 10?',
+  'parts-four-and-five-ten': 'Do they make 10?',
+  'parts-five-and-five-ten': 'Do they make 10?',
+  'every-lighter-feather': 'Which is lighter?',
+  'every-name-the-rectangle': 'Which is a rectangle?',
+  'every-name-the-circle': 'Which is a circle?',
+  'every-shorter-pencil': 'Which is shorter?',
+  'halves-six-buttons': 'How many for Mia?',
+  'halves-four-pears': 'How many for Sam?',
+  'parts-more-red-beads': 'How many more gold?',
+  'story-more-apples-basket': 'How many more on bench?',
+  'story-compare-difference-stickers': 'How many more than Tom?',
   'parts-same-as-five-two': 'Which is the same?',
   'parts-see-the-parts': 'Which sentence?',
   'parts-both-of-five': 'Which parts make 5?',
   'parts-five-and-friends': 'How can you see 9?',
   'parts-ten-ones-one-ten': 'What is another name?',
   'story-compare-quantity-bus': 'How many does Ali have?',
+  'story-compare-quantity-two-more': 'How many does Ben have?',
   'story-same-sentence-different-parts': 'Both make 8?',
   'place-ten-more-thirty-six': 'What is 10 more?',
   'place-ten-less-fifty': 'What is 10 less?',
+  'place-ten-less-sixty': 'What is 10 less?',
   'place-thirteen-partition': 'Which is 13?',
+  'place-fourteen-is-ten-four': 'Which is 14?',
+  'place-seventeen-is-ten-seven': 'Which is 17?',
   'place-odd-even-socks': 'Can they all pair?',
   'place-after-twenty-nine': 'What comes after?',
   'every-sphere-rolls': 'Which one rolls?',
@@ -417,7 +443,62 @@ const ASK_BY_SLUG: Record<string, string> = {
   'measure-shoe-blocks': 'How many blocks?',
   'measure-apple-cubes': 'How many cubes?',
   'measure-jug-cups': 'How many cups?',
+  'count-ordinal-last': 'Who is last?',
+  'count-ordinal-fourth': 'Who is fourth?',
+  'count-which-fewer-hats': 'Which has fewer?',
+  'count-compare-twelve-nine': 'Which has more?',
+  'count-order-five-two-nine': 'Smallest to biggest?',
+  'every-shorter-ribbon': 'Which is shorter?',
+  'every-name-the-square': 'Which is a square?',
+  'every-name-the-triangle': 'Which is a triangle?',
+  'every-not-a-circle': 'Which is not a circle?',
+  'every-yesterday-wednesday': 'What day was yesterday?',
+  'every-yesterday-saturday': 'What day was yesterday?',
+  'every-morning-is-sun': 'Which is morning?',
+  'every-heavier-box': 'Which is heavier?',
+  'place-ten-more-nineteen': 'What is 10 more?',
+  'place-ten-more-seventy': 'What is 10 more?',
+  'place-ten-less-twenty': 'What is 10 less?',
+  'place-ten-less-eighty': 'What is 10 less?',
+  'place-ten-less-forty-one': 'What is 10 less?',
+  'place-fifteen-is-ten-five': 'Which is 15?',
+  'place-sixteen-is-ten-six': 'Which is 16?',
+  'place-eighteen-is-ten-eight': 'Which is 18?',
+  'place-sixteen-vs-sixty': 'What is 16?',
+  'place-forty-is-four-tens': 'Which is 40?',
+  'parts-nine-and-one-ten': 'Do they make 10?',
+  'parts-two-and-eight-ten': 'Do they make 10?',
+  'parts-seven-and-three-ten': 'Do they make 10?',
+  'parts-two-and-five-ten': 'Do they make 10?',
+  'parts-four-and-four-ten': 'Do they make 10?',
+  'parts-four-is-five-less-one': 'How can you see 4?',
+  'parts-seven-is-five-two-frame': 'How can you see 7?',
+  'parts-pair-one-and-nine': 'Which pair makes 10?',
+  'parts-pair-two-and-eight': 'Which pair makes 10?',
+  'halves-two-stars': 'How many for Sam?',
+  'halves-ten-apples': 'How many for Sam?',
+  'halves-sandwich-not-equal': 'Which is not a half?',
+  'see-odd-one-not-three': 'Which one is different?',
+  'see-odd-one-not-two': 'Which one is different?',
+  'see-odd-button-among-stars': 'Which one is different?',
 };
+
+function firstWord(label: string): string {
+  return label.trim().split(/\s+/)[0] ?? label;
+}
+
+/** Short compare prompt that names who or what has fewer. */
+export function howManyMoreAsk(lessLabel: string, moreLabel = ''): string {
+  const than = `How many more than ${lessLabel}?`;
+  if (than.length <= 28) return than;
+  const thanShort = `How many more than ${firstWord(lessLabel)}?`;
+  if (thanShort.length <= 28) return thanShort;
+  if (moreLabel) {
+    const on = `How many more on ${firstWord(moreLabel)}?`;
+    if (on.length <= 28) return on;
+  }
+  return 'How many more?';
+}
 
 export function kidAskForItem(item: {
   slug?: string;
@@ -429,7 +510,13 @@ export function kidAskForItem(item: {
   const stimulus = item.stimulus;
   if (stimulus && 'type' in stimulus && stimulus.type) {
     if (stimulus.type === 'matchNumber') return `Which one is ${stimulus.target}?`;
-    if (stimulus.type === 'howManyMore') return 'How many more?';
+    if (stimulus.type === 'howManyMore') {
+      const left = stimulus.left;
+      const right = stimulus.right;
+      const less = left.count <= right.count ? left : right;
+      const more = left.count <= right.count ? right : left;
+      return howManyMoreAsk(less.label, more.label);
+    }
     if (stimulus.type === 'oddOneOut') return 'Which one is different?';
     if (stimulus.type === 'pattern') return 'What comes next?';
     if (stimulus.type === 'addThree') return 'What is the answer?';
@@ -438,7 +525,9 @@ export function kidAskForItem(item: {
     }
     if (stimulus.type === 'relatedFacts') return 'What is the answer?';
     if (stimulus.type === 'halves') {
-      return stimulus.kind === 'ribbon' ? 'Is this halfway?' : 'Which is a half?';
+      if (stimulus.kind === 'ribbon') return 'Is this halfway?';
+      if (stimulus.kind === 'group') return 'How many in each half?';
+      return 'Which is a half?';
     }
     if (stimulus.type === 'measureUnits') {
       if (stimulus.kind === 'mass') return 'How many cubes?';
@@ -466,12 +555,24 @@ export function kidAskForItem(item: {
     }
     if (stimulus.type === 'numberTrack') {
       if (stimulus.missing?.length) return 'What number is missing?';
+      if (typeof stimulus.highlight === 'number' && stimulus.ask === 'before') {
+        return `What comes before ${stimulus.highlight}?`;
+      }
+      if (typeof stimulus.highlight === 'number' && stimulus.ask === 'after') {
+        return `What comes after ${stimulus.highlight}?`;
+      }
     }
     if (stimulus.type === 'numberLine') {
       if (stimulus.missing?.length) return 'What number is missing?';
       return 'Which number?';
     }
-    if (stimulus.type === 'lineup') return 'Who is third?';
+    if (stimulus.type === 'lineup') {
+      return item.slug === 'count-ordinal-second'
+        ? 'Who is second?'
+        : item.slug === 'count-ordinal-first'
+          ? 'Who is first?'
+          : 'Who is third?';
+    }
     if (stimulus.type === 'balance') return 'Which is heavier?';
     if (stimulus.type === 'jugs') return 'Which holds more?';
     if (stimulus.type === 'dayStrip') {
@@ -487,7 +588,11 @@ export function kidAskForItem(item: {
     }
     if (stimulus.type === 'compareBars') {
       if (item.skill === 'length-compare') return 'Which is longer?';
-      if (item.skill === 'compare-difference') return 'How many more?';
+      if (item.skill === 'compare-difference') {
+        const less = stimulus.a <= stimulus.b ? stimulus.aLabel : stimulus.bLabel;
+        const more = stimulus.a <= stimulus.b ? stimulus.bLabel : stimulus.aLabel;
+        return howManyMoreAsk(less, more);
+      }
       return 'Which has more?';
     }
     if (stimulus.type === 'groups') {
@@ -497,10 +602,10 @@ export function kidAskForItem(item: {
       if (item.skill === 'join-result') return 'How many now?';
       if (item.skill === 'conservation') return 'Still the same?';
       if (item.skill === 'cardinality') return 'Are there 5?';
-      if (item.skill === 'count-one-to-one') return 'How do you count?';
+      if (item.skill === 'count-one-to-one') return 'How many?';
       if (item.skill === 'skip-count') return 'Can they all pair?';
       if (item.skill === 'chance-language') return 'Will it happen?';
-      if (item.skill === 'compare-quantity') return 'How many does the other have?';
+      if (item.skill === 'compare-quantity') return 'How many for the other?';
       if (item.skill === 'ppw-whole') return 'How many altogether?';
       return 'How many altogether?';
     }
@@ -516,7 +621,7 @@ export function kidAskForItem(item: {
       return 'How many dollars?';
     }
     if (stimulus.type === 'shapes') {
-      return item.skill === 'shape-2d' ? 'Look at the shape.' : 'Which shape?';
+      return 'Which shape?';
     }
     if (stimulus.type === 'position') {
       return stimulus.place === 'slide' ? 'Who is on the left?' : 'Where is the bag?';

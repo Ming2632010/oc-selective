@@ -61,11 +61,12 @@ describe('K–Y1 Maths catalogue', () => {
 
 describe('K–Y1 Maths items', () => {
   it('gives every unit a small but varied set', () => {
+    const expected = { 1: 54, 2: 60, 3: 46, 4: 50, 5: 48, 6: 92, 7: 42 };
     for (const unit of EARLY_MATH_UNITS) {
       const items = SEED_EARLY_MATH.filter((item) => item.unitId === unit.id);
-      assert.ok(items.length >= 10, `unit ${unit.id} is too thin`);
+      assert.equal(items.length, expected[unit.id as keyof typeof expected], `unit ${unit.id} count`);
     }
-    assert.ok(SEED_EARLY_MATH.length >= 70);
+    assert.equal(SEED_EARLY_MATH.length, 392);
   });
 
   it('uses unique slugs, titles, and stems so items are not reskins', () => {
@@ -167,6 +168,41 @@ describe('K–Y1 Maths items', () => {
     assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'halves-eight-apples')!), 'How many for Sam?');
     assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'every-coin-worth-more')!), 'Which is worth more?');
     assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'groups-plates-not-equal')!), 'Which is not equal?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'count-before-eleven')!), 'What comes before 11?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'count-one-to-one-keep-track')!), 'How many pegs?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'count-more-lunch-pears')!), 'How many more than Mia?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'count-more-garden-leaves')!), 'How many more on top?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'count-which-fewer-apples')!), 'Which has fewer?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'count-ordinal-second')!), 'Who is second?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'every-shorter-pencil')!), 'Which is shorter?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'count-ordinal-last')!), 'Who is last?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'place-ten-more-nineteen')!), 'What is 10 more?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'parts-two-and-five-ten')!), 'Do they make 10?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'story-compare-quantity-two-more')!), 'How many does Ben have?');
+    assert.equal(kidAskForItem(SEED_EARLY_MATH.find((row) => row.slug === 'halves-two-stars')!), 'How many for Sam?');
+  });
+
+  it('keeps one-to-one counting as a count of objects, not a strategy quiz', () => {
+    const pegs = SEED_EARLY_MATH.find((row) => row.slug === 'count-one-to-one-keep-track');
+    assert.ok(pegs);
+    assert.equal(pegs.kind, 'count');
+    assert.equal(pegs.stimulus?.type, 'groups');
+    if (pegs.stimulus?.type === 'groups') {
+      assert.equal(pegs.stimulus.groups[0]?.count, 6);
+      assert.equal(pegs.stimulus.groups[0]?.icon, 'peg');
+    }
+    assert.equal(markEarlyMathItem(pegs, { text: '6' }).isCorrect, true);
+    assert.equal(markEarlyMathItem(pegs, { text: 'five' }).isCorrect, false);
+  });
+
+  it('names who has fewer in how-many-more pictures', () => {
+    const pears = SEED_EARLY_MATH.find((row) => row.slug === 'count-more-lunch-pears');
+    const leaves = SEED_EARLY_MATH.find((row) => row.slug === 'count-more-garden-leaves');
+    assert.ok(pears && leaves);
+    assert.equal(markEarlyMathItem(pears, { text: '2' }).isCorrect, true);
+    assert.equal(markEarlyMathItem(pears, { text: '6' }).isCorrect, false);
+    assert.equal(markEarlyMathItem(leaves, { text: '3' }).isCorrect, true);
+    assert.equal(markEarlyMathItem(leaves, { text: '8' }).isCorrect, false);
   });
 
   it('names the four Australian coins and keeps equal-groups as pictures', () => {
