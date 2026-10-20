@@ -194,7 +194,7 @@ export function examMathInstructions(kind: ExamMathSetKind | 'preview'): {
       questions: 3,
       points: [
         'This is only to try the buttons, timer, and review screen.',
-        'There are no Selective Maths questions yet.',
+        'Mini exams and papers have the practice questions.',
         'Choose A–E, flag a question, hide the timer, then finish.',
       ],
     };
@@ -236,6 +236,6 @@ export function difficultyBandLabel(band: ExamMathDifficultyBand): string {
 
 export function examMathNotReadyMessage(kind: ExamMathSetKind): string {
   return kind === 'mini'
-    ? 'This mini exam has no questions yet. Sample papers will be used to build the bank.'
-    : 'This paper has no questions yet. Sample papers will be used to build the bank.';
+    ? 'This mini exam could not load its questions. Try another mini exam, or open Selective Math again.'
+    : 'This paper could not load its questions. Try another paper, or open Selective Math again.';
 }

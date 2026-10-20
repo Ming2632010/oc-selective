@@ -4,12 +4,14 @@ import {
   examMathSetsOfKind,
   usesExamMathDashboard,
   type ExamMathOverview,
+  type ExamMathQuestion,
   type ExamMathSet,
   type ExamMathSetKind,
 } from '@/lib/exam-math';
+import { seedExamMathContent } from '@/lib/seed-exam-math-db';
 import { seedExamMathSets } from '@/lib/seed-exam-math-sets';
 
-export { seedExamMathSets };
+export { seedExamMathSets, seedExamMathContent };
 
 function isMissingExamMathTable(error: unknown): boolean {
   const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
@@ -90,8 +92,9 @@ export async function getExamMathOverview(studentId: string): Promise<ExamMathOv
     ]);
 
     let setRows = sets.rows;
-    if (setRows.length === 0) {
-      await seedExamMathSets();
+    const itemTotal = setRows.reduce((sum, row) => sum + Number(row.item_count), 0);
+    if (setRows.length === 0 || itemTotal === 0) {
+      await seedExamMathContent();
       setRows = (await query<SetRow>(SET_OVERVIEW_SQL)).rows;
     }
     if (setRows.length === 0) return emptyOverview();
@@ -126,4 +129,52 @@ export async function getExamMathOverview(studentId: string): Promise<ExamMathOv
 
 export function examMathCatalogueFallback(): ExamMathOverview {
   return emptyExamMathOverview();
+}
+
+type QuestionRow = {
+  id: string;
+  stem: string;
+  options: unknown;
+  correct_index: number;
+};
+
+export async function getExamMathSetQuestions(
+  kind: ExamMathSetKind,
+  setNumber: number,
+): Promise<ExamMathQuestion[]> {
+  try {
+    const existing = await query<QuestionRow>(
+      `SELECT item.id, item.stem, item.options, item.correct_index
+       FROM exam_math_items item
+       JOIN exam_math_sets exam_set ON exam_set.id = item.set_id
+       WHERE exam_set.kind = $1 AND exam_set.set_number = $2 AND item.is_active = TRUE
+       ORDER BY item.sort_order ASC`,
+      [kind, setNumber],
+    );
+    if (existing.rows.length === 0) {
+      await seedExamMathContent();
+    }
+    const rows =
+      existing.rows.length > 0
+        ? existing.rows
+        : (
+            await query<QuestionRow>(
+              `SELECT item.id, item.stem, item.options, item.correct_index
+               FROM exam_math_items item
+               JOIN exam_math_sets exam_set ON exam_set.id = item.set_id
+               WHERE exam_set.kind = $1 AND exam_set.set_number = $2 AND item.is_active = TRUE
+               ORDER BY item.sort_order ASC`,
+              [kind, setNumber],
+            )
+          ).rows;
+    return rows.map((row) => ({
+      id: row.id,
+      stem: row.stem,
+      options: Array.isArray(row.options) ? row.options.map(String) : [],
+      correctIndex: row.correct_index,
+    }));
+  } catch (error) {
+    if (isMissingExamMathTable(error)) return [];
+    throw error;
+  }
 }

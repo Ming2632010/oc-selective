@@ -17,13 +17,12 @@ export function SelectiveMathLaunch() {
             Selective Math
           </p>
           <h2 className="font-serif text-xl font-semibold text-warm-ink">
-            Computer test is being prepared
+            Mathematical Reasoning practice
           </h2>
           <p className="mt-1 max-w-2xl text-sm text-warm-muted">
             100 mini exams of 12 questions, 20 full papers of 35, and a
-            strengthen list for questions missed. The question bank is empty
-            until sample papers are added. You can try the computer test screen
-            now.
+            strengthen list for questions missed. Original computer-test
+            practice: five options A–E, no calculator.
           </p>
         </div>
         <Link
@@ -97,8 +96,7 @@ export function SelectiveMathOverview({
         <p className="max-w-2xl text-sm text-warm-muted">
           Computer-based practice for {studentName}. Mini exams and full papers
           match the latest Selective test sitting: five options A–E, on-screen
-          timer, flag and review, no calculator. Questions are not in the bank
-          yet.
+          timer, flag and review, no calculator.
         </p>
       </header>
 
@@ -223,7 +221,7 @@ export function ExamMathBandLegend({ kind }: { kind: ExamMathSetKind }) {
     return (
       <p className="text-sm text-warm-muted">
         1–20 foundation · 21–60 standard · 61–100 exam pace. All use current
-        Selective question types once the bank is filled.
+        Selective question types.
       </p>
     );
   }

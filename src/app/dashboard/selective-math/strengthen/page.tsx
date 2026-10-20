@@ -45,8 +45,8 @@ export default function SelectiveMathStrengthenPage() {
             : `${openCount} type${openCount === 1 ? '' : 's'} waiting.`}
         </p>
         <p className="mt-2 text-sm text-warm-muted">
-          This list fills once the question bank is in and a sitting has been
-          marked. Nothing is deleted from student work.
+          This list fills after a marked mini exam or paper. Misses stay until
+          the same type is practised again. Nothing is deleted from student work.
         </p>
       </section>
       <Link

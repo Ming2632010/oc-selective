@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getStudentId, getToken } from '@/lib/client-auth';
+import { apiFetch, getStudentId, getToken } from '@/lib/client-auth';
+import { ExamMathPlayer } from '@/components/exam-math/player';
 import {
-  examMathMetaLine,
   examMathNotReadyMessage,
   findExamMathSet,
+  type ExamMathQuestion,
   type ExamMathSetKind,
 } from '@/lib/exam-math';
 
@@ -18,7 +19,8 @@ function isSetKind(value: string): value is ExamMathSetKind {
 export default function SelectiveMathSitPage() {
   const params = useParams<{ kind: string; n: string }>();
   const router = useRouter();
-  const [ready, setReady] = useState(false);
+  const [questions, setQuestions] = useState<ExamMathQuestion[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const set = useMemo(() => {
     if (!isSetKind(params.kind)) return null;
@@ -28,19 +30,29 @@ export default function SelectiveMathSitPage() {
   }, [params.kind, params.n]);
 
   useEffect(() => {
-    if (!getToken()) {
-      router.replace('/login');
-      return;
+    async function load() {
+      if (!getToken()) {
+        router.replace('/login');
+        return;
+      }
+      const studentId = getStudentId();
+      if (!studentId) {
+        router.replace('/dashboard');
+        return;
+      }
+      if (!set) return;
+      const res = await apiFetch(
+        `/api/exam-math/questions?kind=${set.kind}&n=${set.setNumber}&student_id=${studentId}`,
+      );
+      if (!res.response.ok) {
+        setError(typeof res.data.error === 'string' ? res.data.error : 'Could not load this set.');
+        setQuestions([]);
+        return;
+      }
+      setQuestions(Array.isArray(res.data.questions) ? res.data.questions : []);
     }
-    if (!getStudentId()) {
-      router.replace('/dashboard');
-    }
-    setReady(true);
-  }, [router]);
-
-  if (!ready) {
-    return <main className="mx-auto max-w-3xl p-6">Loading…</main>;
-  }
+    void load();
+  }, [router, set]);
 
   if (!set) {
     return (
@@ -53,30 +65,36 @@ export default function SelectiveMathSitPage() {
     );
   }
 
-  return (
-    <main className="mx-auto max-w-3xl space-y-4 p-6">
-      <p className="text-sm uppercase tracking-wide text-warm-subtle">Selective Math</p>
-      <h1 className="font-serif text-3xl font-semibold text-warm-ink">{set.title}</h1>
-      <p className="text-sm text-warm-muted">
-        {examMathMetaLine(set.questionCount, set.timeLimitSeconds)}
-      </p>
-      <p className="rounded-lg border border-dashed border-warm-border bg-white p-5 text-sm text-warm-ink">
-        {examMathNotReadyMessage(set.kind)}
-      </p>
-      <div className="flex flex-wrap gap-3">
+  if (questions === null) {
+    return <main className="mx-auto max-w-3xl p-6">Loading…</main>;
+  }
+
+  if (questions.length === 0) {
+    return (
+      <main className="mx-auto max-w-3xl space-y-4 p-6">
+        <p className="text-sm uppercase tracking-wide text-warm-subtle">Selective Math</p>
+        <h1 className="font-serif text-3xl font-semibold text-warm-ink">{set.title}</h1>
+        <p className="rounded-lg border border-dashed border-warm-border bg-white p-5 text-sm text-warm-ink">
+          {error ?? examMathNotReadyMessage(set.kind)}
+        </p>
         <Link
           href={set.kind === 'mini' ? '/dashboard/selective-math/mini' : '/dashboard/selective-math/papers'}
-          className="rounded-full border border-brand px-4 py-2 text-sm font-medium text-brand hover:bg-[#EDF3ED]"
+          className="text-sm font-medium text-brand"
         >
           Back to {set.kind === 'mini' ? 'mini exams' : 'papers'}
         </Link>
-        <Link
-          href="/dashboard/selective-math/sit/preview"
-          className="rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover"
-        >
-          Try the computer test screen
-        </Link>
-      </div>
-    </main>
+      </main>
+    );
+  }
+
+  return (
+    <ExamMathPlayer
+      kind={set.kind}
+      title={set.title}
+      timeLimitSeconds={set.timeLimitSeconds}
+      questions={questions}
+      exitHref={set.kind === 'mini' ? '/dashboard/selective-math/mini' : '/dashboard/selective-math/papers'}
+      exitLabel={`Back to ${set.kind === 'mini' ? 'mini exams' : 'papers'}`}
+    />
   );
 }

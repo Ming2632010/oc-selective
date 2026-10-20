@@ -111,6 +111,7 @@ describe('Selective Math player helpers', () => {
     assert.match(examMathInstructions('mini').points[1] ?? '', /No timer/);
     assert.equal(examMathInstructions('preview').minutes, 10);
     assert.match(examMathInstructions('preview').points[0] ?? '', /try the buttons/);
+    assert.match(examMathInstructions('preview').points[1] ?? '', /practice questions/);
     assert.equal(
       EXAM_MATH_PREVIEW_QUESTIONS.every((item) => item.options.length === 5),
       true,

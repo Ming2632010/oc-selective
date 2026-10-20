@@ -855,9 +855,9 @@ export default function DashboardPage() {
               <h2 className="text-lg font-semibold text-warm-ink">Add another child</h2>
               <p className="text-sm text-warm-muted">
                 Each child has their own progress. Year 4–7 profiles use
-                Selective Writing, with Selective Math being prepared.
-                Kindergarten and Year 1 profiles use K–Y1 Maths. Later years
-                open as those paths are ready.
+                Selective Writing and Selective Math. Kindergarten and Year 1
+                profiles use K–Y1 Maths. Later years open as those paths are
+                ready.
               </p>
             </div>
             <form

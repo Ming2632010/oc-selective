@@ -1,7 +1,7 @@
 import { query } from '@/lib/db';
 import { examMathCatalogue } from '@/lib/exam-math';
 
-/** Insert empty mini and paper rows. Safe to re-run. Never adds questions. */
+/** Insert mini and paper catalogue rows. Safe to re-run. Questions are added by seedExamMathContent. */
 export async function seedExamMathSets(): Promise<void> {
   for (const set of examMathCatalogue()) {
     await query(

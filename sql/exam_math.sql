@@ -1,7 +1,7 @@
 -- Selective Math (Year 4–7) catalogue and sittings.
 -- Additive only: new tables. Does not touch early_math, writing, student,
 -- attempt, subscription, reward, or account rows. Question items stay empty
--- until the owner supplies sample papers.
+-- until migrate seeds original TrialSeed practice items.
 
 CREATE TABLE IF NOT EXISTS exam_math_sets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
