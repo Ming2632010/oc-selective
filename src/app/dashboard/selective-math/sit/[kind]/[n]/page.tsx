@@ -21,6 +21,7 @@ export default function SelectiveMathSitPage() {
   const router = useRouter();
   const [questions, setQuestions] = useState<ExamMathQuestion[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [resultsNote, setResultsNote] = useState<string | null>(null);
 
   const set = useMemo(() => {
     if (!isSetKind(params.kind)) return null;
@@ -95,6 +96,36 @@ export default function SelectiveMathSitPage() {
       questions={questions}
       exitHref={set.kind === 'mini' ? '/dashboard/selective-math/mini' : '/dashboard/selective-math/papers'}
       exitLabel={`Back to ${set.kind === 'mini' ? 'mini exams' : 'papers'}`}
+      resultsNote={resultsNote}
+      onComplete={async ({ answers, timedOut, timerHidden }) => {
+        const studentId = getStudentId();
+        if (!studentId) return;
+        const res = await apiFetch('/api/exam-math/sittings', {
+          method: 'POST',
+          body: JSON.stringify({
+            student_id: studentId,
+            kind: set.kind,
+            n: set.setNumber,
+            answers: questions.map((question, index) => ({
+              id: question.id,
+              chosen: answers[index]?.chosen ?? null,
+              flagged: Boolean(answers[index]?.flagged),
+            })),
+            timed_out: timedOut,
+            timer_hidden: timerHidden,
+          }),
+        });
+        if (!res.response.ok) {
+          setResultsNote('The sitting was marked on this screen, but Strengthen could not be updated.');
+          return;
+        }
+        const open = Number(res.data.openWrongCount ?? 0);
+        setResultsNote(
+          open === 0
+            ? 'No types were added to Strengthen.'
+            : `${open} type${open === 1 ? '' : 's'} ${open === 1 ? 'is' : 'are'} on Strengthen for the same reasoning with new numbers.`,
+        );
+      }}
     />
   );
 }

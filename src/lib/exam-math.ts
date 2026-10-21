@@ -31,6 +31,7 @@ export type ExamMathQuestion = {
   stem: string;
   options: string[];
   correctIndex: number | null;
+  explanation?: string;
 };
 
 export type ExamMathSittingAnswer = {
@@ -181,7 +182,54 @@ export function sittingScore(input: {
   return { correct, marked, total: input.questions.length };
 }
 
-export function examMathInstructions(kind: ExamMathSetKind | 'preview'): {
+export function examMathSkillLabel(skill: string): string {
+  const labels: Record<string, string> = {
+    'number-divisibility': 'Remainders and divisibility',
+    'number-patterns': 'Number patterns',
+    combinations: 'Combinations',
+    'measurement-volume': 'Volume',
+    decimals: 'Decimals',
+    chance: 'Chance',
+    fractions: 'Fractions',
+    'measurement-perimeter': 'Perimeter',
+    'multiplicative-thinking': 'Multiplicative thinking',
+    time: 'Time',
+    'time-units': 'Units of time',
+    'place-value': 'Place value',
+    'number-reasoning': 'Number reasoning',
+    multiples: 'Lowest common multiple',
+    spatial: 'Spatial reasoning',
+    angles: 'Angles',
+    factors: 'Factors',
+    'multi-step-number': 'Multi-step number',
+    'measurement-length': 'Length',
+    'linear-relationships': 'Linear relationships',
+    'measurement-units': 'Units',
+    division: 'Division',
+    'measurement-area': 'Area',
+    money: 'Money',
+    ratio: 'Ratio',
+    percentages: 'Percentages',
+    data: 'Averages',
+    operations: 'Order of operations',
+    'word-problems': 'Word problems',
+    coordinates: 'Coordinates',
+    rates: 'Rates',
+    'algebra-thinking': 'Algebra thinking',
+    'measurement-mass': 'Mass',
+  };
+  return labels[skill] ?? skill.replace(/-/g, ' ');
+}
+
+export function examMathFamilyLabel(familyId: string): string {
+  return familyId
+    .split('-')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+export function examMathInstructions(kind: ExamMathSetKind | 'preview' | 'strengthen'): {
   heading: string;
   minutes: number;
   questions: number;
@@ -196,6 +244,19 @@ export function examMathInstructions(kind: ExamMathSetKind | 'preview'): {
         'This is only to try the buttons, timer, and review screen.',
         'Mini exams and papers have the practice questions.',
         'Choose A–E, flag a question, hide the timer, then finish.',
+      ],
+    };
+  }
+  if (kind === 'strengthen') {
+    return {
+      heading: 'Strengthen · same type, new numbers',
+      minutes: 0,
+      questions: 1,
+      points: [
+        'One new question of a type you missed. Five options, A to E.',
+        'No timer. No calculator. You may work on paper.',
+        'A wrong answer keeps this type on Strengthen and makes another new question.',
+        'A right answer clears this type. Student work is never deleted.',
       ],
     };
   }

@@ -112,6 +112,8 @@ describe('Selective Math player helpers', () => {
     assert.equal(examMathInstructions('preview').minutes, 10);
     assert.match(examMathInstructions('preview').points[0] ?? '', /try the buttons/);
     assert.match(examMathInstructions('preview').points[1] ?? '', /practice questions/);
+    assert.equal(examMathInstructions('strengthen').questions, 1);
+    assert.match(examMathInstructions('strengthen').points[2] ?? '', /keeps this type/);
     assert.equal(
       EXAM_MATH_PREVIEW_QUESTIONS.every((item) => item.options.length === 5),
       true,

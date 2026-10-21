@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   EXAM_MATH_CHOICES,
   emptySittingAnswers,
@@ -18,7 +18,7 @@ import {
 } from '@/lib/exam-math';
 import { ExamMathLeaveGuard } from '@/components/exam-math/leave-guard';
 
-type PlayerKind = ExamMathSetKind | 'preview';
+type PlayerKind = ExamMathSetKind | 'preview' | 'strengthen';
 type PlayerPhase = 'instructions' | 'sitting' | 'results';
 
 export function ExamMathPlayer({
@@ -28,6 +28,10 @@ export function ExamMathPlayer({
   questions,
   exitHref,
   exitLabel = 'Back',
+  confirmBeforeFinish = true,
+  resultsNote,
+  resultsActions,
+  onComplete,
 }: {
   kind: PlayerKind;
   title: string;
@@ -35,6 +39,14 @@ export function ExamMathPlayer({
   questions: ExamMathQuestion[];
   exitHref: string;
   exitLabel?: string;
+  confirmBeforeFinish?: boolean;
+  resultsNote?: string | null;
+  resultsActions?: ReactNode;
+  onComplete?: (input: {
+    answers: ExamMathSittingAnswer[];
+    timedOut: boolean;
+    timerHidden: boolean;
+  }) => void | Promise<void>;
 }) {
   const [phase, setPhase] = useState<PlayerPhase>('instructions');
   const [index, setIndex] = useState(0);
@@ -45,6 +57,7 @@ export function ExamMathPlayer({
   const [timerHidden, setTimerHidden] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [confirmFinish, setConfirmFinish] = useState(false);
+  const finishedRef = useRef(false);
 
   const question = questions[index] ?? null;
   const current = answers[index];
@@ -63,8 +76,7 @@ export function ExamMathPlayer({
 
   useEffect(() => {
     if (!inSitting || !timed || secondsLeft > 0) return;
-    setTimedOut(true);
-    setPhase('results');
+    finishSitting(true);
   }, [inSitting, timed, secondsLeft]);
 
   useEffect(() => {
@@ -107,6 +119,18 @@ export function ExamMathPlayer({
   function goTo(nextIndex: number) {
     setIndex(Math.min(questions.length - 1, Math.max(0, nextIndex)));
     setConfirmFinish(false);
+  }
+
+  function finishSitting(endedByTimeout = false) {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    if (endedByTimeout) setTimedOut(true);
+    setPhase('results');
+    void onComplete?.({
+      answers,
+      timedOut: endedByTimeout,
+      timerHidden,
+    });
   }
 
   if (questions.length === 0) {
@@ -163,13 +187,16 @@ export function ExamMathPlayer({
       <main className="mx-auto max-w-3xl space-y-6 p-6">
         <header className="space-y-1">
           <p className="text-sm uppercase tracking-wide text-warm-subtle">{title}</p>
-          <h1 className="font-serif text-3xl font-semibold text-warm-ink">Sitting finished</h1>
+          <h1 className="font-serif text-3xl font-semibold text-warm-ink">
+            {kind === 'strengthen' ? 'Practise finished' : 'Sitting finished'}
+          </h1>
           <p className="text-sm text-warm-muted">
             {timedOut ? 'Time ended and the sitting was submitted.' : 'You finished the sitting.'}{' '}
             {score.marked > 0
               ? `${score.correct} of ${score.marked} marked correct.`
               : `${progress.answered} of ${progress.total} answered.`}
           </p>
+          {resultsNote ? <p className="text-sm text-warm-ink">{resultsNote}</p> : null}
         </header>
         <ol className="space-y-4">
           {questions.map((item, questionIndex) => {
@@ -187,6 +214,9 @@ export function ExamMathPlayer({
                     ? 'Not answered'
                     : `You chose ${EXAM_MATH_CHOICES[answer.chosen]}`}
                 </p>
+                {item.explanation ? (
+                  <p className="text-sm text-warm-muted">{item.explanation}</p>
+                ) : null}
                 <div className="grid gap-2">
                   {item.options.map((option, optionIndex) => (
                     <div
@@ -207,12 +237,15 @@ export function ExamMathPlayer({
             );
           })}
         </ol>
-        <Link
-          href={exitHref}
-          className="inline-flex rounded-full bg-terracotta px-5 py-2.5 text-sm font-medium text-white hover:bg-terracotta-hover"
-        >
-          {exitLabel}
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          {resultsActions}
+          <Link
+            href={exitHref}
+            className="inline-flex rounded-full bg-terracotta px-5 py-2.5 text-sm font-medium text-white hover:bg-terracotta-hover"
+          >
+            {exitLabel}
+          </Link>
+        </div>
       </main>
     );
   }
@@ -257,6 +290,11 @@ export function ExamMathPlayer({
           {kind === 'preview' ? (
             <p className="rounded-md border border-[#C9DDD0] bg-[#EEF6F0] px-3 py-2 text-sm text-brand-dark">
               Preview only. This is not a Selective Maths question.
+            </p>
+          ) : null}
+          {kind === 'strengthen' ? (
+            <p className="rounded-md border border-[#C9DDD0] bg-[#EEF6F0] px-3 py-2 text-sm text-brand-dark">
+              Same type as a miss, new numbers. This is not the question you got wrong.
             </p>
           ) : null}
           <p className="text-lg leading-relaxed text-warm-ink">{question?.stem}</p>
@@ -316,7 +354,7 @@ export function ExamMathPlayer({
               ) : (
                 <button
                   type="button"
-                  onClick={() => setConfirmFinish(true)}
+                  onClick={() => (confirmBeforeFinish ? setConfirmFinish(true) : finishSitting(false))}
                   className="rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover"
                 >
                   Finish
@@ -334,7 +372,7 @@ export function ExamMathPlayer({
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => setPhase('results')}
+                  onClick={() => finishSitting(false)}
                   className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
                 >
                   Submit sitting

@@ -46,7 +46,7 @@ export function SelectiveMathLaunch() {
         <ModeLink
           href="/dashboard/selective-math/strengthen"
           title="Strengthen"
-          detail="Missed questions, then the same type again"
+          detail="Missed types, then the same reasoning with new numbers"
         />
       </div>
     </section>
@@ -132,7 +132,7 @@ export function SelectiveMathOverview({
           href="/dashboard/selective-math/strengthen"
           title="Strengthen"
           count={wrongs === 0 ? 'None to review yet' : `${wrongs} open`}
-          detail="Collects misses, then makes a new question of the same type."
+          detail="Collects missed types, then asks a new question of the same type."
         />
       </div>
 

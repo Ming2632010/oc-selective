@@ -1112,6 +1112,49 @@ export function examMathFamilies(): Array<{ id: string; skill: string }> {
   return FAMILIES.map((family) => ({ id: family.id, skill: family.skill }));
 }
 
+export function findExamMathFamily(familyId: string): Family | undefined {
+  return FAMILIES.find((family) => family.id === familyId);
+}
+
+/** Mint one original item of a known family. Used by Strengthen, not by OpenAI. */
+export function makeExamMathFamilyItem(input: {
+  familyId: string;
+  band: ExamMathDifficultyBand;
+  usedStems: Iterable<string>;
+  seed: number;
+}): Omit<ExamMathSeedItem, 'kind' | 'setNumber' | 'sortOrder'> {
+  const family = findExamMathFamily(input.familyId);
+  if (!family) throw new Error(`Unknown Selective Math family ${input.familyId}`);
+  const used = new Set(input.usedStems);
+  const tryMake = (stems: Set<string>) => {
+    for (let attempt = 0; attempt < 80; attempt += 1) {
+      const rng = mulberry32((input.seed + attempt * 13_241) >>> 0);
+      const { name, other } = twoNames(rng);
+      const core = family.make({ rng, band: input.band, name, other });
+      if (stems.has(core.stem)) continue;
+      const packed = packOptions(rng, core.correct, core.distractors);
+      if (packed.options.length !== 5 || new Set(packed.options).size !== 5) continue;
+      if (packed.correctIndex < 0 || packed.correctIndex > 4) continue;
+      if (!packed.options[packed.correctIndex]) continue;
+      stems.add(core.stem);
+      return {
+        familyId: family.id,
+        skill: family.skill,
+        stem: core.stem,
+        options: packed.options,
+        correctIndex: packed.correctIndex,
+        explanation: core.explanation,
+      };
+    }
+    return null;
+  };
+  const first = tryMake(used);
+  if (first) return first;
+  const studentOnly = tryMake(new Set());
+  if (studentOnly) return studentOnly;
+  throw new Error(`Could not build a new ${family.id} question`);
+}
+
 export function buildExamMathBank(): ExamMathSeedItem[] {
   if (cachedBank) return cachedBank;
   const used = new Set<string>();

@@ -92,3 +92,24 @@ CREATE TABLE IF NOT EXISTS exam_math_wrongs (
 
 CREATE INDEX IF NOT EXISTS idx_exam_math_wrongs_student
   ON exam_math_wrongs (student_id, is_open, last_wrong_at DESC);
+
+-- On-demand Strengthen follow-ups. Same family as a miss, new numbers.
+-- Additive only. Does not replace exam_math_items or student sittings.
+CREATE TABLE IF NOT EXISTS exam_math_strengthen_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id UUID NOT NULL REFERENCES students (id) ON DELETE CASCADE,
+  source_item_id UUID NOT NULL REFERENCES exam_math_items (id) ON DELETE CASCADE,
+  family_id TEXT NOT NULL,
+  skill TEXT NOT NULL,
+  stem TEXT NOT NULL,
+  options JSONB NOT NULL DEFAULT '[]'::jsonb,
+  correct_index INTEGER NOT NULL CHECK (correct_index BETWEEN 0 AND 4),
+  explanation TEXT NOT NULL DEFAULT '',
+  chosen_index INTEGER CHECK (chosen_index BETWEEN 0 AND 4),
+  is_correct BOOLEAN,
+  answered_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_exam_math_strengthen_student
+  ON exam_math_strengthen_items (student_id, family_id, created_at DESC);
