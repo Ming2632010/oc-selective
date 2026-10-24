@@ -5,6 +5,8 @@ import {
   buildMarkerNotesHeuristic,
   combineRemoteMarkerNotes,
   inferPhotoKind,
+  isFormConventionLine,
+  isGreetingAccuracyFalsePositive,
   markerNotesFromUnknown,
   normalizeMarkerNotes,
   photoTaskCardCopy,
@@ -62,7 +64,7 @@ describe('buildMarkerNotesHeuristic', () => {
         'Resolve the story with a satisfying or surprising ending',
       ],
     });
-    assert.equal(notes.version, 5);
+    assert.equal(notes.version, 6);
     assert.match(notes.summary, /TrialSeed mark-up/);
     assert.equal(/teacher/i.test(notes.summary), false);
     assert.equal(notes.annotations.filter((row) => row.kind === 'content').length, 1);
@@ -101,6 +103,109 @@ describe('buildMarkerNotesHeuristic', () => {
     assert.ok(dust);
     assert.match(dust?.improved ?? '', /Dust hung in the air/i);
     assert.equal(/more than the handle/i.test(dust?.improved ?? ''), false);
+  });
+
+  it('does not mark Dear Diary, or a sign-off as missing a full stop', () => {
+    const content = [
+      'Dear Diary,',
+      'The bus ride was so fun I nearly dropped my hat.',
+      '',
+      'From Stella',
+      'OXOXX',
+    ].join('\n');
+    const notes = buildMarkerNotesHeuristic({
+      content,
+      promptType: 'diary_entry',
+    });
+    assert.equal(
+      notes.annotations.some(
+        (row) =>
+          /dear diary|from stella|oxoxx/i.test(row.quote) &&
+          (row.kind === 'punctuation' || row.kind === 'sentence'),
+      ),
+      false,
+    );
+    assert.equal(
+      notes.rewrites.some((row) => isFormConventionLine(row.original)),
+      false,
+    );
+  });
+
+  it('still flags a real sentence that ends with a comma', () => {
+    const content = 'The handle turned, and I waited by the locked door for a long time,';
+    const notes = buildMarkerNotesHeuristic({
+      content,
+      promptType: 'narrative',
+    });
+    assert.ok(
+      notes.annotations.some(
+        (row) => row.kind === 'punctuation' && /full stop|exclamation/i.test(row.issue),
+      ),
+    );
+  });
+
+  it('gives content-change advice on a long event-list diary', () => {
+    const content = [
+      'Dear Diary,',
+      'I just have to share this hilarious carnival! So first the day started as even the bus ride was so fun! The guy named Ben was extremely funny and even the sun was jealous.',
+      '',
+      'After we arrived at the sports carnival I played a game called Spot It! But instead of birds I looked for about 10 minutes and I looked a little anxious until she tried a stopwatch.',
+      '',
+      'Then we ate lunch and I had a peanut butter and banana sandwich which are my FAVOURITES! I gobbled it up in an instant and asked Zoe for her funniest joke because I was definitely in the mood to laugh. She said "Sorry not right now I am just eating some jellybeans!" And boy I laughed so hard people around me stare.',
+      '',
+      'At the end of the day we all hopped on the bus again and had another roast battle but it went by like a bullet train!',
+      '',
+      'From Stella',
+      'OXOXX',
+    ].join('\n');
+    const notes = buildMarkerNotesHeuristic({
+      content,
+      promptType: 'diary_entry',
+      promptTitle: 'Sports carnival',
+    });
+    assert.ok(notes.annotations.some((row) => row.kind === 'content'));
+    assert.ok(
+      notes.annotations.some(
+        (row) =>
+          row.kind === 'content' &&
+          /moment|cut|event|timetable/i.test(`${row.issue} ${row.suggestion}`),
+      ),
+    );
+    assert.ok(
+      notes.annotations.some(
+        (row) =>
+          row.kind === 'structure' &&
+          /close|last paragraph|felt/i.test(`${row.issue} ${row.suggestion}`),
+      ),
+    );
+    assert.ok(notes.next_steps.some((row) => /Set A content/i.test(row)));
+    assert.ok(notes.next_steps.some((row) => /Set A organisation/i.test(row)));
+    assert.match(notes.summary, /what you chose to write about/);
+    assert.equal(
+      notes.annotations.some(
+        (row) =>
+          /dear diary|from stella|oxoxx/i.test(row.quote) &&
+          (row.kind === 'punctuation' || row.kind === 'sentence'),
+      ),
+      false,
+    );
+    const contentIndex = notes.next_steps.findIndex((row) => /Set A content/i.test(row));
+    const proofIndex = notes.next_steps.findIndex((row) => /Set B/i.test(row));
+    if (contentIndex >= 0 && proofIndex >= 0) {
+      assert.ok(contentIndex < proofIndex);
+    }
+  });
+});
+
+describe('isFormConventionLine', () => {
+  it('treats diary greetings and sign-offs as form conventions', () => {
+    assert.equal(isFormConventionLine('Dear Diary,'), true);
+    assert.equal(isFormConventionLine('Dear Mum,'), true);
+    assert.equal(isFormConventionLine('From Stella'), true);
+    assert.equal(isFormConventionLine('Yours sincerely'), true);
+    assert.equal(isFormConventionLine('OXOXX'), true);
+    assert.equal(isFormConventionLine('Dear Diary, I just have to share this hilarious carnival!'), false);
+    assert.equal(isFormConventionLine('The bus ride was so fun I nearly dropped my hat.'), false);
   });
 });
 
@@ -208,6 +313,64 @@ describe('combineRemoteMarkerNotes', () => {
     assert.equal(combined.task_match, 'no');
   });
 
+  it('drops a remote Dear Diary punctuation note and keeps Set A content advice first', () => {
+    const content = [
+      'Dear Diary,',
+      'I just have to share this hilarious carnival! So first the day started as even the bus ride was so fun! The guy named Ben was extremely funny and even the sun was jealous.',
+      '',
+      'After we arrived at the sports carnival I played a game called Spot It! But instead of birds I looked for about 10 minutes and I looked a little anxious until she tried a stopwatch.',
+      '',
+      'Then we ate lunch and I had a peanut butter and banana sandwich which are my FAVOURITES! I gobbled it up in an instant and asked Zoe for her funniest joke because I was definitely in the mood to laugh.',
+      '',
+      'At the end of the day we all hopped on the bus again and had another roast battle but it went by like a bullet train!',
+      '',
+      'From Stella',
+    ].join('\n');
+    const local = buildMarkerNotesHeuristic({ content, promptType: 'diary_entry' });
+    const combined = combineRemoteMarkerNotes(content, local, {
+      summary: 'Model summary.',
+      next_steps: [
+        'Proofread once for Set B: spelling, capitals, apostrophes, and full stops.',
+        'Split the long sentence about lunch.',
+      ],
+      annotations: [
+        {
+          kind: 'punctuation',
+          quote: 'Dear Diary,',
+          issue: 'Set B punctuation: this sentence has no clear full stop, question mark, or exclamation mark.',
+          suggestion: 'Finish the sentence so Set B can be marked cleanly.',
+        },
+        {
+          kind: 'sentence',
+          quote: 'Dear Diary,',
+          issue: 'Set B sentence control: several very short sentences in a row can sound choppy.',
+          suggestion: 'Keep one short line for impact, then join the next idea.',
+        },
+      ],
+      rewrites: [
+        {
+          original: 'Dear Diary,',
+          improved: 'Dear Diary.',
+          why: 'Finish the greeting with a full stop.',
+        },
+      ],
+    });
+    assert.equal(
+      combined.annotations.some(
+        (row) => /dear diary/i.test(row.quote) && (row.kind === 'punctuation' || row.kind === 'sentence'),
+      ),
+      false,
+    );
+    assert.equal(combined.rewrites.some((row) => /dear diary/i.test(row.original)), false);
+    assert.ok(combined.annotations.some((row) => row.kind === 'content'));
+    assert.ok(combined.next_steps.some((row) => /Set A content/i.test(row)));
+    const contentIndex = combined.next_steps.findIndex((row) => /Set A content/i.test(row));
+    const proofIndex = combined.next_steps.findIndex((row) => /Set B/i.test(row));
+    if (contentIndex >= 0 && proofIndex >= 0) {
+      assert.ok(contentIndex < proofIndex);
+    }
+  });
+
   it('keeps a picture-stimulus description from the remote marker notes', () => {
     const content = 'I like pizza.';
     const local = buildMarkerNotesHeuristic({ content, promptType: 'narrative' });
@@ -292,6 +455,35 @@ describe('photoTaskCardCopy', () => {
     const card = photoTaskCardCopy({ task_match: 'unread' });
     assert.equal(card?.heading, 'From the photo');
     assert.match(card?.fallback ?? '', /could not copy a question or describe the picture/);
+  });
+});
+
+describe('isGreetingAccuracyFalsePositive', () => {
+  it('only drops greeting notes about missing terminal punctuation', () => {
+    assert.equal(
+      isGreetingAccuracyFalsePositive(
+        {
+          kind: 'punctuation',
+          quote: 'Dear Diary,',
+          issue: 'Set B punctuation: this sentence has no clear full stop, question mark, or exclamation mark.',
+          suggestion: 'Finish the sentence.',
+        },
+        'Dear Diary,\nThe bus was fun.',
+      ),
+      true,
+    );
+    assert.equal(
+      isGreetingAccuracyFalsePositive(
+        {
+          kind: 'spelling',
+          quote: 'Diary',
+          issue: 'Set B spelling: check this word.',
+          suggestion: 'Write “Diary”.',
+        },
+        'Dear Diary,\nThe bus was fun.',
+      ),
+      false,
+    );
   });
 });
 

@@ -5,6 +5,7 @@ import { loadCustomTaskImageForStudent } from '@/lib/custom-task-image';
 import { scoreWritingAttempt } from '@/lib/scoring';
 import {
   buildMarkerNotesHeuristic,
+  combineRemoteMarkerNotes,
   markerNotesFromUnknown,
   notesNeedRebuild,
 } from '@/lib/marker-notes';
@@ -163,16 +164,19 @@ export async function GET(request: Request) {
 
     const hydrated = attempts.rows.map((row) => {
       const existing = markerNotesFromUnknown(row.marker_notes, row.content);
+      const heuristic = buildMarkerNotesHeuristic({
+        content: row.content,
+        promptType,
+        promptTitle: prompt.title,
+        hintPoints: examStyle ? [] : hintPoints,
+        examStyle,
+      });
       const notes =
         existing && !notesNeedRebuild(existing)
           ? existing
-          : buildMarkerNotesHeuristic({
-              content: row.content,
-              promptType,
-              promptTitle: prompt.title,
-              hintPoints: examStyle ? [] : hintPoints,
-              examStyle,
-            });
+          : existing
+            ? combineRemoteMarkerNotes(row.content, heuristic, existing)
+            : heuristic;
       return { ...row, marker_notes: notes };
     });
 

@@ -92,7 +92,10 @@ Also judge whether each of the three hint points is clearly covered in the stude
 Script mark-up (required):
 - Highlight exact phrases from the student writing (spelling, punctuation, sentence control, structure/form, vocabulary, content).
 - Do not stamp every short sentence with the same “too short” note. One content comment for an under-developed piece is enough.
-- Give a better version of 2–4 of the student’s weakest sentences. Keep that sentence’s idea. Fix spelling in the rewrite. Prefer one developed sentence, not a second new sentence.
+- Do not mark diary or letter greetings and sign-offs as missing a full stop or as choppy sentences. “Dear Diary,” / “Dear Mum,” / “From Stella” / “Yours sincerely” / “xx” are form conventions. A comma after Dear Diary is correct.
+- If Set A (content or organisation) is a real weakness, you MUST include at least one content or structure annotation that tells the student what to add, cut, or reorder. Do not only rewrite sentences or comment on spelling.
+- Content comments should name a moment to keep, a moment to cut, or a paragraph job (opening feeling, one developed scene, a close that looks back).
+- Give a better version of 2–4 of the student’s weakest sentences. Keep that sentence’s idea. Fix spelling in the rewrite. Prefer one developed sentence, not a second new sentence. Do not rewrite greetings or sign-offs.
 - Tie every comment to Set A (content, form, organisation, vocabulary/style) or Set B (sentences, punctuation, spelling).
 - Write for a Year 5–6 student in Australian English. Be specific to their words, not generic.
 - In student-facing text, say TrialSeed feedback or TrialSeed mark-up. Never call it a teacher mark.
@@ -321,7 +324,7 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
     temperature: 0.2,
     system: [
       'You mark NSW Selective writing practice for TrialSeed.',
-      'Circle exact errors, give one overall development note if the piece is a sketch, and rewrite the student’s own weakest sentences.',
+      'Circle exact errors, give content-change advice when Set A is weak, and rewrite the student’s own weakest sentences. Never mark “Dear Diary,” as missing a full stop.',
       'Student-facing comments must say TrialSeed feedback or TrialSeed mark-up, never a teacher mark.',
       'Score consistently against Set A (content, form, organisation, vocabulary/style) and Set B (sentences, punctuation, spelling).',
       'Return ONLY valid JSON matching the required schema.',
@@ -391,7 +394,9 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
             ? '"yes" | "partial" | "no" | "unread"'
             : 'omit',
           strengths: ['string: what this sitting already does well'],
-          next_steps: ['string: what to change next, tied to Set A or Set B'],
+          next_steps: [
+            'string: what to change next, tied to Set A or Set B. If Set A is weak, the first step must say what to add, cut, or reorder',
+          ],
           annotations: [
             {
               kind: 'spelling|punctuation|sentence|structure|vocabulary|content',
