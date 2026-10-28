@@ -250,6 +250,19 @@ describe('scoreWritingAttemptHeuristic', () => {
     assert.match(second.marker_notes.next_steps[0] ?? '', /letterbox/i);
   });
 
+  it('does not treat a seeded picture prompt as an unread custom photo', () => {
+    const scored = scoreWritingAttemptHeuristic({
+      content: draft1,
+      hintPoints: afterStormHints,
+      promptType: 'narrative',
+      promptTitle: 'After the storm',
+      stimulusFocus: afterStormFocus,
+      promptImage: { mimeType: 'image/jpeg', bytes: Buffer.from('not-a-real-photo') },
+    });
+    assert.notEqual(scored.marker_notes.task_match, 'unread');
+    assert.match(scored.marker_notes.next_steps[0] ?? '', /letterbox/i);
+  });
+
   it('marks a photo task unread when OpenAI is not available to read the image', () => {
     const scored = scoreWritingAttemptHeuristic({
       content: 'I like pizza and also the park is nice.',

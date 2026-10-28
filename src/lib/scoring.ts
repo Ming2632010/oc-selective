@@ -470,9 +470,10 @@ export function scoreWritingAttemptHeuristic(input: ScoreInput): ScoringResult {
     wordCount: wc,
     stimulusFocus: input.stimulusFocus,
   });
-  const marker_notes = input.promptImage
-    ? { ...notes, task_match: 'unread' as const }
-    : notes;
+  const marker_notes =
+    input.promptImage && !input.stimulusFocus
+      ? { ...notes, task_match: 'unread' as const }
+      : notes;
 
   return finalizeWritingScore(
     {
@@ -651,7 +652,7 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
       : {}),
     ...photoFieldsFromParsed(parsed),
   });
-  if (input.promptImage && !notes.task_match) {
+  if (input.promptImage && !notes.task_match && !input.stimulusFocus) {
     notes = { ...notes, task_match: 'unread' };
   }
   if (input.promptImage && notes.photo_question && !notes.photo_kind) {

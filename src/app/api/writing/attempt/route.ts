@@ -175,12 +175,17 @@ export async function GET(request: Request) {
         examStyle,
         stimulusFocus,
       });
-      const notes =
+      let notes =
         existing && !notesNeedRebuild(existing)
           ? existing
           : existing
             ? combineRemoteMarkerNotes(row.content, heuristic, existing)
             : heuristic;
+      if (stimulusFocus && notes.task_match === 'unread' && !notes.photo_question) {
+        notes = { ...notes };
+        delete notes.task_match;
+        delete notes.photo_kind;
+      }
       return { ...row, marker_notes: notes };
     });
 
