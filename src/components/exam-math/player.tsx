@@ -17,6 +17,7 @@ import {
   type ExamMathSittingAnswer,
 } from '@/lib/exam-math';
 import { ExamMathLeaveGuard } from '@/components/exam-math/leave-guard';
+import { ExamMathStimulusView } from '@/components/exam-math/stimulus';
 
 type PlayerKind = ExamMathSetKind | 'preview' | 'strengthen';
 type PlayerPhase = 'instructions' | 'sitting' | 'results';
@@ -209,6 +210,7 @@ export function ExamMathPlayer({
                 <p className="text-sm font-semibold text-warm-ink">
                   {questionIndex + 1}. {item.stem}
                 </p>
+                <ExamMathStimulusView stimulus={item.stimulus} />
                 <p className="text-xs text-warm-muted">
                   {answer?.chosen === null || answer?.chosen === undefined
                     ? 'Not answered'
@@ -298,6 +300,7 @@ export function ExamMathPlayer({
             </p>
           ) : null}
           <p className="text-lg leading-relaxed text-warm-ink">{question?.stem}</p>
+          <ExamMathStimulusView stimulus={question?.stimulus} />
           <div className="grid gap-2">
             {question?.options.map((option, optionIndex) => {
               const selected = current?.chosen === optionIndex;

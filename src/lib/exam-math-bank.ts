@@ -13,6 +13,7 @@ import {
   type ExamMathDifficultyBand,
   type ExamMathSetKind,
 } from './exam-math';
+import type { ExamMathStimulus } from './exam-math-stimulus';
 
 export type ExamMathSeedItem = {
   kind: ExamMathSetKind;
@@ -24,6 +25,7 @@ export type ExamMathSeedItem = {
   options: string[];
   correctIndex: number;
   explanation: string;
+  stimulus?: ExamMathStimulus;
 };
 
 type Rng = () => number;
@@ -33,6 +35,7 @@ type Core = {
   correct: string;
   distractors: string[];
   explanation: string;
+  stimulus?: ExamMathStimulus;
 };
 
 type Ctx = {
@@ -379,6 +382,7 @@ const FAMILIES: Family[] = [
         correct: `${smallPerimeter} cm`,
         distractors: [`${side} cm`, `${2 * smallSide} cm`, `${perimeter / 4} cm`, `${3 * smallSide} cm`],
         explanation: `The large side is ${perimeter} ÷ 4 = ${side} cm. Each small square has side ${smallSide} cm, so its perimeter is ${smallPerimeter} cm.`,
+        stimulus: { type: 'square-cut', side, unit: 'cm' },
       };
     },
   },
@@ -542,6 +546,7 @@ const FAMILIES: Family[] = [
         correct: String(hidden),
         distractors: [String(n ** 2), String((n - 1) ** 3), String(total - n ** 2), String(6 * (n - 2) ** 2)],
         explanation: `The hidden cube is ${(n - 2)} × ${(n - 2)} × ${(n - 2)} = ${hidden}.`,
+        stimulus: { type: 'cube', n },
       };
     },
   },
@@ -561,6 +566,7 @@ const FAMILIES: Family[] = [
         correct: `${clockwise}°`,
         distractors: [`${(360 - clockwise) % 360}°`, `${Math.abs(hourAngle - minuteAngle)}°`, `${30 * hour}°`, `${minuteAngle}°`],
         explanation: `The minute hand is at ${minuteAngle}° and the hour hand is at ${hourAngle}°. Clockwise from the hour hand is ${clockwise}°.`,
+        stimulus: { type: 'clock', hour, minute },
       };
     },
   },
@@ -739,6 +745,7 @@ const FAMILIES: Family[] = [
           correct: `${length} cm`,
           distractors: ['10 cm', '12 cm', '16 cm', '24 cm'],
           explanation: `Area is 48 cm², so the missing side is 48 ÷ 4 = 12 cm.`,
+          stimulus: { type: 'rect-pair', aW: 8, aH: 6, bW: 4, unit: 'cm' },
         };
       }
       const length = (a * b) / c;
@@ -747,6 +754,7 @@ const FAMILIES: Family[] = [
         correct: `${length} cm`,
         distractors: [`${a + b - c} cm`, `${a * b} cm`, `${(a * b) / 2} cm`, `${c * 2} cm`],
         explanation: `Area = ${a * b} cm², so the missing side is ${a * b} ÷ ${c} = ${length} cm.`,
+        stimulus: { type: 'rect-pair', aW: a, aH: b, bW: c, unit: 'cm' },
       };
     },
   },
@@ -822,17 +830,38 @@ const FAMILIES: Family[] = [
         const m = 14;
         const miss = m * 5 - ks.reduce((a, b) => a + b, 0);
         return {
-          stem: `${name}’s five scores have a mean of 14. Four of the scores are 6, 8, 10 and 12. What is the missing score?`,
+          stem: `${name}’s five scores have a mean of 14. Four scores in the table add to 36. What is the missing score?`,
           correct: String(miss),
           distractors: ['14', '16', '18', '10'],
           explanation: `Five scores sum to 70. 70 − 36 = 34.`,
+          stimulus: {
+            type: 'table',
+            caption: `${name}’s scores`,
+            headers: ['Test', 'Score'],
+            rows: [
+              ['1', '6'],
+              ['2', '8'],
+              ['3', '10'],
+              ['4', '12'],
+              ['5', '?'],
+            ],
+          },
         };
       }
       return {
-        stem: `${name} has ${n} test scores with a mean of ${mean}. ${n - 1} of the scores are ${known.join(', ')}. What is the missing score?`,
+        stem: `${name} has ${n} test scores with a mean of ${mean}. The table shows ${n - 1} scores that add to ${known.reduce((a, b) => a + b, 0)}. What is the missing score?`,
         correct: String(missing),
         distractors: [String(mean), String(known[0]!), String(missing + n), String(Math.abs(missing - mean))],
         explanation: `The ${n} scores sum to ${mean * n}. Subtract ${known.reduce((a, b) => a + b, 0)} to get ${missing}.`,
+        stimulus: {
+          type: 'table',
+          caption: `${name}’s scores`,
+          headers: ['Test', 'Score'],
+          rows: [
+            ...known.map((score, index) => [String(index + 1), String(score)]),
+            [String(n), '?'],
+          ],
+        },
       };
     },
   },
@@ -889,6 +918,7 @@ const FAMILIES: Family[] = [
         correct: `${endLetter}${row}`,
         distractors: [`${letter}${row}`, `${endLetter}${startRow}`, `${endLetter}${n}`, `${letter}${n}`],
         explanation: `After ${n - 1} steps the column is ${endLetter} and the row is ${row}.`,
+        stimulus: { type: 'coord-grid', startCol, startRow, steps: n },
       };
     },
   },
@@ -918,6 +948,7 @@ const FAMILIES: Family[] = [
         correct: `${b}°`,
         distractors: [`${a}°`, `${90 - (a % 90)}°`, `${180 + a}°`, `${360 - a}°`],
         explanation: `Angles on a straight line add to 180°, so 180 − ${a} = ${b}.`,
+        stimulus: { type: 'straight-angle', given: a },
       };
     },
   },
@@ -951,6 +982,7 @@ const FAMILIES: Family[] = [
         correct: `${area} cm²`,
         distractors: [`${L * W} cm²`, `${l * w} cm²`, `${2 * (L + W)} cm²`, `${area + l} cm²`],
         explanation: `${L} × ${W} = ${L * W}, minus ${l} × ${w} = ${l * w}, leaving ${area} cm².`,
+        stimulus: { type: 'compound-rect', outerW: L, outerH: W, cutW: l, cutH: w, unit: 'cm' },
       };
     },
   },
@@ -984,6 +1016,7 @@ const FAMILIES: Family[] = [
           correct: '1525 g',
           distractors: ['975 g', '1225 g', '1775 g', '2500 g'],
           explanation: `2.5 kg = 2500 g. 2500 − 700 − 275 = 1525 g.`,
+          stimulus: { type: 'scale', max: 4, value: 2.5, unit: 'kg' },
         };
       }
       return {
@@ -991,6 +1024,7 @@ const FAMILIES: Family[] = [
         correct: `${c} g`,
         distractors: [`${a + b} g`, `${totalG - a} g`, `${c + 100} g`, `${totalG} g`],
         explanation: `${totalKgTenths / 10} kg = ${totalG} g. ${totalG} − ${a} − ${b} = ${c} g.`,
+        stimulus: { type: 'scale', max: 4, value: totalKgTenths / 10, unit: 'kg' },
       };
     },
   },
@@ -1036,7 +1070,7 @@ const FAMILIES: Family[] = [
       const correct = span(hours, mins);
       const pad = (n: number) => String(n).padStart(2, '0');
       return {
-        stem: `${name} leaves town at ${pad(depH)}:${pad(depM)}. The trip takes ${trip} minutes. After waiting ${wait} minutes, ${name} catches a return trip of ${returnTrip} minutes. How long is ${name} away from town?`,
+        stem: `The timetable shows ${name}’s trip, leaving at ${pad(depH)}:${pad(depM)}. How long is ${name} away from town?`,
         correct,
         distractors: [
           span(hours, mins + 10),
@@ -1045,6 +1079,150 @@ const FAMILIES: Family[] = [
           span(hours, wait),
         ],
         explanation: `${trip} + ${wait} + ${returnTrip} = ${away} minutes = ${correct}.`,
+        stimulus: {
+          type: 'table',
+          caption: `${name}’s trip`,
+          headers: ['Stage', 'Minutes'],
+          rows: [
+            [`Leaves town at ${pad(depH)}:${pad(depM)}`, '—'],
+            ['Trip there', String(trip)],
+            ['Wait', String(wait)],
+            ['Return trip', String(returnTrip)],
+          ],
+        },
+      };
+    },
+  },
+  {
+    id: 'bar-graph',
+    skill: 'data-display',
+    make({ rng, name }) {
+      const labels = pick(rng, [
+        ['Chess', 'Drama', 'Choir', 'Robotics'],
+        ['Red', 'Blue', 'Green', 'Gold'],
+        ['Mon', 'Tue', 'Wed', 'Thu'],
+      ]);
+      const values = labels.map(() => int(rng, 4, 18));
+      const i = int(rng, 0, 3);
+      let j = int(rng, 0, 3);
+      if (j === i) j = (i + 1) % 4;
+      const diff = Math.abs(values[i]! - values[j]!);
+      const more = values[i]! >= values[j]! ? labels[i] : labels[j];
+      const less = more === labels[i] ? labels[j] : labels[i];
+      return {
+        stem: `The bar graph shows the clubs ${name} counted. How many more students chose ${more} than ${less}?`,
+        correct: String(diff),
+        distractors: [
+          String(values[i]),
+          String(values[j]),
+          String(values.reduce((a, b) => a + b, 0)),
+          String(Math.max(...values)),
+        ],
+        explanation: `${more} has ${Math.max(values[i]!, values[j]!)} and ${less} has ${Math.min(values[i]!, values[j]!)}, so the difference is ${diff}.`,
+        stimulus: {
+          type: 'bar',
+          caption: `${name}’s club counts`,
+          bars: labels.map((label, index) => ({ label, value: values[index]! })),
+        },
+      };
+    },
+  },
+  {
+    id: 'pie-chart',
+    skill: 'data-display',
+    make({ rng, name }) {
+      const slices = [
+        { label: 'Bus', value: pick(rng, [8, 10, 12]) },
+        { label: 'Walk', value: pick(rng, [6, 8, 9]) },
+        { label: 'Bike', value: pick(rng, [4, 5, 6]) },
+        { label: 'Car', value: pick(rng, [2, 3, 4]) },
+      ];
+      const total = slices.reduce((sum, slice) => sum + slice.value, 0);
+      const bus = slices[0]!.value;
+      return {
+        stem: `The pie chart shows how ${name}’s class of ${total} students travel to school. How many students travel by bus?`,
+        correct: String(bus),
+        distractors: [String(total - bus), String(slices[1]!.value), String(total), String(Math.round((bus / total) * 100))],
+        explanation: `The Bus slice is ${bus} of the ${total} students.`,
+        stimulus: {
+          type: 'pie',
+          caption: `How ${name}’s class travels`,
+          slices,
+        },
+      };
+    },
+  },
+  {
+    id: 'data-table',
+    skill: 'data-display',
+    make({ rng, name }) {
+      const years = ['Year 4', 'Year 5', 'Year 6', 'Year 7'];
+      const loans = years.map(() => int(rng, 20, 80));
+      const i = int(rng, 0, 3);
+      let j = int(rng, 0, 3);
+      if (j === i) j = (i + 2) % 4;
+      const diff = Math.abs(loans[i]! - loans[j]!);
+      const more = loans[i]! >= loans[j]! ? years[i] : years[j];
+      const less = more === years[i] ? years[j] : years[i];
+      return {
+        stem: `The table shows books borrowed from ${name}’s library (${loans.reduce((a, b) => a + b, 0)} in all). How many more books did ${more} borrow than ${less}?`,
+        correct: String(diff),
+        distractors: [String(loans[i]), String(loans[j]), String(loans.reduce((a, b) => a + b, 0)), String(Math.max(...loans))],
+        explanation: `${more} borrowed ${Math.max(loans[i]!, loans[j]!)} and ${less} borrowed ${Math.min(loans[i]!, loans[j]!)}, so the difference is ${diff}.`,
+        stimulus: {
+          type: 'table',
+          caption: `${name}’s library loans`,
+          headers: ['Year', 'Books'],
+          rows: years.map((year, index) => [year, String(loans[index])]),
+        },
+      };
+    },
+  },
+  {
+    id: 'line-graph',
+    skill: 'data-display',
+    make({ rng, name }) {
+      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+      const temps = days.map(() => int(rng, 12, 28));
+      const hottest = Math.max(...temps);
+      const coolest = Math.min(...temps);
+      const diff = hottest - coolest;
+      return {
+        stem: `The line graph shows lunchtime temperature at ${name}’s school this week. Monday was ${temps[0]}°C. What is the difference between the hottest and coolest days?`,
+        correct: `${diff}°C`,
+        distractors: [`${hottest}°C`, `${coolest}°C`, `${temps[0]}°C`, `${diff + 2}°C`],
+        explanation: `Hottest ${hottest}°C minus coolest ${coolest}°C is ${diff}°C.`,
+        stimulus: {
+          type: 'line',
+          caption: `${name}’s lunchtime temperatures`,
+          xLabel: 'Day',
+          yLabel: '°C',
+          points: days.map((day, index) => ({ x: day, y: temps[index]! })),
+        },
+      };
+    },
+  },
+  {
+    id: 'painted-grid',
+    skill: 'fractions',
+    make({ rng, name }) {
+      const columns = pick(rng, [4, 5, 6]);
+      const rows = pick(rng, [3, 4, 5]);
+      const total = columns * rows;
+      const filled = int(rng, 2, total - 2);
+      const g = gcd(filled, total);
+      const correct = `${filled / g}/${total / g}`;
+      return {
+        stem: `${name} paints some equal sections of a ${columns} by ${rows} wall. What fraction of the wall is painted?`,
+        correct,
+        distractors: [
+          `${filled}/${total}`,
+          `${total - filled}/${total}`,
+          `${filled}/${columns}`,
+          `${rows}/${total}`,
+        ].filter((row, index, all) => row !== correct && all.indexOf(row) === index),
+        explanation: `${filled} of ${total} equal sections are painted, which simplifies to ${correct}.`,
+        stimulus: { type: 'painted-grid', columns, rows, filled },
       };
     },
   },
@@ -1101,6 +1279,7 @@ function makeItem(
       options: packed.options,
       correctIndex: packed.correctIndex,
       explanation: core.explanation,
+      stimulus: core.stimulus,
     };
   }
   throw new Error(`Could not build unique ${kind} ${setNumber} q${sortOrder} (${family.id})`);
@@ -1144,6 +1323,7 @@ export function makeExamMathFamilyItem(input: {
         options: packed.options,
         correctIndex: packed.correctIndex,
         explanation: core.explanation,
+        stimulus: core.stimulus,
       };
     }
     return null;

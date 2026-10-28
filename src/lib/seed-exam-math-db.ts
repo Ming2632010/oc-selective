@@ -42,18 +42,19 @@ async function upsertItemChunk(
 ): Promise<void> {
   const params: unknown[] = [];
   const rows = items.map((item, index) => {
-    const base = index * 8;
+    const base = index * 9;
     params.push(
       item.setId,
       item.sortOrder,
       item.familyId,
       item.skill,
       item.stem,
+      JSON.stringify(item.stimulus ?? {}),
       JSON.stringify(item.options),
       item.correctIndex,
       item.explanation,
     );
-    return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, '{}'::jsonb, $${base + 6}::jsonb, $${base + 7}, $${base + 8}, TRUE)`;
+    return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}::jsonb, $${base + 7}::jsonb, $${base + 8}, $${base + 9}, TRUE)`;
   });
   await query(
     `INSERT INTO exam_math_items (

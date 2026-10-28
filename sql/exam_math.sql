@@ -102,6 +102,7 @@ CREATE TABLE IF NOT EXISTS exam_math_strengthen_items (
   family_id TEXT NOT NULL,
   skill TEXT NOT NULL,
   stem TEXT NOT NULL,
+  stimulus JSONB NOT NULL DEFAULT '{}'::jsonb,
   options JSONB NOT NULL DEFAULT '[]'::jsonb,
   correct_index INTEGER NOT NULL CHECK (correct_index BETWEEN 0 AND 4),
   explanation TEXT NOT NULL DEFAULT '',
@@ -113,3 +114,6 @@ CREATE TABLE IF NOT EXISTS exam_math_strengthen_items (
 
 CREATE INDEX IF NOT EXISTS idx_exam_math_strengthen_student
   ON exam_math_strengthen_items (student_id, family_id, created_at DESC);
+
+ALTER TABLE exam_math_strengthen_items
+  ADD COLUMN IF NOT EXISTS stimulus JSONB NOT NULL DEFAULT '{}'::jsonb;

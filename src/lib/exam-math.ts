@@ -1,3 +1,5 @@
+import type { ExamMathStimulus } from '@/lib/exam-math-stimulus';
+
 export const EXAM_MATH_CHOICES = ['A', 'B', 'C', 'D', 'E'] as const;
 export type ExamMathChoice = (typeof EXAM_MATH_CHOICES)[number];
 
@@ -32,6 +34,7 @@ export type ExamMathQuestion = {
   options: string[];
   correctIndex: number | null;
   explanation?: string;
+  stimulus?: ExamMathStimulus;
 };
 
 export type ExamMathSittingAnswer = {
@@ -211,6 +214,7 @@ export function examMathSkillLabel(skill: string): string {
     ratio: 'Ratio',
     percentages: 'Percentages',
     data: 'Averages',
+    'data-display': 'Graphs and tables',
     operations: 'Order of operations',
     'word-problems': 'Word problems',
     coordinates: 'Coordinates',
