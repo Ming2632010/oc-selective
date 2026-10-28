@@ -1,6 +1,10 @@
 import { typeLabel } from '@/lib/units';
+import {
+  writingUsesStimulusFocus,
+  type StimulusFocus,
+} from '@/lib/stimulus-focus';
 
-export const MARKER_NOTES_VERSION = 5;
+export const MARKER_NOTES_VERSION = 6;
 
 export const MARKER_KINDS = [
   'spelling',
@@ -410,6 +414,7 @@ export type MarkerNotesInput = {
   hintPoints?: string[];
   examStyle?: boolean;
   wordCount?: number;
+  stimulusFocus?: StimulusFocus | null;
 };
 
 function isMarkerKind(value: unknown): value is MarkerKind {
@@ -1079,6 +1084,27 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
     );
   }
 
+  const stimulusFocus = input.stimulusFocus ?? null;
+  const missedPicture =
+    Boolean(stimulusFocus) && !writingUsesStimulusFocus(content, stimulusFocus as StimulusFocus);
+  if (stimulusFocus && missedPicture) {
+    const pictureQuote =
+      content.match(
+        /swept the road|buy new flowers|tree was on the floor|knocked down|helped the environment|leaves were scattered/i,
+      )?.[0] ?? lastSentenceSpan(content).text.trim().slice(0, 48);
+    pushNote(
+      annotations,
+      content,
+      'content',
+      pictureQuote || openingQuote(content),
+      stimulusFocus.missedIssue,
+      stimulusFocus.missedSuggestion,
+    );
+    if (!examStyle) {
+      nextSteps.unshift(stimulusFocus.plotFix);
+    }
+  }
+
   const missedHint = hints.find((hint) => {
     const keywords = hint
       .toLowerCase()
@@ -1091,7 +1117,12 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
     return keywords.length > 0 && hits < Math.min(2, keywords.length);
   });
   if (missedHint && !examStyle) {
-    nextSteps.push(`Cover this task hint in the writing itself: ${missedHint}`);
+    const plotHint = /discover|character.?s plan|changes the character/i.test(missedHint);
+    nextSteps.unshift(
+      plotHint && stimulusFocus
+        ? `The hint “${missedHint}” is still missing. ${stimulusFocus.plotFix}`
+        : `The hint “${missedHint}” is still missing. Change what happens in the middle: give the character a plan, then let one discovery force a new plan.`,
+    );
   }
 
   const ranked = sentences
@@ -1156,7 +1187,9 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
     `Set B (sentences, punctuation, spelling) looks at accuracy. This sitting has ${spellingCount} spelling note${spellingCount === 1 ? '' : 's'} and ${punctuationCount} punctuation note${punctuationCount === 1 ? '' : 's'}.`,
     wc < 80
       ? `At ${wc} words the main gap is development: keep your idea, then show the moment in enough detail for a 30-minute paper.`
-      : 'Read the highlighted lines, then the “Write it better” rewrites that start from your own sentences.',
+      : missedPicture && stimulusFocus
+        ? `The main Set A gap is the picture, not only the sentences. ${stimulusFocus.missedSuggestion}`
+        : 'Read the highlighted lines, then the “Write it better” rewrites that start from your own sentences.',
   ].join(' ');
 
   return normalizeMarkerNotes(

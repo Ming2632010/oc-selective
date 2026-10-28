@@ -9,6 +9,7 @@ import {
   type PhotoKind,
   type TaskMatch,
 } from '@/lib/marker-notes';
+import type { StimulusFocus } from '@/lib/stimulus-focus';
 
 export type ScoresBreakdown = {
   structure: number;
@@ -30,7 +31,17 @@ export type ScoringResult = {
   word_count: number;
 };
 
-type ScoreInput = {
+export type PreviousDraftScore = {
+  draft_number: number;
+  content: string;
+  score_set_a: number;
+  score_set_b: number;
+  overall_score: number;
+  scores_breakdown: ScoresBreakdown;
+  next_steps?: string[];
+};
+
+export type ScoreInput = {
   content: string;
   hintPoints: string[];
   promptType: string;
@@ -38,6 +49,9 @@ type ScoreInput = {
   promptDescription?: string;
   examStyle?: boolean;
   promptImage?: { mimeType: string; bytes: Buffer } | null;
+  draftNumber?: number;
+  previousDrafts?: PreviousDraftScore[];
+  stimulusFocus?: StimulusFocus | null;
 };
 
 const SELECTIVE_MARKING_CRITERIA = `
@@ -54,7 +68,7 @@ Overall scale used in this product (single-examiner practice scale):
 - score_set_b: integer 0–10 (accuracy, control of grammar/spelling/punctuation, and task completion including hint coverage)
 - overall_score MUST equal score_set_a + score_set_b
 
-Four-dimension breakdown (each integer 0–5):
+Four-dimension breakdown (each 0–5, halves allowed: 3, 3.5, 4):
 1) structure — organisation, paragraphing, logical development, clear opening/ending suited to the form
 2) vocabulary — precise, varied word choice; register suited to audience and purpose
 3) audience — sustained awareness of reader/purpose/form conventions (e.g. report voice, diary voice, email purpose, advice tone)
@@ -89,6 +103,20 @@ Set A and Set B calibration:
 
 Also judge whether each of the three hint points is clearly covered in the student writing.
 
+Draft memory (when previous_drafts is provided):
+- Compare this draft with the previous draft.
+- If the student improved vocabulary (for example “got scared” to “hid under her covers” or “a jolt of fear”) or fixed punctuation from previous feedback, you MUST increase the Vocabulary & style or Sentences/punctuation dimension by 0.5 or 1 from that previous draft. Reward their effort.
+- Do not jump overall out of the fair band just because sentences were polished. If the plot still misses the picture’s key object or a required plan-change, keep overall in the 12–17 basic band.
+
+Picture prompts:
+- If a picture is attached or stimulus_focus is given, look at that object. Do not give vague “add more detail” advice.
+- If the student writes a generic cleanup story (sweeping leaves, falling trees, buying flowers) and misses the key visual object, you MUST name it. Example: “You missed the most interesting part of the picture: the overturned letterbox. What if Mia found a letter inside?”
+- Missing the key object is a Set A content gap, not an off-task script, when the writing is still about this scene.
+
+Missed hints:
+- If a hint such as “Introduce a discovery that changes the character’s plan” is missed, the first next_step and ai_feedback MUST explain how to fix the plot, with a concrete example.
+- Example: “Instead of just buying flowers, have Mia open one of the scattered envelopes, which changes her whole morning plan.”
+
 Script mark-up (required):
 - Highlight exact phrases from the student writing (spelling, punctuation, sentence control, structure/form, vocabulary, content).
 - Do not stamp every short sentence with the same “too short” note. One content comment for an under-developed piece is enough.
@@ -100,6 +128,113 @@ Script mark-up (required):
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Math.round(value)));
+}
+
+function clampHalf(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  const rounded = Math.round(value * 2) / 2;
+  return Math.max(min, Math.min(max, rounded));
+}
+
+export function formatDimensionScore(value: number): string {
+  const half = clampHalf(value, 0, 5);
+  return Number.isInteger(half) ? String(half) : half.toFixed(1);
+}
+
+const WEAK_WORD_RE = /\b(very|really|nice|got|went|said|things|stuff)\b/gi;
+
+export function detectDraftPolish(previous: string, current: string): {
+  vocabulary: boolean;
+  vocabularyStrong: boolean;
+  accuracy: boolean;
+} {
+  const prev = previous ?? '';
+  const cur = current ?? '';
+  const pairs: { from: RegExp; to: RegExp; strong?: boolean }[] = [
+    { from: /got scared/i, to: /jolt of fear|hid under|froze/i, strong: true },
+    { from: /on the floor/i, to: /on the ground/i },
+    { from: /raining cats and dogs/i, to: /raining heavily|pouring|lashing/i, strong: true },
+    { from: /\bwent into the house\b/i, to: /hurried|ran into the house/i },
+    { from: /felt sorry/i, to: /deep sadness|heart sank/i, strong: true },
+  ];
+  let vocabulary = false;
+  let vocabularyStrong = false;
+  for (const pair of pairs) {
+    pair.from.lastIndex = 0;
+    pair.to.lastIndex = 0;
+    if (pair.from.test(prev) && pair.to.test(cur)) {
+      vocabulary = true;
+      if (pair.strong) vocabularyStrong = true;
+    }
+  }
+  const prevWeak = prev.match(WEAK_WORD_RE)?.length ?? 0;
+  WEAK_WORD_RE.lastIndex = 0;
+  const curWeak = cur.match(WEAK_WORD_RE)?.length ?? 0;
+  if (curWeak + 1 <= prevWeak && prevWeak > 0 && curWeak < prevWeak) {
+    vocabulary = true;
+  }
+  const accuracy =
+    (/\s ,/.test(prev) && !/\s ,/.test(cur)) ||
+    (/\bdont\b/i.test(prev) && /\bdon't\b/i.test(cur)) ||
+    (/\bwont\b/i.test(prev) && /\bwon't\b/i.test(cur)) ||
+    (/\bwich\b/i.test(prev) && /\bwhich\b/i.test(cur));
+  return { vocabulary, vocabularyStrong, accuracy };
+}
+
+export function applyDraftMemory(result: ScoringResult, input: ScoreInput): ScoringResult {
+  const prev = [...(input.previousDrafts ?? [])]
+    .filter((row) => row.draft_number < (input.draftNumber ?? Number.POSITIVE_INFINITY))
+    .sort((a, b) => a.draft_number - b.draft_number)
+    .at(-1);
+  if (!prev || input.examStyle) return result;
+
+  const polish = detectDraftPolish(prev.content, input.content);
+  if (!polish.vocabulary && !polish.accuracy) return result;
+
+  const prevBreak = prev.scores_breakdown;
+  const breakdown = { ...result.scores_breakdown };
+  const strengths = [...result.marker_notes.strengths];
+
+  if (polish.vocabulary) {
+    const lift = polish.vocabularyStrong ? 1 : 0.5;
+    const rewarded = Math.min(5, (prevBreak?.vocabulary ?? 0) + lift);
+    breakdown.vocabulary = clampHalf(Math.max(breakdown.vocabulary, rewarded), 0, 5);
+    if (breakdown.vocabulary > (prevBreak?.vocabulary ?? 0)) {
+      strengths.unshift(
+        `Your vocabulary mark rose because you improved word choice from draft ${prev.draft_number}.`,
+      );
+    }
+  }
+  if (polish.accuracy) {
+    const rewarded = Math.min(5, (prevBreak?.grammar ?? 0) + 0.5);
+    breakdown.grammar = clampHalf(Math.max(breakdown.grammar, rewarded), 0, 5);
+    if (breakdown.grammar > (prevBreak?.grammar ?? 0)) {
+      strengths.unshift(
+        `Your sentences/punctuation mark rose because you acted on draft ${prev.draft_number} accuracy notes.`,
+      );
+    }
+  }
+
+  return {
+    ...result,
+    scores_breakdown: breakdown,
+    marker_notes: {
+      ...result.marker_notes,
+      strengths: uniqueNoteStrings(strengths).slice(0, 5),
+    },
+  };
+}
+
+function uniqueNoteStrings(values: string[]) {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    const trimmed = value.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    out.push(trimmed);
+  }
+  return out;
 }
 
 function wordCount(text: string): number {
@@ -133,10 +268,10 @@ function normalizeResult(
 ): ScoringResult {
   const wc = typeof partial.word_count === 'number' ? partial.word_count : wordCount(content);
 
-  const structure = clamp(Number(partial.scores_breakdown?.structure ?? 0), 0, 5);
-  const vocabulary = clamp(Number(partial.scores_breakdown?.vocabulary ?? 0), 0, 5);
-  const audience = clamp(Number(partial.scores_breakdown?.audience ?? 0), 0, 5);
-  const grammar = clamp(Number(partial.scores_breakdown?.grammar ?? 0), 0, 5);
+  const structure = clampHalf(Number(partial.scores_breakdown?.structure ?? 0), 0, 5);
+  const vocabulary = clampHalf(Number(partial.scores_breakdown?.vocabulary ?? 0), 0, 5);
+  const audience = clampHalf(Number(partial.scores_breakdown?.audience ?? 0), 0, 5);
+  const grammar = clampHalf(Number(partial.scores_breakdown?.grammar ?? 0), 0, 5);
 
   let score_set_a = clamp(Number(partial.score_set_a ?? structure + vocabulary + audience), 0, 15);
   let score_set_b = clamp(Number(partial.score_set_b ?? grammar * 2), 0, 10);
@@ -294,23 +429,27 @@ export function scoreWritingAttemptHeuristic(input: ScoreInput): ScoringResult {
     hintPoints: input.hintPoints,
     examStyle: input.examStyle,
     wordCount: wc,
+    stimulusFocus: input.stimulusFocus,
   });
   const marker_notes = input.promptImage
     ? { ...notes, task_match: 'unread' as const }
     : notes;
 
-  return {
-    score_set_a,
-    score_set_b,
-    overall_score,
-    scores_breakdown: { structure, vocabulary, audience, grammar },
-    ai_feedback: notes.summary || ai_feedback,
-    marker_notes,
-    checked_hint_1: checked[0] ?? false,
-    checked_hint_2: checked[1] ?? false,
-    checked_hint_3: checked[2] ?? false,
-    word_count: wc,
-  };
+  return applyDraftMemory(
+    applyPhotoTaskMatch({
+      score_set_a,
+      score_set_b,
+      overall_score,
+      scores_breakdown: { structure, vocabulary, audience, grammar },
+      ai_feedback: notes.summary || ai_feedback,
+      marker_notes,
+      checked_hint_1: checked[0] ?? false,
+      checked_hint_2: checked[1] ?? false,
+      checked_hint_3: checked[2] ?? false,
+      word_count: wc,
+    }),
+    input,
+  );
 }
 
 async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
@@ -321,7 +460,10 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
     temperature: 0.2,
     system: [
       'You mark NSW Selective writing practice for TrialSeed.',
-      'Circle exact errors, give one overall development note if the piece is a sketch, and rewrite the student’s own weakest sentences.',
+      'Circle exact errors, give content-change advice when Set A is weak, and rewrite the student’s own weakest sentences.',
+      'If a previous draft is supplied, reward real vocabulary or punctuation improvement with +0.5 or +1 on that dimension.',
+      'If a picture or stimulus_focus is supplied and the writing misses the key object, name that object. Do not only say add more detail.',
+      'If a plan-change or discovery hint is missed, give a concrete plot example in next_steps.',
       'Student-facing comments must say TrialSeed feedback or TrialSeed mark-up, never a teacher mark.',
       'Score consistently against Set A (content, form, organisation, vocabulary/style) and Set B (sentences, punctuation, spelling).',
       'Return ONLY valid JSON matching the required schema.',
@@ -356,6 +498,17 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
       hint_points: input.examStyle ? [] : hints,
       exam_style: Boolean(input.examStyle),
       word_count: wc,
+      draft_number: input.draftNumber ?? null,
+      stimulus_focus: input.stimulusFocus?.focus ?? null,
+      previous_drafts: (input.previousDrafts ?? []).map((row) => ({
+        draft_number: row.draft_number,
+        overall_score: row.overall_score,
+        score_set_a: row.score_set_a,
+        score_set_b: row.score_set_b,
+        scores_breakdown: row.scores_breakdown,
+        next_steps: row.next_steps ?? [],
+        student_writing: row.content,
+      })),
       student_writing: input.content,
       required_json_schema: {
         photo_kind: input.promptImage
@@ -371,10 +524,10 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
         score_set_b: 'integer 0-10',
         overall_score: 'integer 0-25 (= score_set_a + score_set_b)',
         scores_breakdown: {
-          structure: 'integer 0-5',
-          vocabulary: 'integer 0-5',
-          audience: 'integer 0-5',
-          grammar: 'integer 0-5',
+          structure: 'number 0-5 (halves allowed)',
+          vocabulary: 'number 0-5 (halves allowed)',
+          audience: 'number 0-5 (halves allowed)',
+          grammar: 'number 0-5 (halves allowed)',
         },
         ai_feedback: input.examStyle
           ? 'string: 3-6 short paragraphs with strengths and gaps for a one-sitting paper; do not mention hints or a next draft'
@@ -391,7 +544,9 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
             ? '"yes" | "partial" | "no" | "unread"'
             : 'omit',
           strengths: ['string: what this sitting already does well'],
-          next_steps: ['string: what to change next, tied to Set A or Set B'],
+          next_steps: [
+            'string: what to change next. If a picture object or plan-change hint is missing, the first step must name the object and give a concrete plot example',
+          ],
           annotations: [
             {
               kind: 'spelling|punctuation|sentence|structure|vocabulary|content',
@@ -431,6 +586,7 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
     hintPoints: input.hintPoints,
     examStyle: input.examStyle,
     wordCount: wc,
+    stimulusFocus: input.stimulusFocus,
   });
   let notes = combineRemoteMarkerNotes(input.content, local, {
     ...(parsed.marker_notes &&
@@ -447,7 +603,10 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
     notes = { ...notes, photo_kind: inferPhotoKind(notes.photo_question) };
   }
 
-  return normalizeResult({ ...parsed, word_count: parsed.word_count ?? wc }, input.content, notes);
+  return applyDraftMemory(
+    normalizeResult({ ...parsed, word_count: parsed.word_count ?? wc }, input.content, notes),
+    input,
+  );
 }
 
 /**

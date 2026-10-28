@@ -9,6 +9,7 @@ import {
   normalizeMarkerNotes,
   photoTaskCardCopy,
 } from './marker-notes';
+import { stimulusFocusFor } from './stimulus-focus';
 
 describe('buildMarkerNotesHeuristic', () => {
   it('marks spelling, missing apostrophes, and keeps the student’s own sentences for rewrites', () => {
@@ -62,7 +63,7 @@ describe('buildMarkerNotesHeuristic', () => {
         'Resolve the story with a satisfying or surprising ending',
       ],
     });
-    assert.equal(notes.version, 5);
+    assert.equal(notes.version, 6);
     assert.match(notes.summary, /TrialSeed mark-up/);
     assert.equal(/teacher/i.test(notes.summary), false);
     assert.equal(notes.annotations.filter((row) => row.kind === 'content').length, 1);
@@ -101,6 +102,33 @@ describe('buildMarkerNotesHeuristic', () => {
     assert.ok(dust);
     assert.match(dust?.improved ?? '', /Dust hung in the air/i);
     assert.equal(/more than the handle/i.test(dust?.improved ?? ''), false);
+  });
+
+  it('names the overturned letterbox when an After the storm cleanup misses the picture', () => {
+    const content = [
+      'BOOM! A storm was raging outside. Mia got scared, so she hid in her bed.',
+      'The next morning she made breakfast, then checked her backyard. Some of her small flower plants were knocked down because of the hail and heavy rain.',
+      'Then Mia looked outside. A tree was on the floor and leaves were scattered across the grass. She swept the road and drove to buy new flowers for her garden.',
+      'Mia felt happy that she grew new plants and that she helped the environment after the storm.',
+    ].join(' ');
+    const notes = buildMarkerNotesHeuristic({
+      content,
+      promptType: 'narrative',
+      promptTitle: 'After the storm',
+      hintPoints: [
+        'Show the street after the storm with precise detail',
+        'Introduce a discovery that changes the character’s plan',
+        'Resolve the discovery without starting a new story',
+      ],
+      stimulusFocus: stimulusFocusFor('/stimuli/after-the-storm.jpg', 'After the storm'),
+    });
+    assert.ok(
+      notes.annotations.some(
+        (row) => row.kind === 'content' && /letterbox/i.test(`${row.issue} ${row.suggestion}`),
+      ),
+    );
+    assert.ok(notes.next_steps.some((row) => /envelope/i.test(row) && /plan/i.test(row)));
+    assert.match(notes.summary, /picture|letterbox/i);
   });
 });
 

@@ -2,12 +2,14 @@ import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { loadCustomTaskImageForStudent } from '@/lib/custom-task-image';
-import { scoreWritingAttempt } from '@/lib/scoring';
+import { scoreWritingAttempt, type PreviousDraftScore } from '@/lib/scoring';
 import {
   buildMarkerNotesHeuristic,
+  combineRemoteMarkerNotes,
   markerNotesFromUnknown,
   notesNeedRebuild,
 } from '@/lib/marker-notes';
+import { loadSeededStimulusImage, stimulusFocusFor } from '@/lib/stimulus-focus';
 import { bonusExamLockMessage, termReviewLockMessage } from '@/lib/writing-guidance';
 import { isExamStyleKind } from '@/lib/seed-prompts';
 import { isRateLimited } from '@/lib/rate-limit';
@@ -161,18 +163,23 @@ export async function GET(request: Request) {
       ? (prompt.hint_points as string[])
       : [];
 
+    const stimulusFocus = stimulusFocusFor(prompt.stimulus_image, prompt.title);
     const hydrated = attempts.rows.map((row) => {
       const existing = markerNotesFromUnknown(row.marker_notes, row.content);
+      const heuristic = buildMarkerNotesHeuristic({
+        content: row.content,
+        promptType,
+        promptTitle: prompt.title,
+        hintPoints: examStyle ? [] : hintPoints,
+        examStyle,
+        stimulusFocus,
+      });
       const notes =
         existing && !notesNeedRebuild(existing)
           ? existing
-          : buildMarkerNotesHeuristic({
-              content: row.content,
-              promptType,
-              promptTitle: prompt.title,
-              hintPoints: examStyle ? [] : hintPoints,
-              examStyle,
-            });
+          : existing
+            ? combineRemoteMarkerNotes(row.content, heuristic, existing)
+            : heuristic;
       return { ...row, marker_notes: notes };
     });
 
@@ -302,9 +309,11 @@ export async function POST(request: Request) {
       is_active: boolean;
       kind: string;
       student_id: string | null;
+      stimulus_image: string | null;
     }>(
       `SELECT id, title, description, prompt_type, module_id, hint_points,
-              is_locked, is_active, COALESCE(kind, 'practice') AS kind, student_id
+              is_locked, is_active, COALESCE(kind, 'practice') AS kind, student_id,
+              stimulus_image
        FROM prompts WHERE id = $1 LIMIT 1`,
       [promptId],
     );
@@ -408,6 +417,25 @@ export async function POST(request: Request) {
       prompt.kind === 'custom'
         ? await loadCustomTaskImageForStudent({ promptId, studentId })
         : null;
+    const seededImage = customImage
+      ? null
+      : await loadSeededStimulusImage(prompt.stimulus_image);
+    const previousDrafts = await query<{
+      draft_number: number;
+      content: string;
+      score_set_a: number | null;
+      score_set_b: number | null;
+      overall_score: number | null;
+      scores_breakdown: PreviousDraftScore['scores_breakdown'] | null;
+      marker_notes: unknown;
+    }>(
+      `SELECT draft_number, content, score_set_a, score_set_b, overall_score,
+              scores_breakdown, marker_notes
+       FROM writing_attempts
+       WHERE student_id = $1 AND prompt_id = $2 AND draft_number < $3
+       ORDER BY draft_number ASC`,
+      [studentId, promptId, draftNumber],
+    );
 
     const scored = await scoreWritingAttempt({
       content,
@@ -416,7 +444,26 @@ export async function POST(request: Request) {
       promptTitle: prompt.title,
       promptDescription: prompt.description,
       examStyle: isExam,
-      promptImage: customImage,
+      promptImage: customImage ?? seededImage,
+      draftNumber,
+      stimulusFocus: stimulusFocusFor(prompt.stimulus_image, prompt.title),
+      previousDrafts: previousDrafts.rows
+        .filter(
+          (row) =>
+            typeof row.score_set_a === 'number' &&
+            typeof row.score_set_b === 'number' &&
+            typeof row.overall_score === 'number' &&
+            row.scores_breakdown,
+        )
+        .map((row) => ({
+          draft_number: row.draft_number,
+          content: row.content,
+          score_set_a: row.score_set_a as number,
+          score_set_b: row.score_set_b as number,
+          overall_score: row.overall_score as number,
+          scores_breakdown: row.scores_breakdown as PreviousDraftScore['scores_breakdown'],
+          next_steps: markerNotesFromUnknown(row.marker_notes, row.content)?.next_steps,
+        })),
     });
 
     if (isExam && !(await claimWritingExamSubmission(studentId, promptId))) {

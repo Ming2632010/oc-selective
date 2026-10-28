@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  applyDraftMemory,
   applyPhotoTaskMatch,
+  detectDraftPolish,
+  formatDimensionScore,
   scoreWritingAttemptHeuristic,
   type ScoringResult,
 } from './scoring';
 import { emptyMarkerNotes } from './marker-notes';
+import { stimulusFocusFor } from './stimulus-focus';
 
 function sample(result: Partial<ScoringResult> & Pick<ScoringResult, 'marker_notes'>): ScoringResult {
   return {
@@ -88,7 +92,89 @@ describe('applyPhotoTaskMatch', () => {
   });
 });
 
+describe('draft memory', () => {
+  it('detects vocabulary polish from the previous draft', () => {
+    const polish = detectDraftPolish(
+      'Mia got scared, so she hid in her bed. A tree was on the floor. Yesterday it was raining cats and dogs.',
+      'Mia felt a jolt of fear, so she hid under her covers. A tree was on the ground. Yesterday it was raining heavily.',
+    );
+    assert.equal(polish.vocabulary, true);
+    assert.equal(polish.vocabularyStrong, true);
+  });
+
+  it('raises vocabulary from the previous draft without leaving the basic overall band', () => {
+    const previousContent =
+      'Mia got scared , so she hid in her bed. A tree was on the floor. She felt sorry for the flowers.';
+    const currentContent =
+      'Mia felt a jolt of fear, so she hid under her covers. A tree was on the ground. Mia felt a deep sadness for the flowers.';
+    const scored = applyDraftMemory(
+      sample({
+        score_set_a: 10,
+        score_set_b: 6,
+        overall_score: 16,
+        scores_breakdown: { structure: 3, vocabulary: 3, audience: 2, grammar: 3 },
+        marker_notes: emptyMarkerNotes(),
+      }),
+      {
+        content: currentContent,
+        hintPoints: [],
+        promptType: 'narrative',
+        draftNumber: 2,
+        previousDrafts: [
+          {
+            draft_number: 1,
+            content: previousContent,
+            score_set_a: 10,
+            score_set_b: 6,
+            overall_score: 16,
+            scores_breakdown: { structure: 3, vocabulary: 3, audience: 2, grammar: 3 },
+          },
+        ],
+      },
+    );
+    assert.equal(scored.overall_score, 16);
+    assert.equal(scored.score_set_a, 10);
+    assert.ok(scored.scores_breakdown.vocabulary >= 4);
+    assert.match(scored.marker_notes.strengths.join(' '), /vocabulary mark rose/i);
+  });
+
+  it('formats half-point dimension scores for the results page', () => {
+    assert.equal(formatDimensionScore(3), '3');
+    assert.equal(formatDimensionScore(3.5), '3.5');
+    assert.equal(formatDimensionScore(3.51), '3.5');
+  });
+});
+
 describe('scoreWritingAttemptHeuristic', () => {
+  it('names the letterbox and a plan-change when a cleanup story misses the picture', () => {
+    const scored = scoreWritingAttemptHeuristic({
+      content: [
+        'BOOM! A storm was raging outside. Mia got scared, so she hid in her bed.',
+        'After breakfast she checked the backyard. Flowers were knocked down by hail.',
+        'A tree was on the floor. She swept the road and drove to buy new flowers.',
+        'Mia felt happy that she helped the environment.',
+      ].join(' '),
+      hintPoints: [
+        'Show the street after the storm with precise detail',
+        'Introduce a discovery that changes the character’s plan',
+        'Resolve the discovery without starting a new story',
+      ],
+      promptType: 'narrative',
+      promptTitle: 'After the storm',
+      stimulusFocus: stimulusFocusFor('/stimuli/after-the-storm.jpg', 'After the storm'),
+    });
+    assert.equal(scored.checked_hint_2, false);
+    assert.ok(
+      scored.marker_notes.annotations.some(
+        (row) => row.kind === 'content' && /letterbox/i.test(`${row.issue} ${row.suggestion}`),
+      ),
+    );
+    assert.ok(
+      scored.marker_notes.next_steps.some((row) => /envelope/i.test(row) && /plan/i.test(row)),
+    );
+    assert.equal(/add more detail/i.test(scored.marker_notes.next_steps.join(' ')), false);
+  });
+
   it('marks a photo task unread when OpenAI is not available to read the image', () => {
     const scored = scoreWritingAttemptHeuristic({
       content: 'I like pizza and also the park is nice.',
