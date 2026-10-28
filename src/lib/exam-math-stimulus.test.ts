@@ -81,6 +81,18 @@ describe('Selective Math visual bank', () => {
     assert.ok(withFigure >= 400, `expected many figures, got ${withFigure}`);
   });
 
+  it('keeps kitchen-scale needles inside the dial', () => {
+    const items = bank.filter((item) => item.familyId === 'scale-leftover');
+    assert.ok(items.length > 0);
+    for (const item of items) {
+      assert.equal(item.stimulus?.type, 'scale');
+      if (item.stimulus?.type === 'scale') {
+        assert.ok(item.stimulus.max > item.stimulus.value, item.stem);
+        assert.ok(item.stimulus.value > 0, item.stem);
+      }
+    }
+  });
+
   it('mints Strengthen follow-ups that keep the figure type', () => {
     const item = makeExamMathFamilyItem({
       familyId: 'bar-graph',

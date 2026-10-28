@@ -294,32 +294,35 @@ function ClockFace({ stimulus }: { stimulus: Extract<ExamMathStimulus, { type: '
   );
 }
 
+function gaugePoint(ratio: number, radius: number) {
+  const angle = Math.PI * (1 - Math.min(1, Math.max(0, ratio)));
+  return { x: 80 + Math.cos(angle) * radius, y: 78 - Math.sin(angle) * radius };
+}
+
 function KitchenScale({ stimulus }: { stimulus: Extract<ExamMathStimulus, { type: 'scale' }> }) {
   const ratio = Math.min(1, Math.max(0, stimulus.value / stimulus.max));
-  const angle = -120 + ratio * 240;
-  const rad = (angle * Math.PI) / 180;
-  const x2 = 80 + Math.cos(rad) * 48;
-  const y2 = 78 + Math.sin(rad) * 48;
-  const ticks = 8;
+  const tip = gaugePoint(ratio, 48);
+  const ticks = Number.isInteger(stimulus.max) && stimulus.max > 0 && stimulus.max <= 10 ? stimulus.max : 8;
   return (
     <Frame label={`Scale showing ${stimulus.value} ${stimulus.unit}`}>
       <svg viewBox="0 0 160 110" className="mx-auto h-40 w-56" role="img">
         <path d="M20 78 A60 60 0 0 1 140 78" fill={PAPER} stroke={RULE} strokeWidth="4" />
         {Array.from({ length: ticks + 1 }, (_, i) => {
-          const t = -120 + (i / ticks) * 240;
-          const inner = polar(80, 78, 40, (t * Math.PI) / 180);
-          const outer = polar(80, 78, 52, (t * Math.PI) / 180);
-          const label = ((stimulus.max * i) / ticks).toFixed(i === 0 || i === ticks ? 0 : 1);
+          const inner = gaugePoint(i / ticks, 40);
+          const outer = gaugePoint(i / ticks, 52);
+          const raw = (stimulus.max * i) / ticks;
+          const label = Number.isInteger(raw) ? String(raw) : raw.toFixed(1);
+          const textAnchor = i === 0 ? 'start' : i === ticks ? 'end' : 'middle';
           return (
             <g key={i}>
               <line x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y} stroke={INK} strokeWidth="1.5" />
-              <text x={outer.x} y={outer.y - 2} textAnchor="middle" fontSize="8" fill={INK}>
+              <text x={outer.x} y={outer.y - 2} textAnchor={textAnchor} fontSize="8" fill={INK}>
                 {label}
               </text>
             </g>
           );
         })}
-        <line x1="80" y1="78" x2={x2} y2={y2} stroke={FILL_2} strokeWidth="3" strokeLinecap="round" />
+        <line x1="80" y1="78" x2={tip.x} y2={tip.y} stroke={FILL_2} strokeWidth="3" strokeLinecap="round" />
         <circle cx="80" cy="78" r="4" fill={INK} />
         <text x="80" y="102" textAnchor="middle" fontSize="11" fill={INK}>
           {stimulus.unit}
@@ -432,26 +435,34 @@ function CompoundRect({ stimulus }: { stimulus: Extract<ExamMathStimulus, { type
   const H = stimulus.outerH * scale;
   const w = stimulus.cutW * scale;
   const h = stimulus.cutH * scale;
+  const notchX = W - w;
+  const notchY = H - h;
   return (
     <Frame label="Compound rectangle">
       <svg viewBox={`-8 -16 ${W + 24} ${H + 36}`} className="mx-auto h-44 w-auto max-w-full" role="img">
         <path
-          d={`M0 0 H${W} V${H} H${w} V${h} H0 Z`}
+          d={`M0 0 H${W} V${notchY} H${notchX} V${H} H0 Z`}
           fill="#DCEEE3"
           stroke={INK}
           strokeWidth="1.8"
         />
-        <path d={`M${W - w} ${H - h} H${W} V${H} H${W - w} Z`} fill="#F4F1EA" stroke={INK} strokeWidth="1.2" strokeDasharray="4 3" />
+        <path
+          d={`M${notchX} ${notchY} H${W} V${H} H${notchX} Z`}
+          fill="#F4F1EA"
+          stroke={INK}
+          strokeWidth="1.2"
+          strokeDasharray="4 3"
+        />
         <text x={W / 2} y={-4} textAnchor="middle" fontSize="11" fill={INK}>
           {dim(stimulus.outerW, stimulus.unit)}
         </text>
-        <text x={W + 6} y={H / 2} fontSize="11" fill={INK}>
+        <text x={-6} y={notchY / 2} textAnchor="end" fontSize="11" fill={INK}>
           {dim(stimulus.outerH, stimulus.unit)}
         </text>
-        <text x={W - w / 2} y={H - h - 4} textAnchor="middle" fontSize="10" fill={INK}>
+        <text x={notchX + w / 2} y={notchY - 4} textAnchor="middle" fontSize="10" fill={INK}>
           {dim(stimulus.cutW, stimulus.unit)}
         </text>
-        <text x={W + 6} y={H - h / 2} fontSize="10" fill={INK}>
+        <text x={W + 8} y={notchY + h / 2} fontSize="10" fill={INK}>
           {dim(stimulus.cutH, stimulus.unit)}
         </text>
       </svg>
@@ -488,14 +499,11 @@ function RectPair({ stimulus }: { stimulus: Extract<ExamMathStimulus, { type: 'r
 function SquareCut({ stimulus }: { stimulus: Extract<ExamMathStimulus, { type: 'square-cut' }> }) {
   const s = 80;
   return (
-    <Frame label="Square cut into four smaller squares">
+    <Frame label={`Square of side ${dim(stimulus.side, stimulus.unit)} cut into four`}>
       <svg viewBox="0 0 100 100" className="mx-auto h-40 w-40" role="img">
         <rect x="10" y="10" width={s} height={s} fill="#DCEEE3" stroke={INK} />
         <line x1="50" y1="10" x2="50" y2="90" stroke={INK} />
         <line x1="10" y1="50" x2="90" y2="50" stroke={INK} />
-        <text x="50" y="8" textAnchor="middle" fontSize="10" fill={INK}>
-          {dim(stimulus.side, stimulus.unit)}
-        </text>
       </svg>
     </Frame>
   );

@@ -1016,7 +1016,7 @@ const FAMILIES: Family[] = [
           correct: '1525 g',
           distractors: ['975 g', '1225 g', '1775 g', '2500 g'],
           explanation: `2.5 kg = 2500 g. 2500 − 700 − 275 = 1525 g.`,
-          stimulus: { type: 'scale', max: 4, value: 2.5, unit: 'kg' },
+          stimulus: { type: 'scale', max: 5, value: 2.5, unit: 'kg' },
         };
       }
       return {
@@ -1024,7 +1024,7 @@ const FAMILIES: Family[] = [
         correct: `${c} g`,
         distractors: [`${a + b} g`, `${totalG - a} g`, `${c + 100} g`, `${totalG} g`],
         explanation: `${totalKgTenths / 10} kg = ${totalG} g. ${totalG} − ${a} − ${b} = ${c} g.`,
-        stimulus: { type: 'scale', max: 4, value: totalKgTenths / 10, unit: 'kg' },
+        stimulus: { type: 'scale', max: 5, value: totalKgTenths / 10, unit: 'kg' },
       };
     },
   },
