@@ -10,6 +10,7 @@ import {
   SUBJECT_BLURBS,
   SUBJECT_LABELS,
   SUBJECT_PRICE_AUD,
+  examSubscriptionIntro,
   isPurchasableSubject,
   priceAudForPurchase,
   type Subject,
@@ -178,7 +179,7 @@ export default function SubscriptionPage() {
           <p className="mt-1 text-sm text-warm-muted">
             {canBuyKy1Maths
               ? `K–Y1 Maths is $${KY1_SUBJECT_PRICE_AUD} AUD for one year. Access lasts twelve months from the day you buy.`
-              : `Selective Writing is $${SUBJECT_PRICE_AUD} AUD for one year. The paid year starts from the day you buy.`}
+              : examSubscriptionIntro(SUBJECT_PRICE_AUD)}
           </p>
         </div>
         <Link
@@ -231,6 +232,12 @@ export default function SubscriptionPage() {
               {selectedStudent.name} is in {selectedStudent.grade}. K–Y1 Maths
               is open now at ${KY1_SUBJECT_PRICE_AUD} AUD for one year. English
               and Reading for this path are still coming soon.
+            </p>
+          ) : selectedStudent && canBuyWriting ? (
+            <p className="rounded-md border border-[#C9DDD0] bg-[#EEF6F0] px-4 py-3 text-sm text-brand-dark">
+              {selectedStudent.name} is in {selectedStudent.grade}. Writing and
+              Math are open now at ${SUBJECT_PRICE_AUD} AUD for one year.
+              Thinking Skills and Reading for this path are still coming soon.
             </p>
           ) : selectedStudent && !canBuyWriting ? (
             <p className="rounded-md border border-[#C9DDD0] bg-[#EEF6F0] px-4 py-3 text-sm text-brand-dark">
