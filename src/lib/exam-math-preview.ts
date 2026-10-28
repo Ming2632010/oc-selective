@@ -6,11 +6,11 @@ export const EXAM_MATH_PREVIEW_QUESTIONS: ExamMathQuestion[] = [
     id: 'preview-1',
     stem: 'This preview shows a bar graph on the computer test screen. Choose A after you read the graph. The sitting is not scored as real maths.',
     options: [
-      'A — the marked correct option',
-      'B — an incorrect option',
-      'C — an incorrect option',
-      'D — an incorrect option',
-      'E — an incorrect option',
+      'the marked correct option',
+      'not the graph answer',
+      'another incorrect option',
+      'a third incorrect option',
+      'a fourth incorrect option',
     ],
     correctIndex: 0,
     working: [
