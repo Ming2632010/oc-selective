@@ -18,6 +18,14 @@ import {
   type ExamMathSetKind,
 } from './exam-math';
 import type { ExamMathStimulus } from './exam-math-stimulus';
+import {
+  calcTable,
+  completeWorking,
+  factTable,
+  workingSteps,
+  workingTable,
+  type ExamMathWorking,
+} from './exam-math-working';
 
 export type ExamMathSeedItem = {
   kind: ExamMathSetKind;
@@ -29,6 +37,7 @@ export type ExamMathSeedItem = {
   options: string[];
   correctIndex: number;
   explanation: string;
+  working: ExamMathWorking;
   stimulus?: ExamMathStimulus;
 };
 
@@ -39,6 +48,7 @@ type Core = {
   correct: string;
   distractors: string[];
   explanation: string;
+  working: ExamMathWorking;
   stimulus?: ExamMathStimulus;
 };
 
@@ -130,6 +140,12 @@ function lcm(a: number, b: number): number {
   return (a / gcd(a, b)) * b;
 }
 
+function multiplesTo(n: number, max: number): number[] {
+  const values: number[] = [];
+  for (let k = n; k <= max; k += n) values.push(k);
+  return values;
+}
+
 function bandPick(band: ExamMathDifficultyBand, foundation: number, standard: number, exam: number) {
   if (band === 'foundation') return foundation;
   if (band === 'standard') return standard;
@@ -167,6 +183,34 @@ function packOptions(
   return { options: five, correctIndex: five.indexOf(correct) };
 }
 
+function packSeedItem(
+  family: Family,
+  kind: ExamMathSetKind,
+  setNumber: number,
+  sortOrder: number,
+  core: Core,
+  packed: { options: string[]; correctIndex: number },
+): ExamMathSeedItem {
+  return {
+    kind,
+    setNumber,
+    sortOrder,
+    familyId: family.id,
+    skill: family.skill,
+    stem: core.stem,
+    options: packed.options,
+    correctIndex: packed.correctIndex,
+    explanation: core.explanation,
+    working: completeWorking({
+      steps: core.working,
+      explanation: core.explanation,
+      options: packed.options,
+      correctIndex: packed.correctIndex,
+    }),
+    stimulus: core.stimulus,
+  };
+}
+
 function coprimeFactorPairs(n: number): Array<[number, number]> {
   const pairs: Array<[number, number]> = [];
   for (let a = 1; a * a <= n; a += 1) {
@@ -195,6 +239,21 @@ const FAMILIES: Family[] = [
         correct: String(odd),
         distractors: numbers.filter((n) => n !== odd).map(String),
         explanation: `${odd} ÷ ${divisor} leaves remainder ${oddRemainder}. The others all leave remainder ${remainder}.`,
+        working: workingSteps(
+          {
+            heading: 'What we know',
+            body: `Divide each number by ${divisor} and write the remainder.`,
+            stimulus: workingTable(
+              'Remainders',
+              ['Number', `÷ ${divisor}`, 'Remainder'],
+              numbers.map((n) => [n, `${Math.floor(n / divisor)} remainder ${n % divisor}`, n % divisor]),
+            ),
+          },
+          {
+            heading: 'Find the odd one out',
+            body: `Four numbers leave remainder ${remainder}. ${odd} leaves remainder ${oddRemainder}, so that is the odd one out.`,
+          },
+        ),
       };
     },
   },
@@ -213,6 +272,26 @@ const FAMILIES: Family[] = [
         correct: String(missing),
         distractors: [String(start + 2 * (terms[1]! - start)), String(missing + start), String(missing * 2), String(terms[1]! * 2)],
         explanation: `Each term is ${mult} times the one before it, so the missing term is ${terms[1]} × ${mult} = ${missing}.`,
+        working: workingSteps(
+          {
+            heading: 'What we know',
+            body: `The rule is “multiply by ${mult}”. The sequence is ${shown}.`,
+            stimulus: workingTable(
+              'Pattern',
+              ['Place', 'Term'],
+              terms.map((n, i) => [i + 1, i === missingAt ? '?' : n]),
+            ),
+          },
+          {
+            heading: 'Fill the gap',
+            body: `The term before the gap is ${terms[1]}. Multiply by ${mult}: ${terms[1]} × ${mult} = ${missing}. Check the next term: ${missing} × ${mult} = ${terms[3]}.`,
+            stimulus: calcTable('Working', [
+              ['Rule', `× ${mult} each time`],
+              ['Missing term', `${terms[1]} × ${mult} = ${missing}`],
+              ['Check', `${missing} × ${mult} = ${terms[3]}`],
+            ]),
+          },
+        ),
       };
     },
   },
@@ -230,6 +309,25 @@ const FAMILIES: Family[] = [
         correct: String(missing),
         distractors: [String(missing + 1), String(missing - step), String(terms[1]! + terms[0]!), String(step * 3)],
         explanation: `Add ${step} each time: ${terms[1]} + ${step} = ${missing}.`,
+        working: workingSteps(
+          {
+            heading: 'What we know',
+            body: `The rule is “add ${step}”. The sequence is ${shown}.`,
+            stimulus: workingTable(
+              'Pattern',
+              ['Place', 'Term'],
+              terms.map((n, i) => [i + 1, i === 2 ? '?' : n]),
+            ),
+          },
+          {
+            heading: 'Fill the gap',
+            body: `${terms[1]} + ${step} = ${missing}. Check: ${missing} + ${step} = ${terms[3]}.`,
+            stimulus: calcTable('Working', [
+              ['Rule', `+ ${step} each time`],
+              ['Missing term', `${terms[1]} + ${step} = ${missing}`],
+            ]),
+          },
+        ),
       };
     },
   },
@@ -259,6 +357,25 @@ const FAMILIES: Family[] = [
         correct,
         distractors,
         explanation: `${name} has ${aT} × ${aS} = ${a} outfits. ${other} has ${bT} × ${bS} = ${b}. ${correct}.`,
+        working: workingSteps(
+          {
+            heading: 'Count the outfits',
+            body: `An outfit is one jacket with one shirt, so multiply jackets by shirts for each person.`,
+            stimulus: workingTable(
+              'Outfits',
+              ['Person', 'Jackets', 'Shirts', 'Outfits'],
+              [
+                [name, aT, aS, `${aT} × ${aS} = ${a}`],
+                [other, bT, bS, `${bT} × ${bS} = ${b}`],
+              ],
+            ),
+          },
+          {
+            heading: 'Compare',
+            body: a === b ? `${name} and ${other} both have ${a} outfits.` : `The difference is |${a} − ${b}| = ${diff}. ${correct}.`,
+            stimulus: { type: 'bar', caption: 'Outfits', bars: [{ label: name, value: a }, { label: other, value: b }] },
+          },
+        ),
       };
     },
   },
@@ -283,6 +400,26 @@ const FAMILIES: Family[] = [
           `${total} L 0 mL`,
         ],
         explanation: `${aMl} + ${bMl} + ${cMl} = ${total} mL = ${correct}.`,
+        working: workingSteps(
+          {
+            heading: 'Add the millilitres',
+            body: `Keep the amounts in mL first, then convert.`,
+            stimulus: calcTable('Volume', [
+              ['First pour', `${aMl} mL`],
+              ['Second pour', `${bMl} mL`],
+              ['Third pour', `${cMl} mL`],
+              ['Total', `${aMl} + ${bMl} + ${cMl} = ${total} mL`],
+            ]),
+          },
+          {
+            heading: 'Convert to litres',
+            body: `1000 mL = 1 L, so ${total} mL = ${litres} L and ${rem} mL.`,
+            stimulus: factTable('Conversion', [
+              ['1 L', '1000 mL'],
+              [`${total} mL`, `${correct}`],
+            ]),
+          },
+        ),
       };
     },
   },
@@ -310,6 +447,21 @@ const FAMILIES: Family[] = [
         correct,
         distractors: labels.filter((row) => row !== correct),
         explanation: `In order they are ${labels.join(', ')}, so the middle card is ${correct}.`,
+        working: workingSteps(
+          {
+            heading: 'Order the decimals',
+            body: `Line the numbers up by tenths and hundredths.`,
+            stimulus: workingTable(
+              'Smallest to largest',
+              ['Place', 'Number'],
+              labels.map((label, index) => [index + 1, label]),
+            ),
+          },
+          {
+            heading: 'Middle card',
+            body: `There are five numbers, so the middle is the 3rd: ${correct}.`,
+          },
+        ),
       };
     },
   },
@@ -329,6 +481,30 @@ const FAMILIES: Family[] = [
           correct: String(yellow),
           distractors: [String(redFixed), String(blue), String(total - blue), String(yellow + 2)],
           explanation: `Red counters: ${redFixed}. Yellow = ${total} − ${blue} − ${redFixed} = ${yellow}.`,
+          working: workingSteps(
+            {
+              heading: 'What we know',
+              body: `The bag has ${total} counters. ${blue} are blue. Red probability ${redFixed}/${total} means there are ${redFixed} red counters.`,
+              stimulus: factTable('Counters', [
+                ['Total', total],
+                ['Blue', blue],
+                ['Red', redFixed],
+              ]),
+            },
+            {
+              heading: 'Find yellow',
+              body: `Yellow = total − blue − red = ${total} − ${blue} − ${redFixed} = ${yellow}.`,
+              stimulus: {
+                type: 'pie',
+                caption: 'Counters in the bag',
+                slices: [
+                  { label: 'Blue', value: blue },
+                  { label: 'Red', value: redFixed },
+                  { label: 'Yellow', value: yellow },
+                ],
+              },
+            },
+          ),
         };
       }
       const yellow = total - blue - red;
@@ -337,6 +513,31 @@ const FAMILIES: Family[] = [
         correct: String(yellow),
         distractors: [String(red), String(blue), String(total - blue), String(yellow + redDenom)],
         explanation: `Red counters: ${total} × 1/${redDenom} = ${red}. Yellow = ${total} − ${blue} − ${red} = ${yellow}.`,
+        working: workingSteps(
+          {
+            heading: 'Find the red counters',
+            body: `Probability 1/${redDenom} means red = ${total} ÷ ${redDenom} = ${red}.`,
+            stimulus: calcTable('Red counters', [
+              ['Total', total],
+              ['Red fraction', `1/${redDenom}`],
+              ['Red', `${total} × 1/${redDenom} = ${red}`],
+              ['Blue', blue],
+            ]),
+          },
+          {
+            heading: 'Find yellow',
+            body: `Yellow = ${total} − ${blue} − ${red} = ${yellow}.`,
+            stimulus: {
+              type: 'pie',
+              caption: 'Counters in the bag',
+              slices: [
+                { label: 'Blue', value: blue },
+                { label: 'Red', value: red },
+                { label: 'Yellow', value: yellow },
+              ],
+            },
+          },
+        ),
       };
     },
   },
@@ -370,6 +571,27 @@ const FAMILIES: Family[] = [
         correct,
         distractors: labels.filter((row) => row !== correct),
         explanation: `${correct} is the largest of ${labels.join(', ')}.`,
+        working: workingSteps(
+          {
+            heading: 'Write each fraction as a decimal',
+            body: `Divide the top by the bottom so the sizes are easy to compare.`,
+            stimulus: workingTable(
+              'Fraction sizes',
+              ['Fraction', 'Decimal'],
+              picked.map(([a, b]) => [`${a}/${b}`, (a / b).toFixed(3)]),
+            ),
+          },
+          {
+            heading: 'Pick the largest',
+            body: `${correct} is the largest because ${(best[0] / best[1]).toFixed(3)} is greater than the others.`,
+            stimulus: {
+              type: 'bar',
+              caption: 'Fraction sizes',
+              unit: '',
+              bars: picked.map(([a, b]) => ({ label: `${a}/${b}`, value: Math.round((a / b) * 1000) / 1000 })),
+            },
+          },
+        ),
       };
     },
   },
@@ -387,6 +609,24 @@ const FAMILIES: Family[] = [
         distractors: [`${side} cm`, `${2 * smallSide} cm`, `${perimeter / 4} cm`, `${3 * smallSide} cm`],
         explanation: `The large side is ${perimeter} ÷ 4 = ${side} cm. Each small square has side ${smallSide} cm, so its perimeter is ${smallPerimeter} cm.`,
         stimulus: { type: 'square-cut', side, unit: 'cm' },
+        working: workingSteps(
+          {
+            heading: 'Large square',
+            body: `Perimeter is 4 × side, so the large side is ${perimeter} ÷ 4 = ${side} cm.`,
+            stimulus: calcTable('Large square', [
+              ['Perimeter', `${perimeter} cm`],
+              ['Side', `${perimeter} ÷ 4 = ${side} cm`],
+            ]),
+          },
+          {
+            heading: 'One small square',
+            body: `The cut makes four identical squares, so each small side is ${side} ÷ 2 = ${smallSide} cm. Perimeter = 4 × ${smallSide} = ${smallPerimeter} cm.`,
+            stimulus: calcTable('Small square', [
+              ['Small side', `${side} ÷ 2 = ${smallSide} cm`],
+              ['Small perimeter', `4 × ${smallSide} = ${smallPerimeter} cm`],
+            ]),
+          },
+        ),
       };
     },
   },
@@ -403,6 +643,27 @@ const FAMILIES: Family[] = [
         correct: String(extra),
         distractors: [String(perBox - extra), String(boxes - extra), String(extra + perBox), String(have % perBox || perBox)],
         explanation: `${boxes} trays need ${boxes * perBox} plants. ${boxes * perBox} − ${have} = ${extra}.`,
+        working: workingSteps(
+          {
+            heading: 'How many plants fill the trays?',
+            body: `${boxes} trays × ${perBox} plants each = ${boxes * perBox} plants.`,
+            stimulus: factTable('Needed', [
+              ['Trays', boxes],
+              ['Plants per tray', perBox],
+              ['Total needed', `${boxes} × ${perBox} = ${boxes * perBox}`],
+              ['Already packed', have],
+            ]),
+          },
+          {
+            heading: 'How many more?',
+            body: `${boxes * perBox} − ${have} = ${extra} more plants.`,
+            stimulus: calcTable('Gap', [
+              ['Needed', boxes * perBox],
+              ['Have', have],
+              ['Still needed', extra],
+            ]),
+          },
+        ),
       };
     },
   },
@@ -432,6 +693,25 @@ const FAMILIES: Family[] = [
           `${h12}:${pad}`,
         ],
         explanation: `${hour24}:${startPad} plus ${add} minutes is ${String(outH24).padStart(2, '0')}:${pad}, which is ${correct}.`,
+        working: workingSteps(
+          {
+            heading: 'Read the 24-hour clock',
+            body: `${hour24}${startPad} means ${hour24}:${startPad} in 24-hour time.`,
+            stimulus: factTable('Start time', [
+              ['Digital clock', `${hour24}${startPad}`],
+              ['24-hour time', `${hour24}:${startPad}`],
+              ['Add', `${add} minutes`],
+            ]),
+          },
+          {
+            heading: 'Add the minutes, then convert',
+            body: `${hour24}:${startPad} + ${add} minutes = ${String(outH24).padStart(2, '0')}:${pad}. Hours 13–23 are pm, so this is ${correct}.`,
+            stimulus: calcTable('Conversion', [
+              ['24-hour result', `${String(outH24).padStart(2, '0')}:${pad}`],
+              ['12-hour clock', correct],
+            ]),
+          },
+        ),
       };
     },
   },
@@ -451,6 +731,25 @@ const FAMILIES: Family[] = [
           `${days} × 24 × 60 × 60 × 60`,
         ],
         explanation: `${days} days × 24 hours × 60 minutes × 60 seconds.`,
+        working: workingSteps(
+          {
+            heading: 'Units of time',
+            body: `Change days into seconds one unit at a time.`,
+            stimulus: factTable('Unit facts', [
+              ['1 day', '24 hours'],
+              ['1 hour', '60 minutes'],
+              ['1 minute', '60 seconds'],
+            ]),
+          },
+          {
+            heading: 'Write the calculation',
+            body: `${days} days × 24 hours × 60 minutes × 60 seconds. Do not multiply an extra 60 — that would be milliseconds.`,
+            stimulus: calcTable('Seconds in the camp', [
+              ['Days', days],
+              ['Calculation', correct],
+            ]),
+          },
+        ),
       };
     },
   },
@@ -490,6 +789,21 @@ const FAMILIES: Family[] = [
           String(product / 10),
         ],
         explanation: `Smallest ${largeDigits}-digit is ${largeMin}. Largest ${smallDigits}-digit is ${small}. ${largeMin} × ${small} = ${product}.`,
+        working: workingSteps(
+          {
+            heading: 'Name the two numbers',
+            body: `The smallest ${largeDigits}-digit whole number is ${largeMin}. The largest ${smallDigits}-digit whole number is ${small}.`,
+            stimulus: factTable('Place value', [
+              [`Smallest ${largeDigits}-digit`, largeMin],
+              [`Largest ${smallDigits}-digit`, small],
+            ]),
+          },
+          {
+            heading: 'Multiply',
+            body: `${largeMin} × ${small} = ${product}.`,
+            stimulus: calcTable('Product', [['Calculation', `${largeMin} × ${small} = ${product}`]]),
+          },
+        ),
       };
     },
   },
@@ -511,6 +825,28 @@ const FAMILIES: Family[] = [
           correct: String(sum),
           distractors: ['8', '10', '18', '3'],
           explanation: `Possible numbers: ${fallback.join(', ')}. Sum = ${sum}.`,
+          working: workingSteps(
+            {
+              heading: 'Write the two inequalities',
+              body: `3n < 33 and 6n > 44. Whole numbers only.`,
+              stimulus: workingTable(
+                'Test whole numbers',
+                ['n', '3n', '3n < 33?', '6n', '6n > 44?', 'Both?'],
+                [7, 8, 9, 10, 11].map((n) => [
+                  n,
+                  3 * n,
+                  3 * n < 33 ? 'Yes' : 'No',
+                  6 * n,
+                  6 * n > 44 ? 'Yes' : 'No',
+                  3 * n < 33 && 6 * n > 44 ? 'Yes' : 'No',
+                ]),
+              ),
+            },
+            {
+              heading: 'Add the possible values',
+              body: `The possible numbers are 8, 9 and 10. Sum = 27.`,
+            },
+          ),
         };
       }
       const sum = values.reduce((a, b) => a + b, 0);
@@ -519,6 +855,34 @@ const FAMILIES: Family[] = [
         correct: String(sum),
         distractors: [String(values[0]!), String(values.at(-1)!), String(sum + values[0]!), String(values.length)],
         explanation: `The possible numbers are ${values.join(', ')}. Their sum is ${sum}.`,
+        working: workingSteps(
+          {
+            heading: 'Write the two inequalities',
+            body: `3n < ${lessThan} and 6n > ${greaterThan}. Test whole numbers.`,
+            stimulus: workingTable(
+              'Possible n',
+              ['n', '3n', `3n < ${lessThan}?`, '6n', `6n > ${greaterThan}?`, 'Both?'],
+              Array.from({ length: Math.max(values.at(-1)! + 2, 4) }, (_, i) => i + Math.max(1, (values[0] ?? 2) - 1)).map(
+                (n) => [
+                  n,
+                  3 * n,
+                  3 * n < lessThan ? 'Yes' : 'No',
+                  6 * n,
+                  6 * n > greaterThan ? 'Yes' : 'No',
+                  3 * n < lessThan && 6 * n > greaterThan ? 'Yes' : 'No',
+                ],
+              ),
+            ),
+          },
+          {
+            heading: 'Add the possible values',
+            body: `The possible numbers are ${values.join(', ')}. Sum = ${sum}.`,
+            stimulus: calcTable('Sum', [
+              ['Possible n', values.join(', ')],
+              ['Sum', sum],
+            ]),
+          },
+        ),
       };
     },
   },
@@ -535,6 +899,27 @@ const FAMILIES: Family[] = [
         correct: String(answer),
         distractors: [String(a * b), String(a + b + c), String(lcm(a, b)), String(answer * 2)],
         explanation: `Find the lowest common multiple of ${a}, ${b} and ${c}, which is ${answer}.`,
+        working: workingSteps(
+          {
+            heading: 'List multiples',
+            body: `They next meet at the lowest common multiple of ${a}, ${b} and ${c}.`,
+            stimulus: workingTable(
+              'Multiples',
+              [`${a} minutes`, `${b} minutes`, `${c} minutes`],
+              Array.from({ length: 8 }, (_, i) => [a * (i + 1), b * (i + 1), c * (i + 1)]),
+            ),
+          },
+          {
+            heading: 'Find the first shared time',
+            body: `The first number in all three lists is ${answer}.`,
+            stimulus: calcTable('LCM', [
+              ['Multiples of ' + a, multiplesTo(a, answer).join(', ')],
+              ['Multiples of ' + b, multiplesTo(b, answer).join(', ')],
+              ['Multiples of ' + c, multiplesTo(c, answer).join(', ')],
+              ['Lowest common multiple', answer],
+            ]),
+          },
+        ),
       };
     },
   },
@@ -551,6 +936,24 @@ const FAMILIES: Family[] = [
         distractors: [String(n ** 2), String((n - 1) ** 3), String(total - n ** 2), String(6 * (n - 2) ** 2)],
         explanation: `The hidden cube is ${(n - 2)} × ${(n - 2)} × ${(n - 2)} = ${hidden}.`,
         stimulus: { type: 'cube', n },
+        working: workingSteps(
+          {
+            heading: 'Cubes you can see',
+            body: `The large cube is ${n} × ${n} × ${n} = ${total} small cubes. Any cube on a face can be seen.`,
+            stimulus: factTable('Cube', [
+              ['Packing', `${n} × ${n} × ${n}`],
+              ['Total small cubes', total],
+            ]),
+          },
+          {
+            heading: 'Cubes that stay hidden',
+            body: `Peel off one layer from every face. The inner cube is ${n - 2} × ${n - 2} × ${n - 2} = ${hidden}.`,
+            stimulus: calcTable('Hidden cubes', [
+              ['Inner side', `${n} − 2 = ${n - 2}`],
+              ['Hidden cubes', `${n - 2} × ${n - 2} × ${n - 2} = ${hidden}`],
+            ]),
+          },
+        ),
       };
     },
   },
@@ -571,6 +974,29 @@ const FAMILIES: Family[] = [
         distractors: [`${(360 - clockwise) % 360}°`, `${Math.abs(hourAngle - minuteAngle)}°`, `${30 * hour}°`, `${minuteAngle}°`],
         explanation: `The minute hand is at ${minuteAngle}° and the hour hand is at ${hourAngle}°. Clockwise from the hour hand is ${clockwise}°.`,
         stimulus: { type: 'clock', hour, minute },
+        working: workingSteps(
+          {
+            heading: 'Place the hands',
+            body: `A clock is 360°. The minute hand moves 6° per minute. The hour hand moves 30° per hour plus 0.5° per minute.`,
+            stimulus: calcTable('Hand positions', [
+              ['Time', `${hLabel}:${mLabel}`],
+              ['Minute hand', `6 × ${minute} = ${minuteAngle}°`],
+              ['Hour hand', `30 × ${hour} + 0.5 × ${minute} = ${hourAngle}°`],
+            ]),
+          },
+          {
+            heading: 'Clockwise from hour to minute',
+            body: `Go clockwise from ${hourAngle}° to ${minuteAngle}°. That turn is ${clockwise}°, not the shorter anticlockwise gap.`,
+            stimulus: workingTable(
+              'Both directions',
+              ['Direction', 'Angle'],
+              [
+                ['Clockwise hour → minute', `${clockwise}°`],
+                ['The other way', `${(360 - clockwise) % 360}°`],
+              ],
+            ),
+          },
+        ),
       };
     },
   },
@@ -589,6 +1015,24 @@ const FAMILIES: Family[] = [
           correct: String(x + y),
           distractors: ['66', '36', '18', '72'],
           explanation: `60 ÷ 6 = 10. Another coprime factor pair of 10 is 2 and 5, so the numbers are 12 and 30. Sum = 42.`,
+          working: workingSteps(
+            {
+              heading: 'Use HCF × LCM',
+              body: `If two numbers have HCF 6 and LCM 60, then 60 ÷ 6 = 10. The extra factors of 10 must be coprime.`,
+              stimulus: workingTable(
+                'Coprime pairs of 10',
+                ['Pair of 10', 'Numbers (× 6)', 'Sum'],
+                [
+                  ['1 and 10', '6 and 60', '66'],
+                  ['2 and 5', '12 and 30', '42'],
+                ],
+              ),
+            },
+            {
+              heading: 'The other pair',
+              body: `The question already used 6 and 60. The other pair is 12 and 30. Sum = 42.`,
+            },
+          ),
         };
       }
       const second = pairs[1]!;
@@ -600,6 +1044,21 @@ const FAMILIES: Family[] = [
         correct: String(x + y),
         distractors: [String(h + L), String(x), String(y), String(h * (second[0] + second[1] + 1))],
         explanation: `${L} ÷ ${h} = ${k}. Another coprime factor pair of ${k} is ${second[0]} and ${second[1]}, so the numbers are ${x} and ${y}. Sum = ${x + y}.`,
+        working: workingSteps(
+          {
+            heading: 'Use HCF × LCM',
+            body: `${L} ÷ ${h} = ${k}. Split ${k} into coprime factor pairs, then multiply each part by the HCF ${h}.`,
+            stimulus: workingTable(
+              `Coprime pairs of ${k}`,
+              ['Pair of k', 'Numbers', 'Sum'],
+              pairs.map(([p, q]) => [`${p} and ${q}`, `${h * p} and ${h * q}`, h * p + h * q]),
+            ),
+          },
+          {
+            heading: 'The other pair',
+            body: `One pair is ${h} and ${L}. The other pair is ${x} and ${y}. Sum = ${x + y}.`,
+          },
+        ),
       };
     },
   },
@@ -619,6 +1078,32 @@ const FAMILIES: Family[] = [
           correct: '240',
           distractors: ['120', '160', '200', '320'],
           explanation: `Let Monday be m. Then m + m/2 + m/4 + 80 = ${total}, so 1.75m = ${total - 80}, m = 240.`,
+          working: workingSteps(
+            {
+              heading: 'Write the days in parts',
+              body: `Tuesday is half of Monday. Wednesday is a quarter of Monday. Thursday is 80.`,
+              stimulus: workingTable(
+                'Tickets',
+                ['Day', 'In terms of Monday'],
+                [
+                  ['Monday', 'm'],
+                  ['Tuesday', 'm/2'],
+                  ['Wednesday', 'm/4'],
+                  ['Thursday', '80'],
+                  ['Total', String(total)],
+                ],
+              ),
+            },
+            {
+              heading: 'Solve for Monday',
+              body: `m + m/2 + m/4 + 80 = ${total}, so 1.75m = ${total - 80}, m = 240.`,
+              stimulus: calcTable('Algebra', [
+                ['Equation', `1.75m + 80 = ${total}`],
+                ['1.75m', total - 80],
+                ['Monday', 240],
+              ]),
+            },
+          ),
         };
       }
       const total = monday + tuesday + wednesday + thursday;
@@ -627,6 +1112,34 @@ const FAMILIES: Family[] = [
         correct: String(monday),
         distractors: [String(tuesday), String(wednesday), String(monday + thursday), String(Math.floor(total / 2))],
         explanation: `Monday + half of Monday + a quarter of Monday + ${thursday} = ${total}, so Monday is ${monday}.`,
+        working: workingSteps(
+          {
+            heading: 'Write each day',
+            body: `Tuesday is half of Monday. Wednesday is a quarter of Monday.`,
+            stimulus: workingTable(
+              'Tickets',
+              ['Day', 'Tickets'],
+              [
+                ['Monday', '?'],
+                ['Tuesday', 'half of Monday'],
+                ['Wednesday', 'quarter of Monday'],
+                ['Thursday', thursday],
+                ['Total', total],
+              ],
+            ),
+          },
+          {
+            heading: 'Solve',
+            body: `Monday + half of Monday + a quarter of Monday + ${thursday} = ${total}, so Monday is ${monday}.`,
+            stimulus: calcTable('Check', [
+              ['Monday', monday],
+              ['Tuesday', tuesday],
+              ['Wednesday', wednesday],
+              ['Thursday', thursday],
+              ['Sum', `${monday} + ${tuesday} + ${wednesday} + ${thursday} = ${total}`],
+            ]),
+          },
+        ),
       };
     },
   },
@@ -652,6 +1165,21 @@ const FAMILIES: Family[] = [
         correct: fmt(best),
         distractors: optionsNum.filter((n) => n !== best).map(fmt),
         explanation: `${fmt(best)} is ${Math.abs(best - target)} away from ${target}, which is the smallest gap.`,
+        working: workingSteps(
+          {
+            heading: 'Find each gap',
+            body: `Closest means the smallest distance from ${target}, not the number that looks similar.`,
+            stimulus: workingTable(
+              'Distance from the target',
+              ['Number', 'Gap'],
+              optionsNum.map((n) => [fmt(n), Math.round(Math.abs(n - target) * 1000) / 1000]),
+            ),
+          },
+          {
+            heading: 'Pick the smallest gap',
+            body: `${fmt(best)} is ${Math.abs(best - target)} away from ${target}. That is the closest.`,
+          },
+        ),
       };
     },
   },
@@ -672,6 +1200,31 @@ const FAMILIES: Family[] = [
         correct: `${de} m`,
         distractors: [`${bc} m`, `${ce} m`, `${ab} m`, `${ae - ab} m`],
         explanation: `${other} is ${ab} m from ${name} and ${bc} m from ${mid}. Joss is ${bc} m beyond ${mid}, so Joss to ${far} is ${de} m.`,
+        working: workingSteps(
+          {
+            heading: 'Mark the path',
+            body: `Houses in order: ${name}, ${other}, ${mid}, Joss, ${far}. ${name} to ${mid} is ${ac} m. ${name} to ${far} is ${ae} m, so ${mid} to ${far} is ${ce} m.`,
+            stimulus: workingTable(
+              'Distances along the path',
+              ['From', 'To', 'Distance'],
+              [
+                [name, mid, `${ac} m`],
+                [name, far, `${ae} m`],
+                [mid, far, `${ce} m`],
+              ],
+            ),
+          },
+          {
+            heading: 'Place the other houses',
+            body: `${other} is three times as far from ${name} as from ${mid}, so ${other} is ${ab} m from ${name} and ${bc} m from ${mid}. Joss is the same distance the other side of ${mid}, so Joss to ${far} is ${ce} − ${bc} = ${de} m.`,
+            stimulus: calcTable('Joss to ' + far, [
+              [`${other} to ${mid}`, `${bc} m`],
+              ['Joss to ' + mid, `${bc} m`],
+              [mid + ' to ' + far, `${ce} m`],
+              ['Joss to ' + far, `${de} m`],
+            ]),
+          },
+        ),
       };
     },
   },
@@ -689,6 +1242,33 @@ const FAMILIES: Family[] = [
         correct: `${three} g`,
         distractors: [`${half + quarter} g`, `${can + full} g`, `${three - can} g`, `${three + can} g`],
         explanation: `Half minus quarter of the beans is ${half - quarter} g, so a full tin of beans is ${full} g and the tin itself is ${can} g. Three-quarters full is ${three} g.`,
+        working: workingSteps(
+          {
+            heading: 'The tin stays the same',
+            body: `Half full is ${half} g. Quarter full is ${quarter} g. The difference is one-quarter of the beans.`,
+            stimulus: calcTable('Find the beans', [
+              ['Half full', `${half} g`],
+              ['Quarter full', `${quarter} g`],
+              ['Difference (¼ of beans)', `${half} − ${quarter} = ${half - quarter} g`],
+              ['Full beans', `${half - quarter} × 4 = ${full} g`],
+            ]),
+          },
+          {
+            heading: 'Find the tin, then three-quarters',
+            body: `Tin = half full − half the beans = ${half} − ${full / 2} = ${can} g. Three-quarters full = tin + ¾ of the beans = ${can} + ${(3 * full) / 4} = ${three} g.`,
+            stimulus: workingTable(
+              'Tin and beans',
+              ['How full', 'Mass'],
+              [
+                ['Empty tin', `${can} g`],
+                ['Quarter', `${quarter} g`],
+                ['Half', `${half} g`],
+                ['Three-quarters', `${three} g`],
+                ['Full', `${can + full} g`],
+              ],
+            ),
+          },
+        ),
       };
     },
   },
@@ -710,6 +1290,25 @@ const FAMILIES: Family[] = [
           String(gills * 2),
         ],
         explanation: `${gillToPint} × 2 × ${quartToPeck} = ${gills} nips in a crock.`,
+        working: workingSteps(
+          {
+            heading: 'Write the chain',
+            body: `${gillToPint} nips = 1 cup. 1 cup = half a jug, so 2 cups = 1 jug. ${quartToPeck} jugs = 1 crock.`,
+            stimulus: factTable('Old measures', [
+              ['1 cup', `${gillToPint} nips`],
+              ['1 jug', '2 cups'],
+              ['1 crock', `${quartToPeck} jugs`],
+            ]),
+          },
+          {
+            heading: 'Multiply along the chain',
+            body: `Nips in a crock = ${gillToPint} × 2 × ${quartToPeck} = ${gills}.`,
+            stimulus: calcTable('One crock', [
+              ['Cups in a crock', `2 × ${quartToPeck} = ${2 * quartToPeck}`],
+              ['Nips in a crock', `${gillToPint} × ${2 * quartToPeck} = ${gills}`],
+            ]),
+          },
+        ),
       };
     },
   },
@@ -732,6 +1331,26 @@ const FAMILIES: Family[] = [
           `${divisor} × ${quotient} + ${divisor} = ${total}`,
         ],
         explanation: `${divisor} groups of ${quotient}, then add the leftover ${remainder}: ${correct}.`,
+        working: workingSteps(
+          {
+            heading: 'What division with remainder means',
+            body: `${total} grapes shared between ${divisor} people gives ${quotient} each, with ${remainder} left over.`,
+            stimulus: factTable('Share', [
+              ['Grapes', total],
+              ['People', divisor],
+              ['Each person', quotient],
+              ['Left over', remainder],
+            ]),
+          },
+          {
+            heading: 'Write the number sentence',
+            body: `Groups × each share, then add the leftover: ${divisor} × ${quotient} + ${remainder} = ${total}.`,
+            stimulus: calcTable('Check', [
+              ['Groups', `${divisor} × ${quotient} = ${divisor * quotient}`],
+              ['Add leftover', `${divisor * quotient} + ${remainder} = ${total}`],
+            ]),
+          },
+        ),
       };
     },
   },
@@ -750,6 +1369,24 @@ const FAMILIES: Family[] = [
           distractors: ['10 cm', '12 cm', '16 cm', '24 cm'],
           explanation: `Area is 48 cm², so the missing side is 48 ÷ 4 = 12 cm.`,
           stimulus: { type: 'rect-pair', aW: 8, aH: 6, bW: 4, unit: 'cm' },
+          working: workingSteps(
+            {
+              heading: 'Area of P',
+              body: `Area = length × width = 8 × 6 = 48 cm².`,
+              stimulus: calcTable('Rectangle P', [
+                ['Sides', '8 cm by 6 cm'],
+                ['Area', '48 cm²'],
+              ]),
+            },
+            {
+              heading: 'Match the area of Q',
+              body: `Q has the same area and one side 4 cm, so the other side is 48 ÷ 4 = 12 cm.`,
+              stimulus: calcTable('Rectangle Q', [
+                ['Known side', '4 cm'],
+                ['Other side', '48 ÷ 4 = 12 cm'],
+              ]),
+            },
+          ),
         };
       }
       const length = (a * b) / c;
@@ -759,6 +1396,24 @@ const FAMILIES: Family[] = [
         distractors: [`${a + b - c} cm`, `${a * b} cm`, `${(a * b) / 2} cm`, `${c * 2} cm`],
         explanation: `Area = ${a * b} cm², so the missing side is ${a * b} ÷ ${c} = ${length} cm.`,
         stimulus: { type: 'rect-pair', aW: a, aH: b, bW: c, unit: 'cm' },
+        working: workingSteps(
+          {
+            heading: 'Area of P',
+            body: `Area = ${a} × ${b} = ${a * b} cm².`,
+            stimulus: calcTable('Rectangle P', [
+              ['Sides', `${a} cm by ${b} cm`],
+              ['Area', `${a * b} cm²`],
+            ]),
+          },
+          {
+            heading: 'Match the area of Q',
+            body: `Q has one side ${c} cm, so the other side is ${a * b} ÷ ${c} = ${length} cm.`,
+            stimulus: calcTable('Rectangle Q', [
+              ['Known side', `${c} cm`],
+              ['Other side', `${a * b} ÷ ${c} = ${length} cm`],
+            ]),
+          },
+        ),
       };
     },
   },
@@ -776,6 +1431,22 @@ const FAMILIES: Family[] = [
           correct: '$6.00',
           distractors: ['$3.00', '$4.50', '$7.50', '$1.50'],
           explanation: `Lenny received a quarter of what was left after ${other}. $1.50 × 4 = $6.00 left, so ${other} received $12 − $6.00 = $6.00.`,
+          working: workingSteps(
+            {
+              heading: 'Work backwards from Lenny',
+              body: `Lenny got half of Jules’s share, and Jules got half of what was left after ${other}. So Lenny got one-quarter of that leftover.`,
+              stimulus: calcTable('Backwards', [
+                ['Lenny', '$1.50'],
+                ['Jules (twice Lenny)', '$3.00'],
+                ['Left after ' + other, '$6.00'],
+                ['Start', '$12.00'],
+              ]),
+            },
+            {
+              heading: 'Money given away first',
+              body: `${other} received $12.00 − $6.00 = $6.00.`,
+            },
+          ),
         };
       }
       const dollars = (n: number) => `$${n.toFixed(2)}`;
@@ -784,6 +1455,22 @@ const FAMILIES: Family[] = [
         correct: dollars(kiana),
         distractors: [dollars(lenny * 2), dollars(lenny * 4), dollars(start - lenny), dollars(kiana + 1)],
         explanation: `Lenny received a quarter of the money left after ${other}, so that leftover was ${dollars(4 * lenny)}. ${other} received ${dollars(kiana)}.`,
+        working: workingSteps(
+          {
+            heading: 'Work backwards from Lenny',
+            body: `Lenny got half of Jules’s share. Jules got half of what was left after ${other}. So Lenny is one-quarter of that leftover.`,
+            stimulus: calcTable('Backwards', [
+              ['Lenny', dollars(lenny)],
+              ['Jules', dollars(2 * lenny)],
+              ['Left after ' + other, dollars(4 * lenny)],
+              ['Start', dollars(start)],
+            ]),
+          },
+          {
+            heading: 'Money given away first',
+            body: `${other} received ${dollars(start)} − ${dollars(4 * lenny)} = ${dollars(kiana)}.`,
+          },
+        ),
       };
     },
   },
@@ -803,6 +1490,33 @@ const FAMILIES: Family[] = [
         correct: String(more),
         distractors: [String(total / totalParts), String(a * b), String(total - more), String(Math.max(a, b) * (total / totalParts))],
         explanation: `Each part is ${total / totalParts}. The difference is |${a} − ${b}| parts = ${more}.`,
+        working: workingSteps(
+          {
+            heading: 'Split into equal parts',
+            body: `Ratio ${a} : ${b} has ${totalParts} parts. Each part is ${total} ÷ ${totalParts} = ${total / totalParts}.`,
+            stimulus: workingTable(
+              'Shares',
+              ['Person', 'Parts', 'Stamps'],
+              [
+                [name, a, (a * total) / totalParts],
+                [other, b, (b * total) / totalParts],
+                ['Total', totalParts, total],
+              ],
+            ),
+          },
+          {
+            heading: 'Find the difference',
+            body: `The larger share has |${a} − ${b}| extra parts: ${Math.abs(a - b)} × ${total / totalParts} = ${more}.`,
+            stimulus: {
+              type: 'bar',
+              caption: 'Stamp shares',
+              bars: [
+                { label: name, value: (a * total) / totalParts },
+                { label: other, value: (b * total) / totalParts },
+              ],
+            },
+          },
+        ),
       };
     },
   },
@@ -818,6 +1532,24 @@ const FAMILIES: Family[] = [
         correct: String(answer),
         distractors: [String(percent), String(of - answer), String(answer * 2), String(of * percent)],
         explanation: `${percent}% of ${of} is ${answer}.`,
+        working: workingSteps(
+          {
+            heading: 'Percent means hundredths',
+            body: `${percent}% = ${percent}/100.`,
+            stimulus: factTable('The quiz', [
+              ['Percent', `${percent}%`],
+              ['Out of', of],
+            ]),
+          },
+          {
+            heading: 'Find the marks',
+            body: `${percent}/100 × ${of} = ${answer}.`,
+            stimulus: calcTable('Working', [
+              ['1%', of / 100],
+              [`${percent}%`, `${of / 100} × ${percent} = ${answer}`],
+            ]),
+          },
+        ),
       };
     },
   },
@@ -838,6 +1570,22 @@ const FAMILIES: Family[] = [
           correct: String(miss),
           distractors: ['14', '16', '18', '10'],
           explanation: `Five scores sum to 70. 70 − 36 = 34.`,
+          working: workingSteps(
+            {
+              heading: 'Mean to total',
+              body: `Five scores with mean 14 sum to 5 × 14 = 70.`,
+              stimulus: calcTable('Total', [
+                ['Number of scores', 5],
+                ['Mean', 14],
+                ['Total', '5 × 14 = 70'],
+                ['Four known scores', 36],
+              ]),
+            },
+            {
+              heading: 'Find the missing score',
+              body: `Missing = 70 − 36 = 34.`,
+            },
+          ),
           stimulus: {
             type: 'table',
             caption: `${name}’s scores`,
@@ -857,6 +1605,22 @@ const FAMILIES: Family[] = [
         correct: String(missing),
         distractors: [String(mean), String(known[0]!), String(missing + n), String(Math.abs(missing - mean))],
         explanation: `The ${n} scores sum to ${mean * n}. Subtract ${known.reduce((a, b) => a + b, 0)} to get ${missing}.`,
+        working: workingSteps(
+          {
+            heading: 'Mean to total',
+            body: `${n} scores with mean ${mean} sum to ${n} × ${mean} = ${mean * n}.`,
+            stimulus: calcTable('Total', [
+              ['Number of scores', n],
+              ['Mean', mean],
+              ['Total', mean * n],
+              ['Known scores', known.reduce((a, b) => a + b, 0)],
+            ]),
+          },
+          {
+            heading: 'Find the missing score',
+            body: `Missing = ${mean * n} − ${known.reduce((a, b) => a + b, 0)} = ${missing}.`,
+          },
+        ),
         stimulus: {
           type: 'table',
           caption: `${name}’s scores`,
@@ -882,6 +1646,21 @@ const FAMILIES: Family[] = [
         correct: String(correct),
         distractors: [String((a + b) * c), String(a * b + c), String(a + b + c), String(a * b * c)],
         explanation: `Multiply first: ${b} × ${c} = ${b * c}, then add ${a} to get ${correct}.`,
+        working: workingSteps(
+          {
+            heading: 'Order of operations',
+            body: `Do × before +. Brackets are not needed here because multiplication already comes first.`,
+            stimulus: calcTable('Working', [
+              ['Expression', `${a} + ${b} × ${c}`],
+              ['Multiply first', `${b} × ${c} = ${b * c}`],
+              ['Then add', `${a} + ${b * c} = ${correct}`],
+            ]),
+          },
+          {
+            heading: 'A common trap',
+            body: `If you add first you get (${a} + ${b}) × ${c} = ${(a + b) * c}, which is not the value of the expression.`,
+          },
+        ),
       };
     },
   },
@@ -903,6 +1682,21 @@ const FAMILIES: Family[] = [
         correct: String(left),
         distractors: [String(start - gave), String(start + then), String(start - then), String(left + gave)],
         explanation: `${start} − ${gave} + ${then} = ${left}.`,
+        working: workingSteps(
+          {
+            heading: 'Follow the story in order',
+            body: `${name} starts with ${start}, gives ${gave} away, then buys ${then} more.`,
+            stimulus: calcTable('Cards', [
+              ['Start', start],
+              ['Give away', `− ${gave} → ${start - gave}`],
+              ['Buy more', `+ ${then} → ${left}`],
+            ]),
+          },
+          {
+            heading: 'Check',
+            body: `${start} − ${gave} + ${then} = ${left}.`,
+          },
+        ),
       };
     },
   },
@@ -923,6 +1717,30 @@ const FAMILIES: Family[] = [
         distractors: [`${letter}${row}`, `${endLetter}${startRow}`, `${endLetter}${n}`, `${letter}${n}`],
         explanation: `After ${n - 1} steps the column is ${endLetter} and the row is ${row}.`,
         stimulus: { type: 'coord-grid', startCol, startRow, steps: n },
+        working: workingSteps(
+          {
+            heading: 'The move',
+            body: `Box 1 is ${letter}${startRow}. Each next box goes one column right and one row up.`,
+            stimulus: workingTable(
+              'First few boxes',
+              ['Box', 'Grid'],
+              Array.from({ length: Math.min(n, 5) }, (_, i) => [
+                i + 1,
+                `${String.fromCharCode(64 + startCol + i)}${startRow + i}`,
+              ]),
+            ),
+          },
+          {
+            heading: 'Box ' + n,
+            body: `After ${n - 1} steps the column is ${endLetter} and the row is ${row}, so the reference is ${endLetter}${row}.`,
+            stimulus: calcTable('Working', [
+              ['Steps', n - 1],
+              ['Column', endLetter],
+              ['Row', row],
+              ['Box ' + n, `${endLetter}${row}`],
+            ]),
+          },
+        ),
       };
     },
   },
@@ -938,6 +1756,27 @@ const FAMILIES: Family[] = [
         correct: `${distance} km`,
         distractors: [`${speed + hours} km`, `${distance / 2} km`, `${speed * (hours + 1)} km`, `${hours * 10} km`],
         explanation: `${speed} × ${hours} = ${distance} km.`,
+        working: workingSteps(
+          {
+            heading: 'Distance = speed × time',
+            body: `${name} rides at a steady ${speed} km/h for ${hours} hours.`,
+            stimulus: factTable('Journey', [
+              ['Speed', `${speed} km/h`],
+              ['Time', `${hours} hours`],
+            ]),
+          },
+          {
+            heading: 'Multiply',
+            body: `${speed} × ${hours} = ${distance} km.`,
+            stimulus: {
+              type: 'line',
+              caption: 'Distance after each hour',
+              xLabel: 'Hour',
+              yLabel: 'km',
+              points: Array.from({ length: hours + 1 }, (_, i) => ({ x: String(i), y: speed * i })),
+            },
+          },
+        ),
       };
     },
   },
@@ -953,6 +1792,23 @@ const FAMILIES: Family[] = [
         distractors: [`${a}°`, `${90 - (a % 90)}°`, `${180 + a}°`, `${360 - a}°`],
         explanation: `Angles on a straight line add to 180°, so 180 − ${a} = ${b}.`,
         stimulus: { type: 'straight-angle', given: a },
+        working: workingSteps(
+          {
+            heading: 'Straight line fact',
+            body: `Angles on a straight line add to 180°.`,
+            stimulus: factTable('Straight line', [
+              ['Given angle', `${a}°`],
+              ['Straight line', '180°'],
+            ]),
+          },
+          {
+            heading: 'Find the other angle',
+            body: `180 − ${a} = ${b}.`,
+            stimulus: calcTable('Working', [
+              ['Other angle', `180 − ${a} = ${b}°`],
+            ]),
+          },
+        ),
       };
     },
   },
@@ -969,6 +1825,24 @@ const FAMILIES: Family[] = [
         correct: `${answer} g`,
         distractors: [`${whole / denom} g`, `${whole - answer} g`, `${num * denom} g`, `${whole / num} g`],
         explanation: `${whole} ÷ ${denom} = ${whole / denom}, then × ${num} = ${answer} g.`,
+        working: workingSteps(
+          {
+            heading: 'One equal part',
+            body: `${whole} g split into ${denom} equal parts is ${whole / denom} g each.`,
+            stimulus: factTable('The block', [
+              ['Whole', `${whole} g`],
+              ['Fraction used', `${num}/${denom}`],
+            ]),
+          },
+          {
+            heading: 'Multiply by the numerator',
+            body: `${num} parts: ${whole / denom} × ${num} = ${answer} g.`,
+            stimulus: calcTable('Working', [
+              [`1/${denom}`, `${whole / denom} g`],
+              [`${num}/${denom}`, `${answer} g`],
+            ]),
+          },
+        ),
       };
     },
   },
@@ -987,6 +1861,17 @@ const FAMILIES: Family[] = [
         distractors: [`${L * W} cm²`, `${l * w} cm²`, `${2 * (L + W)} cm²`, `${area + l} cm²`],
         explanation: `${L} × ${W} = ${L * W}, minus ${l} × ${w} = ${l * w}, leaving ${area} cm².`,
         stimulus: { type: 'compound-rect', outerW: L, outerH: W, cutW: l, cutH: w, unit: 'cm' },
+        working: workingSteps(
+          {
+            heading: 'Large rectangle minus the cut-out',
+            body: `Remaining area = outer rectangle − small rectangle.`,
+            stimulus: calcTable('Areas', [
+              ['Outer', `${L} × ${W} = ${L * W} cm²`],
+              ['Cut-out', `${l} × ${w} = ${l * w} cm²`],
+              ['Remaining', `${L * W} − ${l * w} = ${area} cm²`],
+            ]),
+          },
+        ),
       };
     },
   },
@@ -1002,6 +1887,26 @@ const FAMILIES: Family[] = [
         correct: String(n),
         distractors: [String(n + 1), String(sum / count), String(n - 1), String(count)],
         explanation: `The ${count} numbers are ${n} to ${n + count - 1}. Their sum is ${sum}.`,
+        working: workingSteps(
+          {
+            heading: 'Consecutive numbers',
+            body: `${count} numbers in a row. If the smallest is n, they are n, n+1, …`,
+            stimulus: workingTable(
+              'The numbers',
+              ['Place', 'Number'],
+              Array.from({ length: count }, (_, i) => [i + 1, n + i]),
+            ),
+          },
+          {
+            heading: 'Check the sum',
+            body: `${Array.from({ length: count }, (_, i) => n + i).join(' + ')} = ${sum}, so the smallest is ${n}.`,
+            stimulus: calcTable('Sum', [
+              ['Count', count],
+              ['Sum given', sum],
+              ['Smallest', n],
+            ]),
+          },
+        ),
       };
     },
   },
@@ -1021,6 +1926,21 @@ const FAMILIES: Family[] = [
           distractors: ['975 g', '1225 g', '1775 g', '2500 g'],
           explanation: `2.5 kg = 2500 g. 2500 − 700 − 275 = 1525 g.`,
           stimulus: { type: 'scale', max: 5, value: 2.5, unit: 'kg' },
+          working: workingSteps(
+            {
+              heading: 'Same units',
+              body: `Change kilograms to grams first: 2.5 kg = 2500 g.`,
+              stimulus: factTable('Parcels', [
+                ['Together', '2500 g'],
+                ['Parcel 1', '700 g'],
+                ['Parcel 2', '275 g'],
+              ]),
+            },
+            {
+              heading: 'Find parcel 3',
+              body: `2500 − 700 − 275 = 1525 g.`,
+            },
+          ),
         };
       }
       return {
@@ -1029,6 +1949,26 @@ const FAMILIES: Family[] = [
         distractors: [`${a + b} g`, `${totalG - a} g`, `${c + 100} g`, `${totalG} g`],
         explanation: `${totalKgTenths / 10} kg = ${totalG} g. ${totalG} − ${a} − ${b} = ${c} g.`,
         stimulus: { type: 'scale', max: 5, value: totalKgTenths / 10, unit: 'kg' },
+        working: workingSteps(
+          {
+            heading: 'Same units',
+            body: `${totalKgTenths / 10} kg = ${totalG} g.`,
+            stimulus: factTable('Parcels', [
+              ['Together', `${totalG} g`],
+              ['Parcel 1', `${a} g`],
+              ['Parcel 2', `${b} g`],
+            ]),
+          },
+          {
+            heading: 'Find parcel 3',
+            body: `${totalG} − ${a} − ${b} = ${c} g.`,
+            stimulus: calcTable('Working', [
+              ['Total', `${totalG} g`],
+              ['Subtract 1 and 2', `${a} + ${b} = ${a + b} g`],
+              ['Parcel 3', `${c} g`],
+            ]),
+          },
+        ),
       };
     },
   },
@@ -1050,6 +1990,24 @@ const FAMILIES: Family[] = [
           String(divisor - 1),
         ],
         explanation: `Even numbers are 0, 2, 4, … modulo ${divisor}, so the remainders are ${correct}.`,
+        working: workingSteps(
+          {
+            heading: 'Try even numbers',
+            body: `Divide even numbers by ${divisor} and list the remainders. Remainders repeat in a cycle.`,
+            stimulus: workingTable(
+              `Even numbers ÷ ${divisor}`,
+              ['Even number', 'Remainder'],
+              Array.from({ length: Math.min(divisor, 8) }, (_, i) => {
+                const n = i * 2;
+                return [n, n % divisor];
+              }),
+            ),
+          },
+          {
+            heading: 'All possible remainders',
+            body: `The remainders that appear are ${correct}. Odd remainders cannot happen for even numbers.`,
+          },
+        ),
       };
     },
   },
@@ -1083,6 +2041,28 @@ const FAMILIES: Family[] = [
           span(hours, wait),
         ],
         explanation: `${trip} + ${wait} + ${returnTrip} = ${away} minutes = ${correct}.`,
+        working: workingSteps(
+          {
+            heading: 'Add every stage',
+            body: `Away from town means the trip there, the wait, and the return trip.`,
+            stimulus: calcTable('Minutes away', [
+              ['Trip there', trip],
+              ['Wait', wait],
+              ['Return trip', returnTrip],
+              ['Total minutes', `${trip} + ${wait} + ${returnTrip} = ${away}`],
+            ]),
+          },
+          {
+            heading: 'Write in hours and minutes',
+            body: `${away} minutes = ${correct}.`,
+            stimulus: factTable('Clock times', [
+              ['Leave', `${pad(depH)}:${pad(depM)}`],
+              ['Arrive other town', `${pad(Math.floor(arrive / 60) % 24)}:${pad(arrive % 60)}`],
+              ['Leave for home', `${pad(Math.floor(retDep / 60) % 24)}:${pad(retDep % 60)}`],
+              ['Back in town', `${pad(Math.floor(retArr / 60) % 24)}:${pad(retArr % 60)}`],
+            ]),
+          },
+        ),
         stimulus: {
           type: 'table',
           caption: `${name}’s trip`,
@@ -1123,6 +2103,26 @@ const FAMILIES: Family[] = [
           String(Math.max(...values)),
         ],
         explanation: `${more} has ${Math.max(values[i]!, values[j]!)} and ${less} has ${Math.min(values[i]!, values[j]!)}, so the difference is ${diff}.`,
+        working: workingSteps(
+          {
+            heading: 'Read the two bars',
+            body: `Find ${more} and ${less} on the graph.`,
+            stimulus: workingTable(
+              'Club counts',
+              ['Club', 'Students'],
+              labels.map((label, index) => [label, values[index]!]),
+            ),
+          },
+          {
+            heading: 'Subtract',
+            body: `${Math.max(values[i]!, values[j]!)} − ${Math.min(values[i]!, values[j]!)} = ${diff}.`,
+            stimulus: calcTable('Difference', [
+              [more ?? 'More', Math.max(values[i]!, values[j]!)],
+              [less ?? 'Less', Math.min(values[i]!, values[j]!)],
+              ['How many more', diff],
+            ]),
+          },
+        ),
         stimulus: {
           type: 'bar',
           caption: `${name}’s club counts`,
@@ -1148,6 +2148,21 @@ const FAMILIES: Family[] = [
         correct: String(bus),
         distractors: [String(total - bus), String(slices[1]!.value), String(total), String(Math.round((bus / total) * 100))],
         explanation: `The Bus slice is ${bus} of the ${total} students.`,
+        working: workingSteps(
+          {
+            heading: 'Read the pie chart',
+            body: `The numbers on the slices already count students. Bus is ${bus} out of ${total}.`,
+            stimulus: workingTable(
+              'How the class travels',
+              ['Way', 'Students'],
+              slices.map((slice) => [slice.label, slice.value]),
+            ),
+          },
+          {
+            heading: 'Bus students',
+            body: `The Bus slice is ${bus} students. You do not need to find a percentage for this question.`,
+          },
+        ),
         stimulus: {
           type: 'pie',
           caption: `How ${name}’s class travels`,
@@ -1173,6 +2188,26 @@ const FAMILIES: Family[] = [
         correct: String(diff),
         distractors: [String(loans[i]), String(loans[j]), String(loans.reduce((a, b) => a + b, 0)), String(Math.max(...loans))],
         explanation: `${more} borrowed ${Math.max(loans[i]!, loans[j]!)} and ${less} borrowed ${Math.min(loans[i]!, loans[j]!)}, so the difference is ${diff}.`,
+        working: workingSteps(
+          {
+            heading: 'Read the two rows',
+            body: `Find ${more} and ${less} in the table.`,
+            stimulus: workingTable(
+              'Library loans',
+              ['Year', 'Books'],
+              years.map((year, index) => [year, loans[index]!]),
+            ),
+          },
+          {
+            heading: 'Subtract',
+            body: `${Math.max(loans[i]!, loans[j]!)} − ${Math.min(loans[i]!, loans[j]!)} = ${diff}.`,
+            stimulus: {
+              type: 'bar',
+              caption: 'Books borrowed',
+              bars: years.map((year, index) => ({ label: year, value: loans[index]! })),
+            },
+          },
+        ),
         stimulus: {
           type: 'table',
           caption: `${name}’s library loans`,
@@ -1196,6 +2231,26 @@ const FAMILIES: Family[] = [
         correct: `${diff}°C`,
         distractors: [`${hottest}°C`, `${coolest}°C`, `${temps[0]}°C`, `${diff + 2}°C`],
         explanation: `Hottest ${hottest}°C minus coolest ${coolest}°C is ${diff}°C.`,
+        working: workingSteps(
+          {
+            heading: 'Read the highest and lowest points',
+            body: `The hottest day is ${hottest}°C. The coolest day is ${coolest}°C.`,
+            stimulus: workingTable(
+              'Lunchtime temperatures',
+              ['Day', '°C'],
+              days.map((day, index) => [day, temps[index]!]),
+            ),
+          },
+          {
+            heading: 'Find the difference',
+            body: `${hottest} − ${coolest} = ${diff}°C.`,
+            stimulus: calcTable('Range', [
+              ['Hottest', `${hottest}°C`],
+              ['Coolest', `${coolest}°C`],
+              ['Difference', `${diff}°C`],
+            ]),
+          },
+        ),
         stimulus: {
           type: 'line',
           caption: `${name}’s lunchtime temperatures`,
@@ -1227,6 +2282,27 @@ const FAMILIES: Family[] = [
         ].filter((row, index, all) => row !== correct && all.indexOf(row) === index),
         explanation: `${filled} of ${total} equal sections are painted, which simplifies to ${correct}.`,
         stimulus: { type: 'painted-grid', columns, rows, filled },
+        working: workingSteps(
+          {
+            heading: 'Count the sections',
+            body: `The wall is ${columns} by ${rows}, so there are ${total} equal sections. ${filled} are painted.`,
+            stimulus: factTable('The wall', [
+              ['Columns', columns],
+              ['Rows', rows],
+              ['Total sections', total],
+              ['Painted', filled],
+            ]),
+          },
+          {
+            heading: 'Write and simplify the fraction',
+            body: `${filled}/${total} simplifies by dividing by ${g}: ${correct}.`,
+            stimulus: calcTable('Fraction', [
+              ['Painted / total', `${filled}/${total}`],
+              ['Highest common factor', g],
+              ['Simplified', correct],
+            ]),
+          },
+        ),
       };
     },
   },
@@ -1274,18 +2350,7 @@ function makeItem(
     if (packed.correctIndex < 0 || packed.correctIndex > 4) continue;
     if (!packed.options[packed.correctIndex]) continue;
     usedStems.add(stem);
-    return {
-      kind,
-      setNumber,
-      sortOrder,
-      familyId: family.id,
-      skill: family.skill,
-      stem,
-      options: packed.options,
-      correctIndex: packed.correctIndex,
-      explanation: core.explanation,
-      stimulus: core.stimulus,
-    };
+    return packSeedItem(family, kind, setNumber, sortOrder, core, packed);
   }
   throw new Error(`Could not build unique ${kind} ${setNumber} q${sortOrder} (${family.id})`);
 }
@@ -1321,15 +2386,7 @@ export function makeExamMathFamilyItem(input: {
       if (packed.correctIndex < 0 || packed.correctIndex > 4) continue;
       if (!packed.options[packed.correctIndex]) continue;
       stems.add(core.stem);
-      return {
-        familyId: family.id,
-        skill: family.skill,
-        stem: core.stem,
-        options: packed.options,
-        correctIndex: packed.correctIndex,
-        explanation: core.explanation,
-        stimulus: core.stimulus,
-      };
+      return packSeedItem(family, 'mini', 0, 0, core, packed);
     }
     return null;
   };
@@ -1413,18 +2470,7 @@ function makeChosenFamilyItem(
     if (packed.correctIndex < 0 || packed.correctIndex > 4) continue;
     if (!packed.options[packed.correctIndex]) continue;
     usedStems.add(core.stem);
-    return {
-      kind,
-      setNumber,
-      sortOrder,
-      familyId: family.id,
-      skill: family.skill,
-      stem: core.stem,
-      options: packed.options,
-      correctIndex: packed.correctIndex,
-      explanation: core.explanation,
-      stimulus: core.stimulus,
-    };
+    return packSeedItem(family, kind, setNumber, sortOrder, core, packed);
   }
   throw new Error(`Could not build unique trial ${kind} ${setNumber} q${sortOrder} (${familyId})`);
 }

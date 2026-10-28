@@ -18,6 +18,8 @@ import {
 } from '@/lib/exam-math';
 import { ExamMathLeaveGuard } from '@/components/exam-math/leave-guard';
 import { ExamMathStimulusView } from '@/components/exam-math/stimulus';
+import { ExamMathWorkingView } from '@/components/exam-math/working';
+import { completeWorking } from '@/lib/exam-math-working';
 
 type PlayerKind = ExamMathSetKind | 'preview' | 'strengthen';
 type PlayerPhase = 'instructions' | 'sitting' | 'results';
@@ -58,6 +60,7 @@ export function ExamMathPlayer({
   const [timerHidden, setTimerHidden] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [confirmFinish, setConfirmFinish] = useState(false);
+  const [openWorking, setOpenWorking] = useState<Record<number, boolean>>({});
   const finishedRef = useRef(false);
 
   const question = questions[index] ?? null;
@@ -184,6 +187,8 @@ export function ExamMathPlayer({
   }
 
   if (phase === 'results') {
+    const allWorkingOpen =
+      questions.length > 0 && questions.every((_, index) => openWorking[index]);
     return (
       <main className="mx-auto max-w-3xl space-y-6 p-6">
         <header className="space-y-1">
@@ -197,11 +202,44 @@ export function ExamMathPlayer({
               ? `${score.correct} of ${score.marked} marked correct.`
               : `${progress.answered} of ${progress.total} answered.`}
           </p>
+          <p className="text-sm text-warm-muted">
+            Green is the correct letter. Open the working only if you want the method, graphs and
+            tables.
+          </p>
           {resultsNote ? <p className="text-sm text-warm-ink">{resultsNote}</p> : null}
         </header>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              const next: Record<number, boolean> = {};
+              questions.forEach((_, index) => {
+                next[index] = !allWorkingOpen;
+              });
+              setOpenWorking(next);
+            }}
+            className="rounded-full border border-brand px-4 py-2 text-sm font-medium text-brand hover:bg-[#EDF3ED]"
+          >
+            {allWorkingOpen ? 'Hide all workings' : 'Show all workings'}
+          </button>
+        </div>
         <ol className="space-y-4">
           {questions.map((item, questionIndex) => {
             const answer = answers[questionIndex];
+            const correctLetter =
+              item.correctIndex !== null ? EXAM_MATH_CHOICES[item.correctIndex] : null;
+            const chosenLetter =
+              answer?.chosen === null || answer?.chosen === undefined
+                ? null
+                : EXAM_MATH_CHOICES[answer.chosen];
+            const isCorrect = chosenLetter !== null && chosenLetter === correctLetter;
+            const workingOpen = Boolean(openWorking[questionIndex]);
+            const working = completeWorking({
+              steps: item.working,
+              explanation: item.explanation,
+              options: item.options,
+              correctIndex: item.correctIndex ?? 0,
+            });
             return (
               <li
                 key={item.id}
@@ -211,14 +249,13 @@ export function ExamMathPlayer({
                   {questionIndex + 1}. {item.stem}
                 </p>
                 <ExamMathStimulusView stimulus={item.stimulus} />
-                <p className="text-xs text-warm-muted">
-                  {answer?.chosen === null || answer?.chosen === undefined
-                    ? 'Not answered'
-                    : `You chose ${EXAM_MATH_CHOICES[answer.chosen]}`}
+                <p className="text-sm text-warm-ink">
+                  {chosenLetter
+                    ? isCorrect
+                      ? `You chose ${chosenLetter} — correct.`
+                      : `You chose ${chosenLetter}. Correct answer is ${correctLetter}.`
+                    : `Not answered. Correct answer is ${correctLetter}.`}
                 </p>
-                {item.explanation ? (
-                  <p className="text-sm text-warm-muted">{item.explanation}</p>
-                ) : null}
                 <div className="grid gap-2">
                   {item.options.map((option, optionIndex) => (
                     <div
@@ -235,6 +272,20 @@ export function ExamMathPlayer({
                     </div>
                   ))}
                 </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOpenWorking((current) => ({
+                      ...current,
+                      [questionIndex]: !current[questionIndex],
+                    }))
+                  }
+                  className="rounded-full border border-brand px-4 py-2 text-sm font-medium text-brand hover:bg-[#EDF3ED]"
+                  aria-expanded={workingOpen}
+                >
+                  {workingOpen ? 'Hide working' : 'Show working'}
+                </button>
+                {workingOpen ? <ExamMathWorkingView steps={working} /> : null}
               </li>
             );
           })}

@@ -1,6 +1,8 @@
 import { query } from '@/lib/db';
 import { makeExamMathFamilyItem } from '@/lib/exam-math-bank';
 import { parseExamMathStimulus } from '@/lib/exam-math-stimulus';
+import { completeWorking, parseExamMathWorking } from '@/lib/exam-math-working';
+import { ensureExamMathWorkingSchema } from '@/lib/exam-math-working-schema';
 import {
   emptyExamMathOverview,
   examMathFamilyLabel,
@@ -442,45 +444,52 @@ type QuestionRow = {
   stimulus: unknown;
   correct_index: number;
   explanation?: string;
+  working?: unknown;
 };
+
+function mapExamMathQuestion(row: QuestionRow): ExamMathQuestion {
+  const options = Array.isArray(row.options) ? row.options.map(String) : [];
+  return {
+    id: row.id,
+    stem: row.stem,
+    options,
+    correctIndex: row.correct_index,
+    explanation: row.explanation,
+    working: completeWorking({
+      steps: parseExamMathWorking(row.working),
+      explanation: row.explanation,
+      options,
+      correctIndex: row.correct_index,
+    }),
+    stimulus: parseExamMathStimulus(row.stimulus),
+  };
+}
+
+function workingLooksEmpty(value: unknown): boolean {
+  return parseExamMathWorking(value).length === 0;
+}
 
 export async function getExamMathSetQuestions(
   kind: ExamMathSetKind,
   setNumber: number,
 ): Promise<ExamMathQuestion[]> {
   try {
-    const existing = await query<QuestionRow>(
-      `SELECT item.id, item.stem, item.options, item.stimulus, item.correct_index, item.explanation
-       FROM exam_math_items item
-       JOIN exam_math_sets exam_set ON exam_set.id = item.set_id
-       WHERE exam_set.kind = $1 AND exam_set.set_number = $2 AND item.is_active = TRUE
-       ORDER BY item.sort_order ASC`,
-      [kind, setNumber],
-    );
-    if (existing.rows.length === 0) {
+    await ensureExamMathWorkingSchema();
+    const load = () =>
+      query<QuestionRow>(
+        `SELECT item.id, item.stem, item.options, item.stimulus, item.correct_index, item.explanation, item.working
+         FROM exam_math_items item
+         JOIN exam_math_sets exam_set ON exam_set.id = item.set_id
+         WHERE exam_set.kind = $1 AND exam_set.set_number = $2 AND item.is_active = TRUE
+         ORDER BY item.sort_order ASC`,
+        [kind, setNumber],
+      );
+    let existing = await load();
+    if (existing.rows.length === 0 || existing.rows.some((row) => workingLooksEmpty(row.working))) {
       await seedExamMathContent();
+      existing = await load();
     }
-    const rows =
-      existing.rows.length > 0
-        ? existing.rows
-        : (
-            await query<QuestionRow>(
-              `SELECT item.id, item.stem, item.options, item.stimulus, item.correct_index, item.explanation
-               FROM exam_math_items item
-               JOIN exam_math_sets exam_set ON exam_set.id = item.set_id
-               WHERE exam_set.kind = $1 AND exam_set.set_number = $2 AND item.is_active = TRUE
-               ORDER BY item.sort_order ASC`,
-              [kind, setNumber],
-            )
-          ).rows;
-    return rows.map((row) => ({
-      id: row.id,
-      stem: row.stem,
-      options: Array.isArray(row.options) ? row.options.map(String) : [],
-      correctIndex: row.correct_index,
-      explanation: row.explanation,
-      stimulus: parseExamMathStimulus(row.stimulus),
-    }));
+    return existing.rows.map(mapExamMathQuestion);
   } catch (error) {
     if (isMissingExamMathTable(error)) return [];
     throw error;
@@ -628,6 +637,7 @@ export async function nextExamMathStrengthen(
   studentId: string,
   familyId?: string,
 ): Promise<ExamMathQuestion & { familyId: string; skill: string; familyLabel: string; skillLabel: string }> {
+  await ensureExamMathWorkingSchema();
   const source = await query<{
     item_id: string;
     family_id: string;
@@ -667,8 +677,8 @@ export async function nextExamMathStrengthen(
   });
   const saved = await query<{ id: string }>(
     `INSERT INTO exam_math_strengthen_items (
-       student_id, source_item_id, family_id, skill, stem, stimulus, options, correct_index, explanation
-     ) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9)
+       student_id, source_item_id, family_id, skill, stem, stimulus, options, correct_index, explanation, working
+     ) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9, $10::jsonb)
      RETURNING id`,
     [
       studentId,
@@ -680,6 +690,7 @@ export async function nextExamMathStrengthen(
       JSON.stringify(minted.options),
       minted.correctIndex,
       minted.explanation,
+      JSON.stringify(minted.working ?? []),
     ],
   );
   return {
@@ -688,6 +699,7 @@ export async function nextExamMathStrengthen(
     options: minted.options,
     correctIndex: minted.correctIndex,
     explanation: minted.explanation,
+    working: minted.working,
     stimulus: minted.stimulus,
     familyId: minted.familyId,
     skill: minted.skill,

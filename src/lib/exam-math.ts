@@ -1,4 +1,5 @@
 import type { ExamMathStimulus } from '@/lib/exam-math-stimulus';
+import type { ExamMathWorking } from '@/lib/exam-math-working';
 
 export const EXAM_MATH_CHOICES = ['A', 'B', 'C', 'D', 'E'] as const;
 export type ExamMathChoice = (typeof EXAM_MATH_CHOICES)[number];
@@ -40,6 +41,7 @@ export type ExamMathQuestion = {
   options: string[];
   correctIndex: number | null;
   explanation?: string;
+  working?: ExamMathWorking;
   stimulus?: ExamMathStimulus;
 };
 

@@ -46,6 +46,8 @@ describe('Selective Math question bank', () => {
       assert.ok(item.correctIndex >= 0 && item.correctIndex <= 4, item.stem);
       assert.ok(item.stem.length > 20, item.stem);
       assert.ok(item.explanation.length > 8, item.familyId);
+      assert.ok(item.working.length >= 2, item.familyId);
+      assert.equal(item.working.at(-1)?.heading, 'The answer', item.familyId);
       assert.ok(item.familyId);
       assert.ok(item.skill);
     }

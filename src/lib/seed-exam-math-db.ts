@@ -2,6 +2,7 @@ import { query } from '@/lib/db';
 import { buildExamMathBank, buildExamMathTrialBank, type ExamMathSeedItem } from '@/lib/exam-math-bank';
 import { seedExamMathSets } from '@/lib/seed-exam-math-sets';
 import { ensureExamMathTrialSchema } from '@/lib/exam-math-trial-schema';
+import { ensureExamMathWorkingSchema } from '@/lib/exam-math-working-schema';
 
 function chunks<T>(items: T[], size: number): T[][] {
   const out: T[][] = [];
@@ -12,6 +13,7 @@ function chunks<T>(items: T[], size: number): T[][] {
 /** Upsert Selective Math questions. Safe to re-run. Does not touch student sittings. */
 export async function seedExamMathContent(): Promise<void> {
   await ensureExamMathTrialSchema();
+  await ensureExamMathWorkingSchema();
   await seedExamMathSets();
   const bank = [...buildExamMathBank(), ...buildExamMathTrialBank()];
   const sets = await query<{ id: string; kind: 'mini' | 'paper' | 'trial'; set_number: number }>(
@@ -44,7 +46,7 @@ async function upsertItemChunk(
 ): Promise<void> {
   const params: unknown[] = [];
   const rows = items.map((item, index) => {
-    const base = index * 9;
+    const base = index * 10;
     params.push(
       item.setId,
       item.sortOrder,
@@ -55,12 +57,13 @@ async function upsertItemChunk(
       JSON.stringify(item.options),
       item.correctIndex,
       item.explanation,
+      JSON.stringify(item.working ?? []),
     );
-    return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}::jsonb, $${base + 7}::jsonb, $${base + 8}, $${base + 9}, TRUE)`;
+    return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}::jsonb, $${base + 7}::jsonb, $${base + 8}, $${base + 9}, $${base + 10}::jsonb, TRUE)`;
   });
   await query(
     `INSERT INTO exam_math_items (
-       set_id, sort_order, family_id, skill, stem, stimulus, options, correct_index, explanation, is_active
+       set_id, sort_order, family_id, skill, stem, stimulus, options, correct_index, explanation, working, is_active
      ) VALUES ${rows.join(', ')}
      ON CONFLICT (set_id, sort_order) DO UPDATE SET
        family_id = EXCLUDED.family_id,
@@ -70,6 +73,7 @@ async function upsertItemChunk(
        options = EXCLUDED.options,
        correct_index = EXCLUDED.correct_index,
        explanation = EXCLUDED.explanation,
+       working = EXCLUDED.working,
        is_active = TRUE`,
     params,
   );
