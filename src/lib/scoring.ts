@@ -124,7 +124,10 @@ Missed hints:
 Script mark-up (required):
 - Highlight exact phrases from the student writing (spelling, punctuation, sentence control, structure/form, vocabulary, content).
 - Do not stamp every short sentence with the same “too short” note. One content comment for an under-developed piece is enough.
-- Give a better version of 2–4 of the student’s weakest sentences. Keep that sentence’s idea. Fix spelling in the rewrite. Prefer one developed sentence, not a second new sentence.
+- Do not mark diary or letter greetings and sign-offs as missing a full stop or as choppy sentences. “Dear Diary,” / “Dear Mum,” / “From Stella” / “Yours sincerely” / “xx” are form conventions. A comma after Dear Diary is correct.
+- If Set A (content or organisation) is a real weakness, you MUST include at least one content or structure annotation that tells the student what to add, cut, or reorder. Do not only rewrite sentences or comment on spelling.
+- Content comments should name a moment to keep, a moment to cut, or a paragraph job (opening feeling, one developed scene, a close that looks back).
+- Give a better version of 2–4 of the student’s weakest sentences. Keep that sentence’s idea. Fix spelling in the rewrite. Prefer one developed sentence, not a second new sentence. Do not rewrite greetings or sign-offs.
 - Tie every comment to Set A (content, form, organisation, vocabulary/style) or Set B (sentences, punctuation, spelling).
 - Write for a Year 5–6 student in Australian English. Be specific to their words, not generic.
 - In student-facing text, say TrialSeed feedback or TrialSeed mark-up. Never call it a teacher mark.
@@ -501,7 +504,7 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
     temperature: 0.2,
     system: [
       'You mark NSW Selective writing practice for TrialSeed.',
-      'Circle exact errors, give content-change advice when Set A is weak, and rewrite the student’s own weakest sentences.',
+      'Circle exact errors, give content-change advice when Set A is weak, and rewrite the student’s own weakest sentences. Never mark “Dear Diary,” as missing a full stop.',
       input.previousDrafts?.length && input.draftNumber
         ? `Compare Draft ${input.draftNumber} with the previous draft. If the student improved their vocabulary (e.g., 'got scared' to 'hid under her covers') or fixed punctuation based on previous feedback, you MUST increase the 'Vocabulary & style' (vocabulary) or 'Sentences/punctuation' (grammar) dimension score by 0.5 or 1 point from that previous draft. Reward their effort.`
         : 'If a previous draft is supplied, reward real vocabulary or punctuation improvement with +0.5 or +1 on that dimension.',
@@ -602,7 +605,7 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
             : 'omit',
           strengths: ['string: what this sitting already does well'],
           next_steps: [
-            'string: what to change next. If a picture object or plan-change hint is missing, the first step must name the object and give a concrete plot example',
+            'string: what to change next, tied to Set A or Set B. If a picture object or plan-change hint is missing, the first step must name the object and give a concrete plot example. If Set A is weak for another reason, the first step must say what to add, cut, or reorder',
           ],
           annotations: [
             {
