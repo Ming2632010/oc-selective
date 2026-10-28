@@ -6,6 +6,10 @@ import {
   examMathFamilyLabel,
   examMathSetsOfKind,
   examMathSkillLabel,
+  EXAM_MATH_TRIAL_MINI_QUESTIONS,
+  EXAM_MATH_TRIAL_MINI_SET,
+  EXAM_MATH_TRIAL_WARMUP_QUESTIONS,
+  EXAM_MATH_TRIAL_WARMUP_SET,
   findExamMathSet,
   usesExamMathDashboard,
   type ExamMathDifficultyBand,
@@ -16,6 +20,22 @@ import {
 } from '@/lib/exam-math';
 import { seedExamMathContent } from '@/lib/seed-exam-math-db';
 import { seedExamMathSets } from '@/lib/seed-exam-math-sets';
+import { ensureExamMathTrialSchema } from '@/lib/exam-math-trial-schema';
+import { ensureWritingTrialColumns } from '@/lib/writing-trial-schema';
+import {
+  canStartExamMathTrial,
+  examMathAccessRequiredMessage,
+  examMathTrialCatalogueLockMessage,
+  examMathTrialPaidLockMessage,
+  examMathTrialSetUsedMessage,
+  examMathTrialStrengthenLockMessage,
+  examMathUnlicensedAccessMessage,
+  EXAM_MATH_TRIAL_DAYS,
+  hasExamMathProductAccess,
+  trialDaysLeft,
+  trialExpiresAt,
+  type ExamMathAccessState,
+} from '@/lib/exam-math-trial';
 
 export { seedExamMathSets, seedExamMathContent };
 
@@ -26,38 +46,293 @@ function isMissingExamMathTable(error: unknown): boolean {
   return /exam_math_/i.test(message) && /does not exist/i.test(message);
 }
 
-export type ExamMathAccessState = 'ok' | 'not-found' | 'wrong-grade';
+export type ExamMathStudent = { id: string; grade: string; name: string };
 
-export async function getExamMathAccessState(
-  userId: string,
-  studentId: string,
-): Promise<{ state: ExamMathAccessState; grade?: string; name?: string }> {
-  const result = await query<{ grade: string; name: string }>(
-    `SELECT grade, name FROM students
+export type ExamMathLicence = {
+  state: ExamMathAccessState;
+  accessKind: 'paid' | 'trial' | null;
+  student: ExamMathStudent | null;
+  expiresAt: Date | null;
+  daysLeft: number | null;
+  warmupUsed: number;
+  warmupLimit: number;
+  miniUsed: number;
+  miniLimit: number;
+  trialEligible: boolean;
+  hadTrial: boolean;
+};
+
+export function examMathTrialClientFields(licence: ExamMathLicence) {
+  return {
+    eligible: licence.trialEligible,
+    active: licence.state === 'trial',
+    had_trial: licence.hadTrial,
+    days_left: licence.daysLeft,
+    warmup_used: licence.warmupUsed,
+    warmup_limit: licence.warmupLimit,
+    mini_used: licence.miniUsed,
+    mini_limit: licence.miniLimit,
+    expires_at: licence.expiresAt ? new Date(licence.expiresAt).toISOString() : null,
+  };
+}
+
+async function countTrialSetSubmitted(studentId: string, setNumber: number): Promise<boolean> {
+  const result = await query<{ n: string }>(
+    `SELECT COUNT(*)::text AS n
+     FROM exam_math_sittings sitting
+     JOIN exam_math_sets exam_set ON exam_set.id = sitting.set_id
+     WHERE sitting.student_id = $1
+       AND exam_set.kind = 'trial'
+       AND exam_set.set_number = $2
+       AND sitting.submitted_at IS NOT NULL`,
+    [studentId, setNumber],
+  );
+  return Number(result.rows[0]?.n ?? 0) > 0;
+}
+
+export async function getExamMathLicence(userId: string, studentId: string): Promise<ExamMathLicence> {
+  await ensureWritingTrialColumns();
+  await ensureExamMathTrialSchema();
+  const empty = {
+    accessKind: null as 'paid' | 'trial' | null,
+    expiresAt: null as Date | null,
+    daysLeft: null as number | null,
+    warmupUsed: 0,
+    warmupLimit: EXAM_MATH_TRIAL_WARMUP_QUESTIONS,
+    miniUsed: 0,
+    miniLimit: EXAM_MATH_TRIAL_MINI_QUESTIONS,
+    trialEligible: false,
+    hadTrial: false,
+  };
+  const student = await query<{ id: string; grade: string; name: string }>(
+    `SELECT id, grade, name FROM students
      WHERE id = $1 AND user_id = $2 AND is_active = TRUE
      LIMIT 1`,
     [studentId, userId],
   );
-  const student = result.rows[0];
-  if (!student) return { state: 'not-found' };
-  if (!usesExamMathDashboard(student.grade)) {
-    return { state: 'wrong-grade', grade: student.grade, name: student.name };
+  const row = student.rows[0];
+  if (!row) {
+    return { state: 'not-found', student: null, ...empty };
   }
-  return { state: 'ok', grade: student.grade, name: student.name };
+  const owned = { id: row.id, grade: row.grade, name: row.name };
+  if (!usesExamMathDashboard(row.grade)) {
+    return { state: 'wrong-grade', student: owned, ...empty };
+  }
+
+  const rows = await query<{
+    access_kind: string | null;
+    status: string;
+    expires_at: Date | null;
+    trial_started_at: Date | null;
+  }>(
+    `SELECT COALESCE(access_kind, 'paid') AS access_kind, status, expires_at, trial_started_at
+     FROM user_subscriptions
+     WHERE student_id = $1 AND user_id = $2 AND subject = 'math'
+     ORDER BY created_at DESC`,
+    [studentId, userId],
+  );
+
+  const now = Date.now();
+  const live = rows.rows.find((item) => {
+    if (item.status !== 'active') return false;
+    if (!item.expires_at) return item.access_kind !== 'trial';
+    return new Date(item.expires_at).getTime() > now;
+  });
+  const hadTrial = rows.rows.some(
+    (item) => item.access_kind === 'trial' || Boolean(item.trial_started_at),
+  );
+  const warmupSat = await countTrialSetSubmitted(studentId, EXAM_MATH_TRIAL_WARMUP_SET);
+  const miniSat = await countTrialSetSubmitted(studentId, EXAM_MATH_TRIAL_MINI_SET);
+  const usage = {
+    warmupUsed: warmupSat ? EXAM_MATH_TRIAL_WARMUP_QUESTIONS : 0,
+    warmupLimit: EXAM_MATH_TRIAL_WARMUP_QUESTIONS,
+    miniUsed: miniSat ? EXAM_MATH_TRIAL_MINI_QUESTIONS : 0,
+    miniLimit: EXAM_MATH_TRIAL_MINI_QUESTIONS,
+  };
+
+  if (live?.access_kind === 'trial' && live.expires_at) {
+    return {
+      state: 'trial',
+      accessKind: 'trial',
+      student: owned,
+      expiresAt: live.expires_at,
+      daysLeft: trialDaysLeft(new Date(live.expires_at)),
+      trialEligible: false,
+      hadTrial: true,
+      ...usage,
+    };
+  }
+  if (live) {
+    return {
+      state: 'granted',
+      accessKind: 'paid',
+      student: owned,
+      expiresAt: live.expires_at,
+      daysLeft: live.expires_at ? trialDaysLeft(new Date(live.expires_at)) : null,
+      trialEligible: false,
+      hadTrial,
+      ...usage,
+    };
+  }
+  const eligible = canStartExamMathTrial({
+    grade: row.grade,
+    hadTrial,
+    hasPaidAccess: false,
+  });
+  return {
+    state: 'unlicensed',
+    accessKind: null,
+    student: owned,
+    expiresAt: null,
+    daysLeft: null,
+    trialEligible: eligible.ok,
+    hadTrial,
+    ...usage,
+  };
+}
+
+export async function startExamMathTrial(userId: string, studentId: string) {
+  await ensureWritingTrialColumns();
+  await ensureExamMathTrialSchema();
+  const licence = await getExamMathLicence(userId, studentId);
+  if (licence.state === 'not-found' || !licence.student) {
+    return { ok: false as const, status: 404 as const, error: 'Student not found' };
+  }
+  if (licence.state === 'wrong-grade') {
+    return {
+      ok: false as const,
+      status: 403 as const,
+      error: 'Selective Math is for Year 4–7 profiles. Kindergarten and Year 1 use K–Y1 Maths.',
+    };
+  }
+  if (licence.state === 'granted') {
+    return {
+      ok: false as const,
+      status: 409 as const,
+      error: 'This child already has Selective Math access.',
+    };
+  }
+  if (licence.state === 'trial') {
+    return {
+      ok: false as const,
+      status: 409 as const,
+      error: 'A 7-day Selective Math trial is already running for this child.',
+    };
+  }
+  if (!licence.trialEligible) {
+    return {
+      ok: false as const,
+      status: 409 as const,
+      error: licence.hadTrial
+        ? 'This child has already used a 7-day Selective Math trial.'
+        : 'Selective Math is for Year 4–7 profiles.',
+    };
+  }
+
+  const expiresAt = trialExpiresAt(new Date(), EXAM_MATH_TRIAL_DAYS);
+  try {
+    await query(
+      `INSERT INTO user_subscriptions (
+         user_id, student_id, subject, status, access_kind, expires_at, trial_started_at
+       ) VALUES ($1, $2, 'math', 'active', 'trial', $3, NOW())`,
+      [userId, studentId, expiresAt.toISOString()],
+    );
+  } catch (error) {
+    const code =
+      error && typeof error === 'object' && 'code' in error
+        ? String((error as { code?: unknown }).code)
+        : '';
+    if (code === '23505') {
+      return {
+        ok: false as const,
+        status: 409 as const,
+        error: 'This child has already used a 7-day Selective Math trial.',
+      };
+    }
+    throw error;
+  }
+  await seedExamMathContent();
+  return {
+    ok: true as const,
+    expiresAt,
+    daysLeft: trialDaysLeft(expiresAt),
+    warmupLimit: EXAM_MATH_TRIAL_WARMUP_QUESTIONS,
+    miniLimit: EXAM_MATH_TRIAL_MINI_QUESTIONS,
+  };
 }
 
 export async function requireExamMathStudent(userId: string, studentId: string) {
-  const access = await getExamMathAccessState(userId, studentId);
-  if (access.state === 'not-found') {
+  const licence = await getExamMathLicence(userId, studentId);
+  if (licence.state === 'not-found' || !licence.student) {
     return { error: 'Student not found', status: 404 as const };
   }
-  if (access.state === 'wrong-grade') {
+  if (licence.state === 'wrong-grade') {
     return {
       error: 'Selective Math is for Year 4–7 profiles. Kindergarten and Year 1 use K–Y1 Maths.',
       status: 403 as const,
     };
   }
-  return { student: { id: studentId, grade: access.grade!, name: access.name! } };
+  return { student: licence.student, licence };
+}
+
+export async function requireExamMathProduct(userId: string, studentId: string) {
+  const licensed = await requireExamMathStudent(userId, studentId);
+  if ('error' in licensed) return licensed;
+  if (!hasExamMathProductAccess(licensed.licence.state)) {
+    return {
+      error: examMathUnlicensedAccessMessage({
+        trialPack: true,
+        hadTrial: licensed.licence.hadTrial,
+      }),
+      status: 403 as const,
+    };
+  }
+  return licensed;
+}
+
+export async function requireExamMathPaid(userId: string, studentId: string) {
+  const licensed = await requireExamMathProduct(userId, studentId);
+  if ('error' in licensed) return licensed;
+  if (licensed.licence.state !== 'granted') {
+    return { error: examMathTrialStrengthenLockMessage(), status: 403 as const };
+  }
+  return licensed;
+}
+
+export async function assertExamMathSetAccess(
+  licence: ExamMathLicence,
+  kind: ExamMathSetKind,
+  setNumber: number,
+  intent: 'read' | 'submit',
+) {
+  if (licence.state === 'granted') {
+    if (kind === 'trial') {
+      return { error: examMathTrialPaidLockMessage(), status: 403 as const };
+    }
+    return null;
+  }
+  if (licence.state !== 'trial') {
+    return {
+      error: examMathAccessRequiredMessage(kind === 'trial'),
+      status: 403 as const,
+    };
+  }
+  if (kind !== 'trial') {
+    return { error: examMathTrialCatalogueLockMessage(), status: 403 as const };
+  }
+  if (
+    setNumber !== EXAM_MATH_TRIAL_WARMUP_SET &&
+    setNumber !== EXAM_MATH_TRIAL_MINI_SET
+  ) {
+    return { error: 'Set not found', status: 404 as const };
+  }
+  if (intent === 'submit' && licence.student) {
+    const used = await countTrialSetSubmitted(licence.student.id, setNumber);
+    if (used) {
+      return { error: examMathTrialSetUsedMessage(), status: 403 as const };
+    }
+  }
+  return null;
 }
 
 export type { ExamMathOverview };
@@ -86,7 +361,10 @@ const SET_OVERVIEW_SQL = `SELECT exam_set.kind, exam_set.set_number, exam_set.ti
  GROUP BY exam_set.id
  ORDER BY exam_set.kind ASC, exam_set.set_number ASC`;
 
-export async function getExamMathOverview(studentId: string): Promise<ExamMathOverview> {
+export async function getExamMathOverview(
+  studentId: string,
+  access: 'granted' | 'trial' = 'granted',
+): Promise<ExamMathOverview> {
   try {
     const [sets, wrongs] = await Promise.all([
       query<SetRow>(SET_OVERVIEW_SQL),
@@ -99,7 +377,11 @@ export async function getExamMathOverview(studentId: string): Promise<ExamMathOv
 
     let setRows = sets.rows;
     const itemTotal = setRows.reduce((sum, row) => sum + Number(row.item_count), 0);
-    if (setRows.length === 0 || itemTotal === 0) {
+    const trialReady = examMathSetsOfKind('trial').every((set) => {
+      const row = setRows.find((item) => item.kind === 'trial' && item.set_number === set.setNumber);
+      return Boolean(row && Number(row.item_count) >= set.questionCount);
+    });
+    if (setRows.length === 0 || itemTotal === 0 || !trialReady) {
       await seedExamMathContent();
       setRows = (await query<SetRow>(SET_OVERVIEW_SQL)).rows;
     }
@@ -120,12 +402,28 @@ export async function getExamMathOverview(studentId: string): Promise<ExamMathOv
     };
     const minis = examMathSetsOfKind('mini').map(overlay);
     const papers = examMathSetsOfKind('paper').map(overlay);
+    const trials = examMathSetsOfKind('trial').map(overlay);
+    if (access === 'trial') {
+      return {
+        minis: [],
+        papers: [],
+        trials,
+        readyMiniCount: 0,
+        readyPaperCount: 0,
+        readyTrialCount: trials.filter((set) => set.isReady).length,
+        openWrongCount: 0,
+        access: 'trial',
+      };
+    }
     return {
       minis,
       papers,
+      trials: [],
       readyMiniCount: minis.filter((set) => set.isReady).length,
       readyPaperCount: papers.filter((set) => set.isReady).length,
+      readyTrialCount: 0,
       openWrongCount: Number(wrongs.rows[0]?.n ?? 0),
+      access: 'granted',
     };
   } catch (error) {
     if (isMissingExamMathTable(error)) return emptyOverview();
@@ -259,7 +557,7 @@ export async function recordExamMathSitting(input: {
        ) VALUES ($1, $2, $3, $4, $5, $6)`,
       [sittingId, item.id, answer.chosen, answer.flagged, isCorrect, now],
     );
-    if (isCorrect) continue;
+    if (isCorrect || input.kind === 'trial') continue;
     await query(
       `INSERT INTO exam_math_wrongs (
          student_id, item_id, family_id, skill, first_wrong_at, last_wrong_at,

@@ -1,6 +1,7 @@
 import { query } from '@/lib/db';
-import { buildExamMathBank, type ExamMathSeedItem } from '@/lib/exam-math-bank';
+import { buildExamMathBank, buildExamMathTrialBank, type ExamMathSeedItem } from '@/lib/exam-math-bank';
 import { seedExamMathSets } from '@/lib/seed-exam-math-sets';
+import { ensureExamMathTrialSchema } from '@/lib/exam-math-trial-schema';
 
 function chunks<T>(items: T[], size: number): T[][] {
   const out: T[][] = [];
@@ -10,9 +11,10 @@ function chunks<T>(items: T[], size: number): T[][] {
 
 /** Upsert Selective Math questions. Safe to re-run. Does not touch student sittings. */
 export async function seedExamMathContent(): Promise<void> {
+  await ensureExamMathTrialSchema();
   await seedExamMathSets();
-  const bank = buildExamMathBank();
-  const sets = await query<{ id: string; kind: 'mini' | 'paper'; set_number: number }>(
+  const bank = [...buildExamMathBank(), ...buildExamMathTrialBank()];
+  const sets = await query<{ id: string; kind: 'mini' | 'paper' | 'trial'; set_number: number }>(
     `SELECT id, kind, set_number FROM exam_math_sets`,
   );
   const setId = new Map(sets.rows.map((row) => [`${row.kind}:${row.set_number}`, row.id]));

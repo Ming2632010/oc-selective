@@ -12,19 +12,19 @@ import {
 } from './subjects';
 
 describe('subscription subject availability', () => {
-  it('keeps Selective Math out of the exam catalogue until that course opens', () => {
+  it('opens Writing and Selective Math in the exam catalogue', () => {
     assert.equal(isAvailableSubject('writing'), true);
-    assert.equal(isAvailableSubject('math'), false);
+    assert.equal(isAvailableSubject('math'), true);
     assert.equal(isAvailableSubject('thinking'), false);
     assert.equal(isAvailableSubject('reading'), false);
   });
 
-  it('lets Year 4–7 buy Writing and Kindergarten/Year 1 buy Maths', () => {
+  it('lets Year 4–7 buy Writing and Math, and Kindergarten/Year 1 buy Maths', () => {
     assert.equal(isPurchasableSubject('writing', 'Year 5'), true);
     assert.equal(isPurchasableSubject('writing', 'Kindergarten'), false);
     assert.equal(isPurchasableSubject('math', 'Kindergarten'), true);
     assert.equal(isPurchasableSubject('math', 'Year 1'), true);
-    assert.equal(isPurchasableSubject('math', 'Year 5'), false);
+    assert.equal(isPurchasableSubject('math', 'Year 5'), true);
     assert.equal(isPurchasableSubject('thinking', 'Year 5'), false);
   });
 

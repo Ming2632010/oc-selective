@@ -59,11 +59,11 @@ export async function POST(request: Request) {
     }
     const grade = student.rows[0].grade;
     if (!isPurchasableSubject(subject, grade)) {
-      if (subject === 'math' && !usesMathsDashboard(grade)) {
+      if (subject === 'math' && !usesMathsDashboard(grade) && !usesWritingDashboard(grade)) {
         return NextResponse.json(
           {
             error:
-              'K–Y1 Maths is for Kindergarten and Year 1 profiles. Selective Math is not for sale yet.',
+              'K–Y1 Maths is for Kindergarten and Year 1. Selective Math is for Year 4–7 profiles.',
           },
           { status: 409 },
         );
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
         );
       }
       return NextResponse.json(
-        { error: 'This subject is coming soon. Selective Writing and K–Y1 Maths are available now.' },
+        { error: 'This subject is coming soon. Selective Writing, Selective Math, and K–Y1 Maths are available now.' },
         { status: 409 },
       );
     }
@@ -96,7 +96,9 @@ export async function POST(request: Request) {
         {
           error:
             subject === 'math'
-              ? 'This student already has active K–Y1 Maths access.'
+              ? usesMathsDashboard(grade)
+                ? 'This student already has active K–Y1 Maths access.'
+                : 'This student already has active Selective Math access.'
               : 'This student already has active Selective Writing access.',
         },
         { status: 409 },

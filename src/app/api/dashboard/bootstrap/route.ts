@@ -6,6 +6,7 @@ import { getDashboardOverview, getWritingLicence, applyWritingTrialLimits, trial
 import { ensureWritingTrialColumns } from '@/lib/writing-trial-schema';
 import { getTrialPackView } from '@/lib/writing-trial-pack';
 import { hasWritingProductAccess, trialPackRecommendation } from '@/lib/writing-trial';
+import { examMathTrialClientFields, getExamMathLicence } from '@/lib/exam-math-state';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -55,7 +56,11 @@ export async function GET(request: Request) {
     const licence = selectedStudentId
       ? await getWritingLicence(userId, selectedStudentId)
       : null;
+    const mathLicence = selectedStudentId
+      ? await getExamMathLicence(userId, selectedStudentId)
+      : null;
     const writingAccess = licence?.state ?? 'not-found';
+    const mathAccess = mathLicence?.state ?? 'not-found';
     const trialPack =
       selectedStudentId && licence?.state === 'trial'
         ? await getTrialPackView(selectedStudentId)
@@ -93,6 +98,11 @@ export async function GET(request: Request) {
           ? trialClientFields(licence)
           : null,
         trial_pack: trialPack,
+        math_access: mathAccess,
+        math_trial:
+          mathLicence && mathAccess !== 'not-found' && mathAccess !== 'wrong-grade'
+            ? examMathTrialClientFields(mathLicence)
+            : null,
         guidance,
       },
       { headers: { 'Cache-Control': 'private, no-store' } },

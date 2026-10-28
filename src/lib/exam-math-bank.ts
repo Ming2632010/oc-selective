@@ -8,6 +8,10 @@ import {
   EXAM_MATH_MINI_QUESTIONS,
   EXAM_MATH_PAPER_COUNT,
   EXAM_MATH_PAPER_QUESTIONS,
+  EXAM_MATH_TRIAL_MINI_QUESTIONS,
+  EXAM_MATH_TRIAL_MINI_SET,
+  EXAM_MATH_TRIAL_WARMUP_QUESTIONS,
+  EXAM_MATH_TRIAL_WARMUP_SET,
   miniDifficultyBand,
   paperDifficultyBand,
   type ExamMathDifficultyBand,
@@ -1236,8 +1240,9 @@ function twoNames(rng: Rng): { name: string; other: string } {
 }
 
 function seedFor(kind: ExamMathSetKind, setNumber: number, sortOrder: number, attempt: number): number {
+  const kindMul = kind === 'mini' ? 17 : kind === 'paper' ? 41 : 73;
   return (
-    (kind === 'mini' ? 17 : 41) * 1_000_003 +
+    kindMul * 1_000_003 +
     setNumber * 97_331 +
     sortOrder * 1_009 +
     attempt * 13_241 +
@@ -1352,5 +1357,109 @@ export function buildExamMathBank(): ExamMathSeedItem[] {
     }
   }
   cachedBank = items;
+  return items;
+}
+
+/** Diagram-heavy warm-up so the trial shows graphs, tables, clocks and shapes. */
+const TRIAL_WARMUP_FAMILY_IDS = [
+  'bar-graph',
+  'pie-chart',
+  'data-table',
+  'line-graph',
+  'painted-grid',
+  'clock-angle',
+  'scale-leftover',
+  'hidden-cubes',
+  'compound-area',
+  'mean-missing',
+] as const;
+
+/** Mixed mini exam: remaining visual types plus core reasoning. */
+const TRIAL_MINI_FAMILY_IDS = [
+  'square-cut-perimeter',
+  'equal-area-rect',
+  'grid-next',
+  'straight-angle',
+  'elapsed-timetable',
+  'remainder-odd-one',
+  'geometric-gap',
+  'lcm-laps',
+  'probability-count',
+  'percent-of',
+  'ratio-share',
+  'order-of-operations',
+] as const;
+
+export const EXAM_MATH_TRIAL_BANK_SIZE =
+  EXAM_MATH_TRIAL_WARMUP_QUESTIONS + EXAM_MATH_TRIAL_MINI_QUESTIONS;
+
+function makeChosenFamilyItem(
+  kind: ExamMathSetKind,
+  setNumber: number,
+  sortOrder: number,
+  band: ExamMathDifficultyBand,
+  familyId: string,
+  usedStems: Set<string>,
+): ExamMathSeedItem {
+  const family = findExamMathFamily(familyId);
+  if (!family) throw new Error(`Unknown Selective Math family ${familyId}`);
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const rng = mulberry32(seedFor(kind, setNumber, sortOrder, attempt));
+    const { name, other } = twoNames(rng);
+    const core = family.make({ rng, band, name, other });
+    if (usedStems.has(core.stem)) continue;
+    const packed = packOptions(rng, core.correct, core.distractors);
+    if (packed.options.length !== 5 || new Set(packed.options).size !== 5) continue;
+    if (packed.correctIndex < 0 || packed.correctIndex > 4) continue;
+    if (!packed.options[packed.correctIndex]) continue;
+    usedStems.add(core.stem);
+    return {
+      kind,
+      setNumber,
+      sortOrder,
+      familyId: family.id,
+      skill: family.skill,
+      stem: core.stem,
+      options: packed.options,
+      correctIndex: packed.correctIndex,
+      explanation: core.explanation,
+      stimulus: core.stimulus,
+    };
+  }
+  throw new Error(`Could not build unique trial ${kind} ${setNumber} q${sortOrder} (${familyId})`);
+}
+
+let cachedTrialBank: ExamMathSeedItem[] | null = null;
+
+/** Extra trial-only items. Paid mini/paper banks do not include these rows. */
+export function buildExamMathTrialBank(): ExamMathSeedItem[] {
+  if (cachedTrialBank) return cachedTrialBank;
+  const used = new Set(buildExamMathBank().map((item) => item.stem));
+  const items: ExamMathSeedItem[] = [];
+  TRIAL_WARMUP_FAMILY_IDS.forEach((familyId, index) => {
+    items.push(
+      makeChosenFamilyItem(
+        'trial',
+        EXAM_MATH_TRIAL_WARMUP_SET,
+        index + 1,
+        'standard',
+        familyId,
+        used,
+      ),
+    );
+  });
+  TRIAL_MINI_FAMILY_IDS.forEach((familyId, index) => {
+    items.push(
+      makeChosenFamilyItem(
+        'trial',
+        EXAM_MATH_TRIAL_MINI_SET,
+        index + 1,
+        'standard',
+        familyId,
+        used,
+      ),
+    );
+  });
+  cachedTrialBank = items;
   return items;
 }

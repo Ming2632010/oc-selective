@@ -19,9 +19,9 @@ export const SELECTIVE_SUBJECTS: TrialSubject[] = [
   {
     name: 'Math',
     icon: Calculator,
-    available: false,
+    available: true,
     blurb:
-      'Timed problem sets across the Selective maths syllabus. AI will highlight the question types to practise next.',
+      'Computer Mathematical Reasoning: graphs, tables, clocks and diagrams, five options A–E. Start with a 7-day trial, then a year of mini exams and papers.',
   },
   {
     name: 'Thinking Skills',

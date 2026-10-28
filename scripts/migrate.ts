@@ -12,6 +12,7 @@ const files = [
   'sql/early_math.sql',
   'sql/early_math_unit7.sql',
   'sql/exam_math.sql',
+  'sql/exam_math_trial.sql',
 ];
 
 async function main() {

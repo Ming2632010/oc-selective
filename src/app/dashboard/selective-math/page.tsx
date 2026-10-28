@@ -37,9 +37,12 @@ export default function SelectiveMathPage() {
         setOverview({
           minis: res.data.minis,
           papers: res.data.papers,
+          trials: res.data.trials ?? [],
           readyMiniCount: res.data.readyMiniCount,
           readyPaperCount: res.data.readyPaperCount,
+          readyTrialCount: res.data.readyTrialCount ?? 0,
           openWrongCount: res.data.openWrongCount,
+          access: res.data.access === 'trial' ? 'trial' : 'granted',
         });
         if (typeof res.data.student?.name === 'string') {
           setStudentName(res.data.student.name);

@@ -8,13 +8,9 @@ import { ExamMathPlayer } from '@/components/exam-math/player';
 import {
   examMathNotReadyMessage,
   findExamMathSet,
+  isExamMathSetKind,
   type ExamMathQuestion,
-  type ExamMathSetKind,
 } from '@/lib/exam-math';
-
-function isSetKind(value: string): value is ExamMathSetKind {
-  return value === 'mini' || value === 'paper';
-}
 
 export default function SelectiveMathSitPage() {
   const params = useParams<{ kind: string; n: string }>();
@@ -24,7 +20,7 @@ export default function SelectiveMathSitPage() {
   const [resultsNote, setResultsNote] = useState<string | null>(null);
 
   const set = useMemo(() => {
-    if (!isSetKind(params.kind)) return null;
+    if (!isExamMathSetKind(params.kind)) return null;
     const setNumber = Number(params.n);
     if (!Number.isInteger(setNumber)) return null;
     return findExamMathSet(params.kind, setNumber);
@@ -79,10 +75,16 @@ export default function SelectiveMathSitPage() {
           {error ?? examMathNotReadyMessage(set.kind)}
         </p>
         <Link
-          href={set.kind === 'mini' ? '/dashboard/selective-math/mini' : '/dashboard/selective-math/papers'}
+          href={
+            set.kind === 'trial'
+              ? '/dashboard/selective-math'
+              : set.kind === 'mini'
+                ? '/dashboard/selective-math/mini'
+                : '/dashboard/selective-math/papers'
+          }
           className="text-sm font-medium text-brand"
         >
-          Back to {set.kind === 'mini' ? 'mini exams' : 'papers'}
+          Back to {set.kind === 'trial' ? 'Selective Math' : set.kind === 'mini' ? 'mini exams' : 'papers'}
         </Link>
       </main>
     );
@@ -94,8 +96,14 @@ export default function SelectiveMathSitPage() {
       title={set.title}
       timeLimitSeconds={set.timeLimitSeconds}
       questions={questions}
-      exitHref={set.kind === 'mini' ? '/dashboard/selective-math/mini' : '/dashboard/selective-math/papers'}
-      exitLabel={`Back to ${set.kind === 'mini' ? 'mini exams' : 'papers'}`}
+      exitHref={
+        set.kind === 'trial'
+          ? '/dashboard/selective-math'
+          : set.kind === 'mini'
+            ? '/dashboard/selective-math/mini'
+            : '/dashboard/selective-math/papers'
+      }
+      exitLabel={`Back to ${set.kind === 'trial' ? 'Selective Math' : set.kind === 'mini' ? 'mini exams' : 'papers'}`}
       resultsNote={resultsNote}
       onComplete={async ({ answers, timedOut, timerHidden }) => {
         const studentId = getStudentId();
@@ -117,6 +125,12 @@ export default function SelectiveMathSitPage() {
         });
         if (!res.response.ok) {
           setResultsNote('The sitting was marked on this screen, but Strengthen could not be updated.');
+          return;
+        }
+        if (set.kind === 'trial') {
+          setResultsNote(
+            'Trial sitting saved. The 100 mini exams, 20 papers, and Strengthen stay in the paid year.',
+          );
           return;
         }
         const open = Number(res.data.openWrongCount ?? 0);

@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
-import { getExamMathSetQuestions, requireExamMathStudent } from '@/lib/exam-math-state';
-import { findExamMathSet, type ExamMathSetKind } from '@/lib/exam-math';
+import {
+  assertExamMathSetAccess,
+  getExamMathSetQuestions,
+  requireExamMathProduct,
+} from '@/lib/exam-math-state';
+import { findExamMathSet, isExamMathSetKind } from '@/lib/exam-math';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const preferredRegion = 'syd1';
-
-function isSetKind(value: string | null): value is ExamMathSetKind {
-  return value === 'mini' || value === 'paper';
-}
 
 export async function GET(request: Request) {
   try {
@@ -22,12 +22,16 @@ export async function GET(request: Request) {
     if (!studentId) {
       return NextResponse.json({ error: 'student_id is required' }, { status: 400 });
     }
-    if (!isSetKind(kind) || !Number.isInteger(n)) {
+    if (!isExamMathSetKind(kind) || !Number.isInteger(n)) {
       return NextResponse.json({ error: 'kind and n are required' }, { status: 400 });
     }
-    const licensed = await requireExamMathStudent(userId, studentId);
+    const licensed = await requireExamMathProduct(userId, studentId);
     if ('error' in licensed) {
       return NextResponse.json({ error: licensed.error }, { status: licensed.status });
+    }
+    const blocked = await assertExamMathSetAccess(licensed.licence, kind, n, 'read');
+    if (blocked) {
+      return NextResponse.json({ error: blocked.error }, { status: blocked.status });
     }
     const set = findExamMathSet(kind, n);
     if (!set) {

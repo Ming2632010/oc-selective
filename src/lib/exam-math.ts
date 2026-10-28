@@ -15,7 +15,13 @@ export const EXAM_MATH_PAPER_SECONDS = 40 * 60;
 /** Interface preview only. Long enough to try buttons without sitting a real paper. */
 export const EXAM_MATH_PREVIEW_SECONDS = 10 * 60;
 
-export type ExamMathSetKind = 'mini' | 'paper';
+/** Extra 7-day trial pack. Not part of the paid 100 minis / 20 papers. */
+export const EXAM_MATH_TRIAL_WARMUP_SET = 1;
+export const EXAM_MATH_TRIAL_MINI_SET = 2;
+export const EXAM_MATH_TRIAL_WARMUP_QUESTIONS = 10;
+export const EXAM_MATH_TRIAL_MINI_QUESTIONS = 12;
+
+export type ExamMathSetKind = 'mini' | 'paper' | 'trial';
 export type ExamMathDifficultyBand = 'foundation' | 'standard' | 'exam';
 
 export type ExamMathSet = {
@@ -45,9 +51,12 @@ export type ExamMathSittingAnswer = {
 export type ExamMathOverview = {
   minis: ExamMathSet[];
   papers: ExamMathSet[];
+  trials: ExamMathSet[];
   readyMiniCount: number;
   readyPaperCount: number;
+  readyTrialCount: number;
   openWrongCount: number;
+  access: 'granted' | 'trial';
 };
 
 /** Year 4–7 Selective Math uses the exam dashboard, not K–Y1 Maths. */
@@ -65,15 +74,21 @@ export function paperDifficultyBand(setNumber: number): ExamMathDifficultyBand {
   return setNumber <= 5 ? 'foundation' : 'exam';
 }
 
+export function isExamMathSetKind(value: unknown): value is ExamMathSetKind {
+  return value === 'mini' || value === 'paper' || value === 'trial';
+}
+
 export function examMathSetTitle(kind: ExamMathSetKind, setNumber: number): string {
-  return kind === 'mini' ? `Mini exam ${setNumber}` : `Paper ${setNumber}`;
+  if (kind === 'mini') return `Mini exam ${setNumber}`;
+  if (kind === 'paper') return `Paper ${setNumber}`;
+  return setNumber === 1 ? 'Trial warm-up' : 'Trial mini exam';
 }
 
 export function examMathCatalogue(): ExamMathSet[] {
   const minis: ExamMathSet[] = Array.from({ length: EXAM_MATH_MINI_COUNT }, (_, index) => {
     const setNumber = index + 1;
     return {
-      kind: 'mini',
+      kind: 'mini' as const,
       setNumber,
       title: examMathSetTitle('mini', setNumber),
       questionCount: EXAM_MATH_MINI_QUESTIONS,
@@ -85,7 +100,7 @@ export function examMathCatalogue(): ExamMathSet[] {
   const papers: ExamMathSet[] = Array.from({ length: EXAM_MATH_PAPER_COUNT }, (_, index) => {
     const setNumber = index + 1;
     return {
-      kind: 'paper',
+      kind: 'paper' as const,
       setNumber,
       title: examMathSetTitle('paper', setNumber),
       questionCount: EXAM_MATH_PAPER_QUESTIONS,
@@ -97,7 +112,31 @@ export function examMathCatalogue(): ExamMathSet[] {
   return [...minis, ...papers];
 }
 
+export function examMathTrialCatalogue(): ExamMathSet[] {
+  return [
+    {
+      kind: 'trial',
+      setNumber: EXAM_MATH_TRIAL_WARMUP_SET,
+      title: examMathSetTitle('trial', EXAM_MATH_TRIAL_WARMUP_SET),
+      questionCount: EXAM_MATH_TRIAL_WARMUP_QUESTIONS,
+      timeLimitSeconds: 0,
+      difficultyBand: 'standard',
+      isReady: false,
+    },
+    {
+      kind: 'trial',
+      setNumber: EXAM_MATH_TRIAL_MINI_SET,
+      title: examMathSetTitle('trial', EXAM_MATH_TRIAL_MINI_SET),
+      questionCount: EXAM_MATH_TRIAL_MINI_QUESTIONS,
+      timeLimitSeconds: 0,
+      difficultyBand: 'standard',
+      isReady: false,
+    },
+  ];
+}
+
 export function examMathSetsOfKind(kind: ExamMathSetKind): ExamMathSet[] {
+  if (kind === 'trial') return examMathTrialCatalogue();
   return examMathCatalogue().filter((set) => set.kind === kind);
 }
 
@@ -107,14 +146,18 @@ export function emptyExamMathOverview(): ExamMathOverview {
   return {
     minis,
     papers,
+    trials: [],
     readyMiniCount: 0,
     readyPaperCount: 0,
+    readyTrialCount: 0,
     openWrongCount: 0,
+    access: 'granted',
   };
 }
 
 export function findExamMathSet(kind: ExamMathSetKind, setNumber: number): ExamMathSet | null {
-  return examMathCatalogue().find((set) => set.kind === kind && set.setNumber === setNumber) ?? null;
+  const sets = kind === 'trial' ? examMathTrialCatalogue() : examMathCatalogue();
+  return sets.find((set) => set.kind === kind && set.setNumber === setNumber) ?? null;
 }
 
 export function examMathSittingIsTimed(timeLimitSeconds: number): boolean {
@@ -278,6 +321,19 @@ export function examMathInstructions(kind: ExamMathSetKind | 'preview' | 'streng
       ],
     };
   }
+  if (kind === 'trial') {
+    return {
+      heading: 'Mathematical Reasoning · 7-day trial',
+      minutes: 0,
+      questions: EXAM_MATH_TRIAL_MINI_QUESTIONS,
+      points: [
+        'Trial questions only. Five options, A to E. Graphs and diagrams sit under the stem.',
+        'No timer. No calculator. You may work on paper.',
+        'The 100 mini exams, 20 papers, and Strengthen stay in the paid year.',
+        'You can flag a question and come back before you finish.',
+      ],
+    };
+  }
   return {
     heading: 'Mathematical Reasoning Test',
     minutes: EXAM_MATH_PAPER_SECONDS / 60,
@@ -300,7 +356,11 @@ export function difficultyBandLabel(band: ExamMathDifficultyBand): string {
 }
 
 export function examMathNotReadyMessage(kind: ExamMathSetKind): string {
-  return kind === 'mini'
-    ? 'This mini exam could not load its questions. Try another mini exam, or open Selective Math again.'
-    : 'This paper could not load its questions. Try another paper, or open Selective Math again.';
+  if (kind === 'mini') {
+    return 'This mini exam could not load its questions. Try another mini exam, or open Selective Math again.';
+  }
+  if (kind === 'trial') {
+    return 'This trial sitting could not load its questions. Open Selective Math again, or start the 7-day trial from the dashboard.';
+  }
+  return 'This paper could not load its questions. Try another paper, or open Selective Math again.';
 }

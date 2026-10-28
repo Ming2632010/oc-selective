@@ -6,7 +6,7 @@ export type Subject = (typeof SUBJECTS)[number];
  * Exam-catalogue subjects that can be bought today without a year-level profile.
  * K–Y1 Maths is sold separately through `isPurchasableSubject` / `priceIdForPurchase`.
  */
-export const AVAILABLE_SUBJECTS = ['writing'] as const satisfies readonly Subject[];
+export const AVAILABLE_SUBJECTS = ['writing', 'math'] as const satisfies readonly Subject[];
 
 export const SUBJECT_LABELS: Record<Subject, string> = {
   writing: 'Writing',
@@ -48,7 +48,7 @@ export function isExamWritingGrade(grade: string): boolean {
 /** Whether this child can buy this subject today. */
 export function isPurchasableSubject(subject: Subject, grade: string): boolean {
   if (subject === 'writing') return isExamWritingGrade(grade);
-  if (subject === 'math') return isKy1MathGrade(grade);
+  if (subject === 'math') return isKy1MathGrade(grade) || isExamWritingGrade(grade);
   return false;
 }
 
