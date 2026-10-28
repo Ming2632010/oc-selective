@@ -1116,9 +1116,11 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
   if (missedHint && !examStyle) {
     const plotHint = /discover|character.?s plan|changes the character/i.test(missedHint);
     nextSteps.unshift(
-      plotHint && stimulusFocus
-        ? `The hint “${missedHint}” is still missing. ${stimulusFocus.plotFix}`
-        : `The hint “${missedHint}” is still missing. Change what happens in the middle: give the character a plan, then let one discovery force a new plan.`,
+      plotHint
+        ? stimulusFocus
+          ? `The hint “${missedHint}” is still missing. ${stimulusFocus.plotFix}`
+          : `The hint “${missedHint}” is still missing. Give the character a plan, then let one discovery force a new plan.`
+        : `The hint “${missedHint}” is still missing. ${FORM_SHAPE[promptType] ?? 'Cover it in the writing itself, not only in a plan.'}`,
     );
   }
   if (stimulusFocus && missedPicture && !examStyle) {

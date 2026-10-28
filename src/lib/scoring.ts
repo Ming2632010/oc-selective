@@ -68,7 +68,7 @@ Task conditions:
 Overall scale used in this product (single-examiner practice scale):
 - overall_score: integer 0–25
 - score_set_a: integer 0–15 (content, organisation, vocabulary/style for purpose)
-- score_set_b: integer 0–10 (accuracy, control of grammar/spelling/punctuation, and task completion including hint coverage)
+- score_set_b: integer 0–10 (sentences, punctuation and spelling only)
 - overall_score MUST equal score_set_a + score_set_b
 
 Four-dimension breakdown (each 0–5, halves allowed: 3, 3.5, 4):
@@ -105,6 +105,7 @@ Set A and Set B calibration:
   clause joined with “and”, when they are clear and effective in context.
 
 Also judge whether each of the three hint points is clearly covered in the student writing.
+Task completion, topic match, and hint coverage belong in Set A (content and form), not Set B.
 
 Draft memory (when previous_drafts is provided):
 - Compare this draft with the previous draft.
@@ -437,7 +438,7 @@ export function scoreWritingAttemptHeuristic(input: ScoreInput): ScoringResult {
   const grammar = clamp(2 + (wc > 60 ? 1 : 0) + (content.includes('.') ? 1 : 0), 0, 5);
 
   const score_set_a = clamp(structure + vocabulary + audience, 0, 15);
-  const score_set_b = clamp(grammar + hintScore + Math.floor(lengthScore / 2), 0, 10);
+  const score_set_b = clamp(grammar + Math.floor(lengthScore / 2), 0, 10);
   const overall_score = clamp(score_set_a + score_set_b, 0, 25);
 
   const covered = checked

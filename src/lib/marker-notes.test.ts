@@ -132,6 +132,23 @@ describe('buildMarkerNotesHeuristic', () => {
     assert.match(notes.summary, /overturned letterbox/i);
     assert.equal(/add more detail/i.test(notes.next_steps.join(' ')), false);
   });
+
+  it('does not tell a news report to change a character’s morning plan', () => {
+    const notes = buildMarkerNotesHeuristic({
+      content:
+        'Yesterday a container opened on the beach and party things went everywhere. People came to look. The beach was messy.',
+      promptType: 'news_report',
+      promptTitle: 'Chaos on the beach',
+      hintPoints: [
+        'Explain clearly what has happened',
+        'Describe the impact on the beach and the sea',
+        'Include comments from different people',
+      ],
+    });
+    assert.ok(notes.next_steps.some((row) => /hint/i.test(row)));
+    assert.equal(/morning plan|scattered envelopes/i.test(notes.next_steps.join(' ')), false);
+    assert.ok(notes.next_steps.some((row) => /news report|who\/where\/when|quote/i.test(row)));
+  });
 });
 
 describe('normalizeMarkerNotes', () => {
