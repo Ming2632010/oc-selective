@@ -63,7 +63,7 @@ describe('buildMarkerNotesHeuristic', () => {
         'Resolve the story with a satisfying or surprising ending',
       ],
     });
-    assert.equal(notes.version, 6);
+    assert.equal(notes.version, 7);
     assert.match(notes.summary, /TrialSeed mark-up/);
     assert.equal(/teacher/i.test(notes.summary), false);
     assert.equal(notes.annotations.filter((row) => row.kind === 'content').length, 1);
@@ -127,8 +127,10 @@ describe('buildMarkerNotesHeuristic', () => {
         (row) => row.kind === 'content' && /letterbox/i.test(`${row.issue} ${row.suggestion}`),
       ),
     );
+    assert.match(notes.next_steps[0] ?? '', /overturned letterbox/i);
     assert.ok(notes.next_steps.some((row) => /envelope/i.test(row) && /plan/i.test(row)));
-    assert.match(notes.summary, /picture|letterbox/i);
+    assert.match(notes.summary, /overturned letterbox/i);
+    assert.equal(/add more detail/i.test(notes.next_steps.join(' ')), false);
   });
 });
 

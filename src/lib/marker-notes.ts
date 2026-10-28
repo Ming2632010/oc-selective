@@ -4,7 +4,7 @@ import {
   type StimulusFocus,
 } from '@/lib/stimulus-focus';
 
-export const MARKER_NOTES_VERSION = 6;
+export const MARKER_NOTES_VERSION = 7;
 
 export const MARKER_KINDS = [
   'spelling',
@@ -1100,9 +1100,6 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
       stimulusFocus.missedIssue,
       stimulusFocus.missedSuggestion,
     );
-    if (!examStyle) {
-      nextSteps.unshift(stimulusFocus.plotFix);
-    }
   }
 
   const missedHint = hints.find((hint) => {
@@ -1122,6 +1119,11 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
       plotHint && stimulusFocus
         ? `The hint “${missedHint}” is still missing. ${stimulusFocus.plotFix}`
         : `The hint “${missedHint}” is still missing. Change what happens in the middle: give the character a plan, then let one discovery force a new plan.`,
+    );
+  }
+  if (stimulusFocus && missedPicture && !examStyle) {
+    nextSteps.unshift(
+      `${stimulusFocus.missedIssue.replace(/^Set A content:\s*/i, '')} ${stimulusFocus.missedSuggestion}`,
     );
   }
 
@@ -1188,7 +1190,7 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
     wc < 80
       ? `At ${wc} words the main gap is development: keep your idea, then show the moment in enough detail for a 30-minute paper.`
       : missedPicture && stimulusFocus
-        ? `The main Set A gap is the picture, not only the sentences. ${stimulusFocus.missedSuggestion}`
+        ? `The main Set A gap is the picture, not only the sentences. ${stimulusFocus.missedIssue.replace(/^Set A content:\s*/i, '')} ${stimulusFocus.missedSuggestion}`
         : 'Read the highlighted lines, then the “Write it better” rewrites that start from your own sentences.',
   ].join(' ');
 

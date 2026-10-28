@@ -7,7 +7,7 @@ import { SeedAwardBanner } from '@/components/writing/seed-patch';
 import { MarkedScript, MarkerSummary, PhotoQuestionCard } from '@/components/writing/marked-script';
 import { PromptStimulus } from '@/components/writing/prompt-stimulus';
 import { markerNotesFromUnknown } from '@/lib/marker-notes';
-import { formatDimensionScore } from '@/lib/scoring';
+import { formatDimensionScore } from '@/lib/score-format';
 import { getStudentId, getToken } from '@/lib/client-auth';
 import {
   formatPrintDate,

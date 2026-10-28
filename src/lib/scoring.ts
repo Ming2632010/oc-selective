@@ -9,7 +9,10 @@ import {
   type PhotoKind,
   type TaskMatch,
 } from '@/lib/marker-notes';
-import type { StimulusFocus } from '@/lib/stimulus-focus';
+import { formatDimensionScore } from '@/lib/score-format';
+import { writingUsesStimulusFocus, type StimulusFocus } from '@/lib/stimulus-focus';
+
+export { formatDimensionScore };
 
 export type ScoresBreakdown = {
   structure: number;
@@ -105,13 +108,13 @@ Also judge whether each of the three hint points is clearly covered in the stude
 
 Draft memory (when previous_drafts is provided):
 - Compare this draft with the previous draft.
-- If the student improved vocabulary (for example “got scared” to “hid under her covers” or “a jolt of fear”) or fixed punctuation from previous feedback, you MUST increase the Vocabulary & style or Sentences/punctuation dimension by 0.5 or 1 from that previous draft. Reward their effort.
-- Do not jump overall out of the fair band just because sentences were polished. If the plot still misses the picture’s key object or a required plan-change, keep overall in the 12–17 basic band.
+- If the student improved vocabulary (for example “got scared” to “hid under her covers” or “a jolt of fear”) or fixed punctuation from previous feedback, you MUST increase the Vocabulary & style (vocabulary) or Sentences/punctuation (grammar) dimension by 0.5 or 1 from that previous draft. Reward their effort.
+- Do not jump overall out of the fair band just because sentences were polished. If the plot still misses the picture’s key object or a required plan-change, keep overall in the 12–17 basic band (16/25 is fair for a generic cleanup story).
 
 Picture prompts:
 - If a picture is attached or stimulus_focus is given, look at that object. Do not give vague “add more detail” advice.
 - If the student writes a generic cleanup story (sweeping leaves, falling trees, buying flowers) and misses the key visual object, you MUST name it. Example: “You missed the most interesting part of the picture: the overturned letterbox. What if Mia found a letter inside?”
-- Missing the key object is a Set A content gap, not an off-task script, when the writing is still about this scene.
+- Missing the key object is a Set A content gap, not an off-task script, when the writing is still about this scene. Keep Set A at 10 or below and overall in 12–17.
 
 Missed hints:
 - If a hint such as “Introduce a discovery that changes the character’s plan” is missed, the first next_step and ai_feedback MUST explain how to fix the plot, with a concrete example.
@@ -134,11 +137,6 @@ function clampHalf(value: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return min;
   const rounded = Math.round(value * 2) / 2;
   return Math.max(min, Math.min(max, rounded));
-}
-
-export function formatDimensionScore(value: number): string {
-  const half = clampHalf(value, 0, 5);
-  return Number.isInteger(half) ? String(half) : half.toFixed(1);
 }
 
 const WEAK_WORD_RE = /\b(very|really|nice|got|went|said|things|stuff)\b/gi;
@@ -286,7 +284,7 @@ function normalizeResult(
     overall_score = clamp(score_set_a + score_set_b, 0, 25);
   }
 
-  return applyPhotoTaskMatch({
+  return {
     score_set_a,
     score_set_b,
     overall_score,
@@ -300,7 +298,7 @@ function normalizeResult(
     checked_hint_2: Boolean(partial.checked_hint_2),
     checked_hint_3: Boolean(partial.checked_hint_3),
     word_count: wc,
-  });
+  };
 }
 
 /** When a photo question is readable, off-task writing cannot keep a high Set A. */
@@ -335,6 +333,47 @@ export function applyPhotoTaskMatch(result: ScoringResult): ScoringResult {
     overall_score,
     scores_breakdown: breakdown,
   };
+}
+
+/**
+ * Missing the picture’s key object (letterbox, empty seat note, …) is a Set A
+ * content gap, not an off-task script. Keep the overall in the basic 12–17 band
+ * so sentence polish can still raise a dimension without inflating the total.
+ */
+export function applyMissedStimulusCap(result: ScoringResult, input: ScoreInput): ScoringResult {
+  const focus = input.stimulusFocus;
+  if (!focus || writingUsesStimulusFocus(input.content, focus)) return result;
+
+  const breakdown = { ...result.scores_breakdown };
+  breakdown.structure = Math.min(breakdown.structure, 3);
+  breakdown.vocabulary = Math.min(breakdown.vocabulary, 3);
+  breakdown.audience = Math.min(breakdown.audience, 2);
+  const score_set_a = clamp(Math.min(result.score_set_a, 10), 0, 15);
+  const score_set_b = clamp(Math.min(result.score_set_b, 6), 0, 10);
+  return {
+    ...result,
+    score_set_a,
+    score_set_b,
+    overall_score: clamp(score_set_a + score_set_b, 0, 25),
+    scores_breakdown: breakdown,
+  };
+}
+
+function softenMissedFocusTaskMatch(result: ScoringResult, input: ScoreInput): ScoringResult {
+  const focus = input.stimulusFocus;
+  if (!focus || writingUsesStimulusFocus(input.content, focus)) return result;
+  if (result.marker_notes.task_match !== 'no') return result;
+  return {
+    ...result,
+    marker_notes: { ...result.marker_notes, task_match: 'partial' },
+  };
+}
+
+function finalizeWritingScore(result: ScoringResult, input: ScoreInput): ScoringResult {
+  return applyDraftMemory(
+    applyMissedStimulusCap(applyPhotoTaskMatch(softenMissedFocusTaskMatch(result, input)), input),
+    input,
+  );
 }
 
 function photoFieldsFromParsed(parsed: {
@@ -435,8 +474,8 @@ export function scoreWritingAttemptHeuristic(input: ScoreInput): ScoringResult {
     ? { ...notes, task_match: 'unread' as const }
     : notes;
 
-  return applyDraftMemory(
-    applyPhotoTaskMatch({
+  return finalizeWritingScore(
+    {
       score_set_a,
       score_set_b,
       overall_score,
@@ -447,7 +486,7 @@ export function scoreWritingAttemptHeuristic(input: ScoreInput): ScoringResult {
       checked_hint_2: checked[1] ?? false,
       checked_hint_3: checked[2] ?? false,
       word_count: wc,
-    }),
+    },
     input,
   );
 }
@@ -461,8 +500,17 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
     system: [
       'You mark NSW Selective writing practice for TrialSeed.',
       'Circle exact errors, give content-change advice when Set A is weak, and rewrite the student’s own weakest sentences.',
-      'If a previous draft is supplied, reward real vocabulary or punctuation improvement with +0.5 or +1 on that dimension.',
-      'If a picture or stimulus_focus is supplied and the writing misses the key object, name that object. Do not only say add more detail.',
+      input.previousDrafts?.length && input.draftNumber
+        ? `Compare Draft ${input.draftNumber} with the previous draft. If the student improved their vocabulary (e.g., 'got scared' to 'hid under her covers') or fixed punctuation based on previous feedback, you MUST increase the 'Vocabulary & style' (vocabulary) or 'Sentences/punctuation' (grammar) dimension score by 0.5 or 1 point from that previous draft. Reward their effort.`
+        : 'If a previous draft is supplied, reward real vocabulary or punctuation improvement with +0.5 or +1 on that dimension.',
+      input.stimulusFocus
+        ? [
+            `The visual prompt’s key object is: ${input.stimulusFocus.focus}.`,
+            `If the student writes a generic cleanup story (e.g., sweeping leaves, falling trees) and completely misses the key visual object in the image, you must explicitly tell them. Do not just say 'add more detail'. Say: '${input.stimulusFocus.missedIssue.replace(/^Set A content:\s*/i, '')} ${input.stimulusFocus.missedSuggestion}'`,
+            `If the 'plan change' hint is missed, provide a concrete example of how to alter the plot in the 'Do this next' section. Example: '${input.stimulusFocus.plotFix}'`,
+            'Missing that object is a Set A content gap, not an off-task script, when the writing is still about this scene. Keep overall in the 12–17 band (16/25 is fair for a generic cleanup).',
+          ].join('\n')
+        : 'If a picture or stimulus_focus is supplied and the writing misses the key object, name that object. Do not only say add more detail.',
       'If a plan-change or discovery hint is missed, give a concrete plot example in next_steps.',
       'Student-facing comments must say TrialSeed feedback or TrialSeed mark-up, never a teacher mark.',
       'Score consistently against Set A (content, form, organisation, vocabulary/style) and Set B (sentences, punctuation, spelling).',
@@ -499,7 +547,14 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
       exam_style: Boolean(input.examStyle),
       word_count: wc,
       draft_number: input.draftNumber ?? null,
-      stimulus_focus: input.stimulusFocus?.focus ?? null,
+      stimulus_focus: input.stimulusFocus
+        ? {
+            key_object: input.stimulusFocus.focus,
+            missed_issue: input.stimulusFocus.missedIssue,
+            missed_suggestion: input.stimulusFocus.missedSuggestion,
+            plot_fix: input.stimulusFocus.plotFix,
+          }
+        : null,
       previous_drafts: (input.previousDrafts ?? []).map((row) => ({
         draft_number: row.draft_number,
         overall_score: row.overall_score,
@@ -603,7 +658,7 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
     notes = { ...notes, photo_kind: inferPhotoKind(notes.photo_question) };
   }
 
-  return applyDraftMemory(
+  return finalizeWritingScore(
     normalizeResult({ ...parsed, word_count: parsed.word_count ?? wc }, input.content, notes),
     input,
   );

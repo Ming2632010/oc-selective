@@ -9,7 +9,8 @@ import {
   markerNotesFromUnknown,
   notesNeedRebuild,
 } from '@/lib/marker-notes';
-import { loadSeededStimulusImage, stimulusFocusFor } from '@/lib/stimulus-focus';
+import { loadSeededStimulusImage } from '@/lib/load-stimulus-image';
+import { stimulusFocusFor } from '@/lib/stimulus-focus';
 import { bonusExamLockMessage, termReviewLockMessage } from '@/lib/writing-guidance';
 import { isExamStyleKind } from '@/lib/seed-prompts';
 import { isRateLimited } from '@/lib/rate-limit';

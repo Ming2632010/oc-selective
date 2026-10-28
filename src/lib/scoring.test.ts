@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   applyDraftMemory,
+  applyMissedStimulusCap,
   applyPhotoTaskMatch,
   detectDraftPolish,
   formatDimensionScore,
@@ -145,34 +146,108 @@ describe('draft memory', () => {
   });
 });
 
+describe('applyMissedStimulusCap', () => {
+  it('keeps a missed-letterbox story in the basic overall band', () => {
+    const scored = applyMissedStimulusCap(
+      sample({
+        score_set_a: 12,
+        score_set_b: 7,
+        overall_score: 19,
+        scores_breakdown: { structure: 4, vocabulary: 5, audience: 4, grammar: 4 },
+        marker_notes: emptyMarkerNotes(),
+      }),
+      {
+        content: 'Mia swept the road and drove to buy new flowers after the storm.',
+        hintPoints: [],
+        promptType: 'narrative',
+        stimulusFocus: stimulusFocusFor('/stimuli/after-the-storm.jpg', 'After the storm'),
+      },
+    );
+    assert.equal(scored.score_set_a, 10);
+    assert.equal(scored.score_set_b, 6);
+    assert.equal(scored.overall_score, 16);
+    assert.equal(scored.scores_breakdown.vocabulary, 3);
+  });
+});
+
 describe('scoreWritingAttemptHeuristic', () => {
+  const afterStormHints = [
+    'Show the street after the storm with precise detail',
+    'Introduce a discovery that changes the character’s plan',
+    'Resolve the discovery without starting a new story',
+  ];
+  const afterStormFocus = stimulusFocusFor('/stimuli/after-the-storm.jpg', 'After the storm');
+  const draft1 = [
+    'BOOM! A storm was raging outside. Mia got scared , so she hid in her bed. Soon she fell asleep, tired from working at school. The next morning, Mia woke up ready to make breakfast. After eating, Mia checked outside, thinking that something had changed.',
+    'She thought that dangerous storms could do some damage to homes.',
+    'First, Mia checked her backyard. Some of her small flower plants were knocked down because of the hail and heavy rain.',
+    'Yesterday, it was raining cats and dogs.',
+    'Then Mia looked outside. She was curious and afraid. She opened the door bravely and calmly. Mia took a small peek, then she stepped outside. Some branches had been knocked down. Leaves were scattered across the grass. A tree was on the floor. Mia stood there, shocked, with her mouth open wide. She remembered the loud boom the night before. She thought that the lightning had probably knocked it down.',
+    'She found that the flowers near the tree were squashed or a bit damaged. Mia felt sorry for the flowers. Then she went into the house and found the broom. She decided to clean the road because they were dirty with leaves and branches. After sweeping the road, she drove to buy new flowers for her garden and the flowers near the tree. Mia felt happy that she grew new plants and that she helped the environment.',
+  ].join('\n');
+  const draft2 = [
+    'BOOM! A storm was raging outside. Mia got scared , so she hid under her covers. Soon she fell asleep, tired from working at school. The next morning, Mia woke up ready to make breakfast. After eating, Mia checked outside, thinking something had changed. She thought that dangerous storms could damage homes. Sometimes they could knock down trees.',
+    'First, Mia checked her backyard. Some of her small flower plants were knocked down by the hail and heavy rain. Yesterday, it was raining heavily.',
+    'Then Mia looked outside. She was curious and afraid. She opened the door bravely and calmly. Mia took a quick peek, then stepped outside. Some branches had been knocked down. Leaves were scattered across the grass. A tree was on the ground.',
+    'Mia stood there, shocked, with her mouth open wide. She remembered the loud boom the night before. She thought that the lightning had probably knocked it down.',
+    'She found that the flowers near the tree were squashed or slightly damaged. Mia felt a deep sadness for the flowers, their vivid petals crushed by the tree. Then she ran into the house and found the broom. Determined, she decided to clean the road because there were scattered leaves and broken branches. After sweeping the road, she drove to buy new flowers for her garden and the flowers near the tree. Mia felt happy that she grew new plants and that she helped the environment. She admired herself because she helped save the plants.',
+  ].join('\n');
+
   it('names the letterbox and a plan-change when a cleanup story misses the picture', () => {
     const scored = scoreWritingAttemptHeuristic({
-      content: [
-        'BOOM! A storm was raging outside. Mia got scared, so she hid in her bed.',
-        'After breakfast she checked the backyard. Flowers were knocked down by hail.',
-        'A tree was on the floor. She swept the road and drove to buy new flowers.',
-        'Mia felt happy that she helped the environment.',
-      ].join(' '),
-      hintPoints: [
-        'Show the street after the storm with precise detail',
-        'Introduce a discovery that changes the character’s plan',
-        'Resolve the discovery without starting a new story',
-      ],
+      content: draft1,
+      hintPoints: afterStormHints,
       promptType: 'narrative',
       promptTitle: 'After the storm',
-      stimulusFocus: stimulusFocusFor('/stimuli/after-the-storm.jpg', 'After the storm'),
+      stimulusFocus: afterStormFocus,
     });
     assert.equal(scored.checked_hint_2, false);
+    assert.ok(scored.overall_score >= 12 && scored.overall_score <= 17);
+    assert.equal(scored.scores_breakdown.vocabulary <= 3, true);
     assert.ok(
       scored.marker_notes.annotations.some(
         (row) => row.kind === 'content' && /letterbox/i.test(`${row.issue} ${row.suggestion}`),
       ),
     );
+    assert.match(scored.marker_notes.next_steps[0] ?? '', /letterbox/i);
     assert.ok(
       scored.marker_notes.next_steps.some((row) => /envelope/i.test(row) && /plan/i.test(row)),
     );
     assert.equal(/add more detail/i.test(scored.marker_notes.next_steps.join(' ')), false);
+  });
+
+  it('raises vocabulary on a polished second draft without leaving the basic overall band', () => {
+    const first = scoreWritingAttemptHeuristic({
+      content: draft1,
+      hintPoints: afterStormHints,
+      promptType: 'narrative',
+      promptTitle: 'After the storm',
+      draftNumber: 1,
+      stimulusFocus: afterStormFocus,
+    });
+    const second = scoreWritingAttemptHeuristic({
+      content: draft2,
+      hintPoints: afterStormHints,
+      promptType: 'narrative',
+      promptTitle: 'After the storm',
+      draftNumber: 2,
+      stimulusFocus: afterStormFocus,
+      previousDrafts: [
+        {
+          draft_number: 1,
+          content: draft1,
+          score_set_a: first.score_set_a,
+          score_set_b: first.score_set_b,
+          overall_score: first.overall_score,
+          scores_breakdown: first.scores_breakdown,
+        },
+      ],
+    });
+    assert.ok(first.overall_score >= 12 && first.overall_score <= 17);
+    assert.ok(second.overall_score >= 12 && second.overall_score <= 17);
+    assert.ok(second.scores_breakdown.vocabulary > first.scores_breakdown.vocabulary);
+    assert.match(second.marker_notes.strengths.join(' '), /vocabulary mark rose/i);
+    assert.match(second.marker_notes.next_steps[0] ?? '', /letterbox/i);
   });
 
   it('marks a photo task unread when OpenAI is not available to read the image', () => {

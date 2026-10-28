@@ -1,6 +1,3 @@
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
-
 export type StimulusFocus = {
   /** Short picture object the student should write from. */
   focus: string;
@@ -19,11 +16,11 @@ const FOCUS_BY_PATH: Record<string, StimulusFocus> = {
     focus: 'an overturned letterbox spilling envelopes onto a wet suburban street',
     terms: ['letterbox', 'mailbox', 'envelope', 'envelopes', 'letter', 'letters'],
     missedIssue:
-      'Set A content: you missed the most interesting part of the picture: the overturned letterbox.',
+      'Set A content: You missed the most interesting part of the picture: the overturned letterbox.',
     missedSuggestion:
-      'What if the character found a letter inside? Write from the spilled envelopes, not a generic cleanup.',
+      'What if Mia found a letter inside? Write from the spilled envelopes, not a generic cleanup.',
     plotFix:
-      'Instead of just sweeping leaves or buying flowers, have the character open one of the scattered envelopes — that should change the whole morning plan.',
+      'Instead of just buying flowers, have Mia open one of the scattered envelopes, which changes her whole morning plan.',
   },
   '/stimuli/empty-seat.jpg': {
     focus: 'an empty bus seat with a folded note left on it',
@@ -76,29 +73,4 @@ export function stimulusFocusFor(
 export function writingUsesStimulusFocus(content: string, focus: StimulusFocus): boolean {
   const hay = content.toLowerCase();
   return focus.terms.some((term) => hay.includes(term.toLowerCase()));
-}
-
-function mimeForStimulusPath(imagePath: string): 'image/jpeg' | 'image/png' | 'image/webp' | null {
-  if (/\.jpe?g$/i.test(imagePath)) return 'image/jpeg';
-  if (/\.png$/i.test(imagePath)) return 'image/png';
-  if (/\.webp$/i.test(imagePath)) return 'image/webp';
-  return null;
-}
-
-/** Load a seeded /stimuli/... file from public/. Returns null if the file is not on disk. */
-export async function loadSeededStimulusImage(
-  imagePath?: string | null,
-): Promise<{ mimeType: 'image/jpeg' | 'image/png' | 'image/webp'; bytes: Buffer } | null> {
-  if (!imagePath || !imagePath.startsWith('/stimuli/')) return null;
-  const mimeType = mimeForStimulusPath(imagePath);
-  if (!mimeType) return null;
-  const relative = imagePath.replace(/^\//, '');
-  const filePath = path.join(process.cwd(), 'public', relative);
-  try {
-    const bytes = await readFile(filePath);
-    if (bytes.length < 24 || bytes.length > 5 * 1024 * 1024) return null;
-    return { mimeType, bytes };
-  } catch {
-    return null;
-  }
 }
