@@ -1,4 +1,5 @@
 import { runSql } from '@/lib/db';
+import { ensureExamMathSchema } from '@/lib/exam-math-schema';
 
 let ready: Promise<void> | null = null;
 
@@ -14,6 +15,7 @@ export async function ensureExamMathTrialSchema() {
 }
 
 async function applyExamMathTrialSchema() {
+  await ensureExamMathSchema();
   await runSql(`
     CREATE UNIQUE INDEX IF NOT EXISTS uq_math_one_trial_per_student
       ON user_subscriptions (student_id)
