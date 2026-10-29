@@ -1,4 +1,5 @@
 import { runSql } from '@/lib/db';
+import { ensureExamMathSchema } from '@/lib/exam-math-schema';
 
 let ready: Promise<void> | null = null;
 
@@ -14,6 +15,7 @@ export async function ensureExamMathWorkingSchema() {
 }
 
 async function applyExamMathWorkingSchema() {
+  await ensureExamMathSchema();
   await runSql(`
     DO $$
     BEGIN

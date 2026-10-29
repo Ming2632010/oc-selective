@@ -38,8 +38,9 @@ export async function runSql<T extends QueryResultRow = QueryResultRow>(
 
 /**
  * Execute a parameterized SQL query against Neon PostgreSQL.
- * If the writing-trial columns are missing (code shipped before migrate),
- * add them once and retry so the dashboard does not stay broken.
+ * If writing-trial columns or Selective Math tables are missing (code
+ * shipped before migrate), add them once and retry so the dashboard
+ * does not stay broken.
  */
 export async function query<T extends QueryResultRow = QueryResultRow>(
   sql: string,
@@ -53,6 +54,13 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
     );
     if (isMissingTrialColumn(error)) {
       await ensureWritingTrialColumns();
+      return runSql<T>(sql, params);
+    }
+    const { isMissingExamMathTable, ensureExamMathSchema } = await import(
+      '@/lib/exam-math-schema'
+    );
+    if (isMissingExamMathTable(error)) {
+      await ensureExamMathSchema();
       return runSql<T>(sql, params);
     }
     const message = error instanceof Error ? error.message : 'Unknown database error';

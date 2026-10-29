@@ -6,6 +6,7 @@ import { getDashboardOverview, getWritingLicence, applyWritingTrialLimits, trial
 import { ensureWritingTrialColumns } from '@/lib/writing-trial-schema';
 import { getTrialPackView } from '@/lib/writing-trial-pack';
 import { hasWritingProductAccess, trialPackRecommendation } from '@/lib/writing-trial';
+import { ensureExamMathSchema, isMissingExamMathTable } from '@/lib/exam-math-schema';
 import { examMathTrialClientFields, getExamMathLicence } from '@/lib/exam-math-state';
 
 export const runtime = 'nodejs';
@@ -16,6 +17,7 @@ export async function GET(request: Request) {
     const userId = await getAuthUserId(request);
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     await ensureWritingTrialColumns();
+    await ensureExamMathSchema();
 
     const [userResult, studentResult, subscriptionResult] = await Promise.all([
       query<{ id: string; email: string; full_name: string }>(
@@ -56,9 +58,15 @@ export async function GET(request: Request) {
     const licence = selectedStudentId
       ? await getWritingLicence(userId, selectedStudentId)
       : null;
-    const mathLicence = selectedStudentId
-      ? await getExamMathLicence(userId, selectedStudentId)
-      : null;
+    let mathLicence = null;
+    if (selectedStudentId) {
+      try {
+        mathLicence = await getExamMathLicence(userId, selectedStudentId);
+      } catch (error) {
+        if (!isMissingExamMathTable(error)) throw error;
+        console.error('[dashboard/bootstrap] Selective Math tables missing after ensure', error);
+      }
+    }
     const writingAccess = licence?.state ?? 'not-found';
     const mathAccess = mathLicence?.state ?? 'not-found';
     const trialPack =

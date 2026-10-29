@@ -22,6 +22,7 @@ import {
 } from '@/lib/exam-math';
 import { seedExamMathContent } from '@/lib/seed-exam-math-db';
 import { seedExamMathSets } from '@/lib/seed-exam-math-sets';
+import { isMissingExamMathTable } from '@/lib/exam-math-schema';
 import { ensureExamMathTrialSchema } from '@/lib/exam-math-trial-schema';
 import { ensureWritingTrialColumns } from '@/lib/writing-trial-schema';
 import {
@@ -40,13 +41,6 @@ import {
 } from '@/lib/exam-math-trial';
 
 export { seedExamMathSets, seedExamMathContent };
-
-function isMissingExamMathTable(error: unknown): boolean {
-  const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
-  if (code === '42P01') return true;
-  const message = error instanceof Error ? error.message : String(error);
-  return /exam_math_/i.test(message) && /does not exist/i.test(message);
-}
 
 export type ExamMathStudent = { id: string; grade: string; name: string };
 

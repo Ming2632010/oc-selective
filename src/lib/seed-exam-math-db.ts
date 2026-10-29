@@ -1,6 +1,7 @@
 import { query } from '@/lib/db';
 import { buildExamMathBank, buildExamMathTrialBank, type ExamMathSeedItem } from '@/lib/exam-math-bank';
 import { seedExamMathSets } from '@/lib/seed-exam-math-sets';
+import { ensureExamMathSchema } from '@/lib/exam-math-schema';
 import { ensureExamMathTrialSchema } from '@/lib/exam-math-trial-schema';
 import { ensureExamMathWorkingSchema } from '@/lib/exam-math-working-schema';
 
@@ -12,6 +13,7 @@ function chunks<T>(items: T[], size: number): T[][] {
 
 /** Upsert Selective Math questions. Safe to re-run. Does not touch student sittings. */
 export async function seedExamMathContent(): Promise<void> {
+  await ensureExamMathSchema();
   await ensureExamMathTrialSchema();
   await ensureExamMathWorkingSchema();
   await seedExamMathSets();
