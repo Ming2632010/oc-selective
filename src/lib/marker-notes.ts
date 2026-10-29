@@ -3,8 +3,20 @@ import {
   writingUsesStimulusFocus,
   type StimulusFocus,
 } from '@/lib/stimulus-focus';
+import {
+  hasDevelopedFocalScene,
+  hintCovered,
+  hintFamily,
+  isEventListAdvice,
+  isMissingHintAdvice,
+  isOpeningDetailNag,
+  isUndevelopedIdeaPraise,
+  isWeakVocabularyFalsePositive,
+  lastLinesHaveReflection,
+  looksLikeEventList,
+} from '@/lib/writing-hints';
 
-export const MARKER_NOTES_VERSION = 8;
+export const MARKER_NOTES_VERSION = 9;
 
 export const MARKER_KINDS = [
   'spelling',
@@ -415,6 +427,7 @@ export type MarkerNotesInput = {
   examStyle?: boolean;
   wordCount?: number;
   stimulusFocus?: StimulusFocus | null;
+  previousContent?: string | null;
 };
 
 function isMarkerKind(value: unknown): value is MarkerKind {
@@ -506,6 +519,18 @@ export function isGreetingAccuracyFalsePositive(
   if (note.kind !== 'punctuation' && note.kind !== 'sentence') return false;
   if (!annotationTargetsFormConvention(content, note.quote)) return false;
   return GREETING_FALSE_POSITIVE.test(`${note.issue} ${note.suggestion}`);
+}
+
+export function isVocabularyFalsePositive(
+  note: Pick<MarkerAnnotation, 'kind' | 'quote' | 'issue' | 'suggestion'>,
+  content: string,
+): boolean {
+  if (note.kind !== 'vocabulary') return false;
+  const located = locateQuote(content, note.quote);
+  const start = located?.start ?? content.toLowerCase().indexOf(note.quote.toLowerCase());
+  const end = located?.end ?? start + note.quote.length;
+  if (start < 0) return false;
+  return isWeakVocabularyFalsePositive(note.quote, content, start, end);
 }
 
 function firstSentenceSpan(content: string) {
@@ -927,32 +952,12 @@ function openingQuote(content: string) {
   return joined.slice(0, 80) || firstContentSentenceSpan(content).text.trim().slice(0, 48);
 }
 
-const SEQUENCE_MARKER =
-  /\b(then|and then|after that|afterwards|next|later|finally|first(?:ly)?|second(?:ly)?|at the end|after we|then we)\b/gi;
-
-function sequenceMarkerCount(text: string) {
-  return (text.match(SEQUENCE_MARKER) ?? []).length;
-}
-
-function looksLikeEventList(content: string, wc: number) {
-  return wc >= 80 && sequenceMarkerCount(content) >= 3;
-}
-
-function lastLinesHaveReflection(content: string) {
-  const close = contentSentenceSpans(content)
-    .slice(-2)
-    .map((row) => row.text)
-    .join(' ');
-  return /\b(felt|feel|feeling|realised|realized|hope|wish|remember|proud|glad|sorry|miss(?:ed)?|loved|will|tomorrow|next time|still|now i|i now)\b/i.test(
-    close,
-  );
-}
-
 function firstSequenceQuote(content: string) {
-  const sentence = contentSentenceSpans(content).find((row) => {
-    SEQUENCE_MARKER.lastIndex = 0;
-    return SEQUENCE_MARKER.test(row.text);
-  });
+  const sentence = contentSentenceSpans(content).find((row) =>
+    /^(Then(?:\s+we|\s+came)?|After(?:\s+that|\s+we)?|Afterwards|Later|Finally|First(?:ly)?|At the end|By the end)\b/i.test(
+      row.text.trim(),
+    ),
+  );
   return (sentence?.text.trim() || openingQuote(content)).slice(0, 90);
 }
 
@@ -1013,10 +1018,56 @@ function isPictureFocusStep(step: string) {
 function dropGreetingFalsePositives(notes: MarkerNotes, content: string): MarkerNotes {
   return {
     ...notes,
-    annotations: notes.annotations.filter((note) => !isGreetingAccuracyFalsePositive(note, content)),
+    annotations: notes.annotations.filter(
+      (note) => !isGreetingAccuracyFalsePositive(note, content) && !isVocabularyFalsePositive(note, content),
+    ),
     rewrites: notes.rewrites.filter((row) => !isFormConventionLine(row.original)),
   };
 }
+
+function dropMisleadingMarkerNotes(notes: MarkerNotes, input: MarkerNotesInput): MarkerNotes {
+  const content = input.content ?? '';
+  const wc = input.wordCount ?? wordCountOf(content);
+  const hints = (input.hintPoints ?? []).filter(Boolean);
+  const listing = looksLikeEventList(content, wc);
+  const openingDone = hints.some((hint) => hintFamily(hint) === 'opening' && hintCovered(content, hint));
+  const allHintsCovered = hints.length > 0 && hints.every((hint) => hintCovered(content, hint));
+  const developed = hasDevelopedFocalScene(content) && lastLinesHaveReflection(content) && wc >= 150;
+
+  const keepText = (text: string) => {
+    if (!listing && isEventListAdvice(text)) return false;
+    if (openingDone && isOpeningDetailNag(text)) return false;
+    if (allHintsCovered && isMissingHintAdvice(text)) return false;
+    if (developed && isUndevelopedIdeaPraise(text)) return false;
+    if (
+      developed &&
+      /explore your feelings more deeply|could be more vivid|this moment is good, but/i.test(text)
+    ) {
+      return false;
+    }
+    return true;
+  };
+
+  const annotations = notes.annotations.filter((note) => {
+    if (isVocabularyFalsePositive(note, content)) return false;
+    const blob = `${note.issue} ${note.suggestion}`;
+    if (!listing && note.kind === 'content' && isEventListAdvice(blob)) return false;
+    if (openingDone && note.kind === 'content' && isOpeningDetailNag(blob)) return false;
+    return true;
+  });
+
+  return {
+    ...notes,
+    strengths: notes.strengths.filter(keepText).slice(0, 4),
+    next_steps: notes.next_steps.filter(keepText).slice(0, 5),
+    annotations,
+    summary:
+      !listing && /keep one moment and cut smaller events|what you chose to write about/.test(notes.summary)
+        ? 'Read the highlighted lines, then the “Write it better” rewrites that start from your own sentences.'
+        : notes.summary,
+  };
+}
+
 
 function preferContentNextSteps(notes: MarkerNotes): MarkerNotes {
   const picture = notes.next_steps.filter(isPictureFocusStep);
@@ -1204,6 +1255,7 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
   eachWord(content, (word, start, end) => {
     if (used.slice(start, end).some(Boolean)) return;
     if (!WEAK_WORDS.has(word.toLowerCase())) return;
+    if (isWeakVocabularyFalsePositive(word, content, start, end)) return;
     weakHits += 1;
     if (weakHits > 3) return;
     const hint = WEAK_WORD_HINT[word.toLowerCase()] ??
@@ -1330,17 +1382,7 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
     );
   }
 
-  const missedHint = hints.find((hint) => {
-    const keywords = hint
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, ' ')
-      .split(/\s+/)
-      .filter((word) => word.length > 4)
-      .slice(0, 5);
-    const hay = content.toLowerCase();
-    const hits = keywords.filter((word) => hay.includes(word)).length;
-    return keywords.length > 0 && hits < Math.min(2, keywords.length);
-  });
+  const missedHint = hints.find((hint) => hint && !hintCovered(content, hint));
   if (missedHint && !examStyle) {
     const plotHint = /discover|character.?s plan|changes the character/i.test(missedHint);
     nextSteps.unshift(
@@ -1412,7 +1454,10 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
   if (annotations.some((row) => row.kind === 'spelling') === false && wc >= 20) {
     strengths.push('Everyday spelling is holding, which helps Set B.');
   }
-  if (ranked.length > 0) {
+  if (
+    ranked.length > 0 &&
+    (wc < 160 || looksLikeEventList(content, wc) || Boolean(missedHint))
+  ) {
     strengths.push('There is a clear idea to build on — the mark will rise when that idea is developed.');
   }
 
@@ -1432,18 +1477,21 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
         : 'Read the highlighted lines, then the “Write it better” rewrites that start from your own sentences.',
   ].join(' ');
 
-  return preferContentNextSteps(
-    normalizeMarkerNotes(
-      {
-        version: MARKER_NOTES_VERSION,
-        summary,
-        strengths: uniqueStrings(strengths).slice(0, 4),
-        next_steps: uniqueStrings(nextSteps).slice(0, 5),
-        annotations,
-        rewrites,
-      },
-      content,
+  return dropMisleadingMarkerNotes(
+    preferContentNextSteps(
+      normalizeMarkerNotes(
+        {
+          version: MARKER_NOTES_VERSION,
+          summary,
+          strengths: uniqueStrings(strengths).slice(0, 4),
+          next_steps: uniqueStrings(nextSteps).slice(0, 5),
+          annotations,
+          rewrites,
+        },
+        content,
+      ),
     ),
+    input,
   );
 }
 
@@ -1466,15 +1514,30 @@ export function combineRemoteMarkerNotes(
   content: string,
   local: MarkerNotes,
   remote: unknown,
+  input?: Pick<MarkerNotesInput, 'hintPoints' | 'wordCount' | 'promptType'>,
 ): MarkerNotes {
+  const context: MarkerNotesInput = {
+    content,
+    promptType: input?.promptType ?? 'narrative',
+    hintPoints: input?.hintPoints,
+    wordCount: input?.wordCount,
+  };
   const parsed = markerNotesFromUnknown(remote, content);
-  if (!parsed) return preferContentNextSteps(dropGreetingFalsePositives(local, content));
+  if (!parsed) {
+    return dropMisleadingMarkerNotes(
+      preferContentNextSteps(dropGreetingFalsePositives(local, content)),
+      context,
+    );
+  }
   const merged = mergeAgainstContent(
     dropGreetingFalsePositives(local, content),
     dropGreetingFalsePositives(parsed, content),
     content,
   );
-  return preferContentNextSteps(dropGreetingFalsePositives(merged, content));
+  return dropMisleadingMarkerNotes(
+    preferContentNextSteps(dropGreetingFalsePositives(merged, content)),
+    context,
+  );
 }
 
 const MARKER_PRIORITY: Record<MarkerKind, number> = {

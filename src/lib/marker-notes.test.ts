@@ -65,7 +65,7 @@ describe('buildMarkerNotesHeuristic', () => {
         'Resolve the story with a satisfying or surprising ending',
       ],
     });
-    assert.equal(notes.version, 8);
+    assert.equal(notes.version, 9);
     assert.match(notes.summary, /TrialSeed mark-up/);
     assert.equal(/teacher/i.test(notes.summary), false);
     assert.equal(notes.annotations.filter((row) => row.kind === 'content').length, 1);
@@ -531,6 +531,115 @@ describe('isGreetingAccuracyFalsePositive', () => {
       ),
       false,
     );
+  });
+});
+
+const CARNIVAL_HINTS = [
+  'Set the scene for how the day began',
+  'Describe a tense or funny moment during an event',
+  'Reflect on your feelings at the end of the day',
+];
+
+const CARNIVAL_DRAFT_1 = [
+  'Dear Diary,',
+  'Today was our school sports carnival. It started very early. When we arrived at the oval, everyone was wearing their house colours and cheering loudly. I was in the blue house and I felt really excited.',
+  '',
+  'The day began with the marching. Our house chanted the loudest. Then the races started. I was in the 100-metre sprint. When the starter gun went off, I ran as fast as I could. I was coming second, but then the boy next to me tripped and fell.',
+  '',
+  'I wanted to stop and help him, but I kept running because I wanted to win points for my house.',
+  '',
+  'At the end of the day, I was very tired. My house came third overall. We did not win the trophy, but we had a lot of fun.',
+].join('\n');
+
+const CARNIVAL_DRAFT_3 = [
+  'Dear Diary,',
+  'It was a chilly Friday morning when the sports carnival began.',
+  'As we marched onto the oval in our vibrant house colours, the air buzzed with excitement, and I could hear the rhythmic clapping from the crowd.',
+  'I felt a rush of adrenaline coursing through me.',
+  '',
+  'Then came the 100-metre sprint. As the starter gun fired, I dashed forward. I was coming second, but as I sprinted ahead, I saw the boy next to me stumble and fall heavily onto the track.',
+  'In that moment, I wrestled with a difficult decision: should I stop to help him, risking my chance to earn points for my house, or should I keep running and hope he was okay?',
+  'I edged past him and kept running.',
+  '',
+  'By the end of the day, exhaustion washed over me, and my legs felt like jelly. Our house came third overall. We didn\'t win the trophy, but as I looked at my teammates, I felt a deep sense of pride. I was proud not just of my own race, but of how our whole house cheered for each other until the very end.',
+  'I will never forget the moment I had to choose between winning and helping a friend.',
+].join('\n');
+
+describe('sports carnival diary mark-up', () => {
+  it('does not say a covered opening hint is still missing, and does not flag went off', () => {
+    const notes = buildMarkerNotesHeuristic({
+      content: CARNIVAL_DRAFT_1,
+      promptType: 'diary_entry',
+      promptTitle: 'Sports carnival day',
+      hintPoints: CARNIVAL_HINTS,
+    });
+    assert.equal(notes.next_steps.some((row) => /still missing/i.test(row)), false);
+    assert.equal(
+      notes.annotations.some((row) => row.quote.toLowerCase() === 'went'),
+      false,
+    );
+  });
+
+  it('does not treat a focused race diary as a full-day timetable', () => {
+    const notes = buildMarkerNotesHeuristic({
+      content: CARNIVAL_DRAFT_3,
+      promptType: 'diary_entry',
+      promptTitle: 'Sports carnival day',
+      hintPoints: CARNIVAL_HINTS,
+    });
+    const blob = [
+      notes.summary,
+      ...notes.next_steps,
+      ...notes.strengths,
+      ...notes.annotations.map((row) => `${row.issue} ${row.suggestion}`),
+    ].join('\n');
+    assert.equal(/cut two smaller|full-day timetable|lists lots of things/i.test(blob), false);
+    assert.equal(/mark will rise when that idea is developed/i.test(blob), false);
+    assert.equal(
+      notes.annotations.some((row) => row.quote.toLowerCase() === 'very'),
+      false,
+    );
+  });
+
+  it('drops a remote timetable note on a focused later draft', () => {
+    const local = buildMarkerNotesHeuristic({
+      content: CARNIVAL_DRAFT_3,
+      promptType: 'diary_entry',
+      hintPoints: CARNIVAL_HINTS,
+    });
+    const combined = combineRemoteMarkerNotes(
+      CARNIVAL_DRAFT_3,
+      local,
+      {
+        summary: 'Keep one moment and cut smaller events.',
+        next_steps: [
+          'Set A content: Keep the moment that mattered most. Cut two smaller events so that scene has room.',
+          'Add more detail about how the day began, such as specific activities or feelings as you arrived.',
+        ],
+        annotations: [
+          {
+            kind: 'content',
+            quote: 'Then came the 100-metre sprint.',
+            issue:
+              'Set A content: this diary lists lots of things that happened. Selective markers reward one moment shown clearly, not a full-day timetable.',
+            suggestion: 'Keep the moment that mattered most. Cut two smaller events so that scene has room.',
+          },
+          {
+            kind: 'vocabulary',
+            quote: 'very',
+            issue: 'Set A vocabulary: “very” is a general word.',
+            suggestion: 'Cut “very” and choose a stronger adjective (still, uneasy, frantic).',
+          },
+        ],
+      },
+      { promptType: 'diary_entry', hintPoints: CARNIVAL_HINTS },
+    );
+    assert.equal(
+      combined.annotations.some((row) => /lists lots|cut two smaller/i.test(`${row.issue} ${row.suggestion}`)),
+      false,
+    );
+    assert.equal(combined.annotations.some((row) => row.quote.toLowerCase() === 'very'), false);
+    assert.equal(combined.next_steps.some((row) => /cut two smaller|how the day began/i.test(row)), false);
   });
 });
 
