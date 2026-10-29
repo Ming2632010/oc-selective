@@ -11,6 +11,7 @@ import {
 } from '@/lib/marker-notes';
 import { formatDimensionScore } from '@/lib/score-format';
 import { writingUsesStimulusFocus, type StimulusFocus } from '@/lib/stimulus-focus';
+import { hintCovered } from '@/lib/writing-hints';
 
 export { formatDimensionScore };
 
@@ -131,6 +132,11 @@ Script mark-up (required):
 - Tie every comment to Set A (content, form, organisation, vocabulary/style) or Set B (sentences, punctuation, spelling).
 - Write for a Year 5–6 student in Australian English. Be specific to their words, not generic.
 - In student-facing text, say TrialSeed feedback or TrialSeed mark-up. Never call it a teacher mark.
+- Do not mark “very” in phrases such as “the very end”. Do not mark “went” in “went off”.
+- Do not say a diary is a full-day timetable if it already develops one moment with inner conflict (a choice, a fall, a decision). A sentence such as “Then came the 100-metre sprint” can open that moment; it is not a new event to cut.
+- If a task hint is clearly covered, do not say it is still missing, and do not ask for extra opening activities that would turn a focused diary into a list.
+- On draft 2+, do not repeat a next step the student already did. Name what improved, then give one new, smaller craft step.
+- Do not say “the mark will rise when that idea is developed” when Set A is already 13 or above.
 `.trim();
 
 function clamp(value: number, min: number, max: number): number {
@@ -242,23 +248,6 @@ function uniqueNoteStrings(values: string[]) {
 function wordCount(text: string): number {
   const parts = text.trim().split(/\s+/).filter(Boolean);
   return parts.length;
-}
-
-function hintCovered(content: string, hint: string): boolean {
-  const hay = content.toLowerCase();
-  const keywords = hint
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .split(/\s+/)
-    .filter((w) => w.length > 4)
-    .slice(0, 6);
-
-  if (keywords.length === 0) {
-    return hay.length > 80;
-  }
-
-  const hits = keywords.filter((k) => hay.includes(k)).length;
-  return hits >= Math.min(2, keywords.length);
 }
 
 function normalizeResult(
@@ -648,14 +637,23 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
     wordCount: wc,
     stimulusFocus: input.stimulusFocus,
   });
-  let notes = combineRemoteMarkerNotes(input.content, local, {
-    ...(parsed.marker_notes &&
-    typeof parsed.marker_notes === 'object' &&
-    !Array.isArray(parsed.marker_notes)
-      ? parsed.marker_notes
-      : {}),
-    ...photoFieldsFromParsed(parsed),
-  });
+  let notes = combineRemoteMarkerNotes(
+    input.content,
+    local,
+    {
+      ...(parsed.marker_notes &&
+      typeof parsed.marker_notes === 'object' &&
+      !Array.isArray(parsed.marker_notes)
+        ? parsed.marker_notes
+        : {}),
+      ...photoFieldsFromParsed(parsed),
+    },
+    {
+      promptType: input.promptType,
+      hintPoints: input.hintPoints,
+      wordCount: wc,
+    },
+  );
   if (input.promptImage && !notes.task_match && !input.stimulusFocus) {
     notes = { ...notes, task_match: 'unread' };
   }

@@ -179,7 +179,10 @@ export async function GET(request: Request) {
         existing && !notesNeedRebuild(existing)
           ? existing
           : existing
-            ? combineRemoteMarkerNotes(row.content, heuristic, existing)
+            ? combineRemoteMarkerNotes(row.content, heuristic, existing, {
+                promptType,
+                hintPoints: examStyle ? [] : hintPoints,
+              })
             : heuristic;
       if (stimulusFocus && notes.task_match === 'unread' && !notes.photo_question) {
         notes = { ...notes };
