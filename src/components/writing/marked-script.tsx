@@ -55,8 +55,9 @@ export function MarkedScript({
         <h2 className="text-lg font-medium">TrialSeed mark-up</h2>
         <p className="mt-1 text-sm text-stone-600 print:hidden">
           Practice notes on this script against the NSW Selective writing
-          criteria: spelling and punctuation (Set B), plus structure,
-          vocabulary and detail (Set A). Tap a highlight to read the note.
+          criteria: spelling and punctuation (Set B), plus content,
+          organisation, vocabulary and detail (Set A). Tap a highlight to
+          read the note.
         </p>
         {usedKinds.length > 0 ? (
           <ul className="mt-3 flex flex-wrap gap-2">

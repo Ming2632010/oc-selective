@@ -9,6 +9,10 @@ import {
   type PhotoKind,
   type TaskMatch,
 } from '@/lib/marker-notes';
+import { formatDimensionScore } from '@/lib/score-format';
+import { writingUsesStimulusFocus, type StimulusFocus } from '@/lib/stimulus-focus';
+
+export { formatDimensionScore };
 
 export type ScoresBreakdown = {
   structure: number;
@@ -30,7 +34,17 @@ export type ScoringResult = {
   word_count: number;
 };
 
-type ScoreInput = {
+export type PreviousDraftScore = {
+  draft_number: number;
+  content: string;
+  score_set_a: number;
+  score_set_b: number;
+  overall_score: number;
+  scores_breakdown: ScoresBreakdown;
+  next_steps?: string[];
+};
+
+export type ScoreInput = {
   content: string;
   hintPoints: string[];
   promptType: string;
@@ -38,6 +52,9 @@ type ScoreInput = {
   promptDescription?: string;
   examStyle?: boolean;
   promptImage?: { mimeType: string; bytes: Buffer } | null;
+  draftNumber?: number;
+  previousDrafts?: PreviousDraftScore[];
+  stimulusFocus?: StimulusFocus | null;
 };
 
 const SELECTIVE_MARKING_CRITERIA = `
@@ -51,10 +68,10 @@ Task conditions:
 Overall scale used in this product (single-examiner practice scale):
 - overall_score: integer 0–25
 - score_set_a: integer 0–15 (content, organisation, vocabulary/style for purpose)
-- score_set_b: integer 0–10 (accuracy, control of grammar/spelling/punctuation, and task completion including hint coverage)
+- score_set_b: integer 0–10 (sentences, punctuation and spelling only)
 - overall_score MUST equal score_set_a + score_set_b
 
-Four-dimension breakdown (each integer 0–5):
+Four-dimension breakdown (each 0–5, halves allowed: 3, 3.5, 4):
 1) structure — organisation, paragraphing, logical development, clear opening/ending suited to the form
 2) vocabulary — precise, varied word choice; register suited to audience and purpose
 3) audience — sustained awareness of reader/purpose/form conventions (e.g. report voice, diary voice, email purpose, advice tone)
@@ -88,11 +105,29 @@ Set A and Set B calibration:
   clause joined with “and”, when they are clear and effective in context.
 
 Also judge whether each of the three hint points is clearly covered in the student writing.
+Task completion, topic match, and hint coverage belong in Set A (content and form), not Set B.
+
+Draft memory (when previous_drafts is provided):
+- Compare this draft with the previous draft.
+- If the student improved vocabulary (for example “got scared” to “hid under her covers” or “a jolt of fear”) or fixed punctuation from previous feedback, you MUST increase the Vocabulary & style (vocabulary) or Sentences/punctuation (grammar) dimension by 0.5 or 1 from that previous draft. Reward their effort.
+- Do not jump overall out of the fair band just because sentences were polished. If the plot still misses the picture’s key object or a required plan-change, keep overall in the 12–17 basic band (16/25 is fair for a generic cleanup story).
+
+Picture prompts:
+- If a picture is attached or stimulus_focus is given, look at that object. Do not give vague “add more detail” advice.
+- If the student writes a generic cleanup story (sweeping leaves, falling trees, buying flowers) and misses the key visual object, you MUST name it. Example: “You missed the most interesting part of the picture: the overturned letterbox. What if Mia found a letter inside?”
+- Missing the key object is a Set A content gap, not an off-task script, when the writing is still about this scene. Keep Set A at 10 or below and overall in 12–17.
+
+Missed hints:
+- If a hint such as “Introduce a discovery that changes the character’s plan” is missed, the first next_step and ai_feedback MUST explain how to fix the plot, with a concrete example.
+- Example: “Instead of just buying flowers, have Mia open one of the scattered envelopes, which changes her whole morning plan.”
 
 Script mark-up (required):
 - Highlight exact phrases from the student writing (spelling, punctuation, sentence control, structure/form, vocabulary, content).
 - Do not stamp every short sentence with the same “too short” note. One content comment for an under-developed piece is enough.
-- Give a better version of 2–4 of the student’s weakest sentences. Keep that sentence’s idea. Fix spelling in the rewrite. Prefer one developed sentence, not a second new sentence.
+- Do not mark diary or letter greetings and sign-offs as missing a full stop or as choppy sentences. “Dear Diary,” / “Dear Mum,” / “From Stella” / “Yours sincerely” / “xx” are form conventions. A comma after Dear Diary is correct.
+- If Set A (content or organisation) is a real weakness, you MUST include at least one content or structure annotation that tells the student what to add, cut, or reorder. Do not only rewrite sentences or comment on spelling.
+- Content comments should name a moment to keep, a moment to cut, or a paragraph job (opening feeling, one developed scene, a close that looks back).
+- Give a better version of 2–4 of the student’s weakest sentences. Keep that sentence’s idea. Fix spelling in the rewrite. Prefer one developed sentence, not a second new sentence. Do not rewrite greetings or sign-offs.
 - Tie every comment to Set A (content, form, organisation, vocabulary/style) or Set B (sentences, punctuation, spelling).
 - Write for a Year 5–6 student in Australian English. Be specific to their words, not generic.
 - In student-facing text, say TrialSeed feedback or TrialSeed mark-up. Never call it a teacher mark.
@@ -100,6 +135,108 @@ Script mark-up (required):
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Math.round(value)));
+}
+
+function clampHalf(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  const rounded = Math.round(value * 2) / 2;
+  return Math.max(min, Math.min(max, rounded));
+}
+
+const WEAK_WORD_RE = /\b(very|really|nice|got|went|said|things|stuff)\b/gi;
+
+export function detectDraftPolish(previous: string, current: string): {
+  vocabulary: boolean;
+  vocabularyStrong: boolean;
+  accuracy: boolean;
+} {
+  const prev = previous ?? '';
+  const cur = current ?? '';
+  const pairs: { from: RegExp; to: RegExp; strong?: boolean }[] = [
+    { from: /got scared/i, to: /jolt of fear|hid under|froze/i, strong: true },
+    { from: /on the floor/i, to: /on the ground/i },
+    { from: /raining cats and dogs/i, to: /raining heavily|pouring|lashing/i, strong: true },
+    { from: /\bwent into the house\b/i, to: /hurried|ran into the house/i },
+    { from: /felt sorry/i, to: /deep sadness|heart sank/i, strong: true },
+  ];
+  let vocabulary = false;
+  let vocabularyStrong = false;
+  for (const pair of pairs) {
+    pair.from.lastIndex = 0;
+    pair.to.lastIndex = 0;
+    if (pair.from.test(prev) && pair.to.test(cur)) {
+      vocabulary = true;
+      if (pair.strong) vocabularyStrong = true;
+    }
+  }
+  const prevWeak = prev.match(WEAK_WORD_RE)?.length ?? 0;
+  WEAK_WORD_RE.lastIndex = 0;
+  const curWeak = cur.match(WEAK_WORD_RE)?.length ?? 0;
+  if (curWeak + 1 <= prevWeak && prevWeak > 0 && curWeak < prevWeak) {
+    vocabulary = true;
+  }
+  const accuracy =
+    (/\s ,/.test(prev) && !/\s ,/.test(cur)) ||
+    (/\bdont\b/i.test(prev) && /\bdon't\b/i.test(cur)) ||
+    (/\bwont\b/i.test(prev) && /\bwon't\b/i.test(cur)) ||
+    (/\bwich\b/i.test(prev) && /\bwhich\b/i.test(cur));
+  return { vocabulary, vocabularyStrong, accuracy };
+}
+
+export function applyDraftMemory(result: ScoringResult, input: ScoreInput): ScoringResult {
+  const prev = [...(input.previousDrafts ?? [])]
+    .filter((row) => row.draft_number < (input.draftNumber ?? Number.POSITIVE_INFINITY))
+    .sort((a, b) => a.draft_number - b.draft_number)
+    .at(-1);
+  if (!prev || input.examStyle) return result;
+
+  const polish = detectDraftPolish(prev.content, input.content);
+  if (!polish.vocabulary && !polish.accuracy) return result;
+
+  const prevBreak = prev.scores_breakdown;
+  const breakdown = { ...result.scores_breakdown };
+  const strengths = [...result.marker_notes.strengths];
+
+  if (polish.vocabulary) {
+    const lift = polish.vocabularyStrong ? 1 : 0.5;
+    const rewarded = Math.min(5, (prevBreak?.vocabulary ?? 0) + lift);
+    breakdown.vocabulary = clampHalf(Math.max(breakdown.vocabulary, rewarded), 0, 5);
+    if (breakdown.vocabulary > (prevBreak?.vocabulary ?? 0)) {
+      strengths.unshift(
+        `Your vocabulary mark rose because you improved word choice from draft ${prev.draft_number}.`,
+      );
+    }
+  }
+  if (polish.accuracy) {
+    const rewarded = Math.min(5, (prevBreak?.grammar ?? 0) + 0.5);
+    breakdown.grammar = clampHalf(Math.max(breakdown.grammar, rewarded), 0, 5);
+    if (breakdown.grammar > (prevBreak?.grammar ?? 0)) {
+      strengths.unshift(
+        `Your sentences/punctuation mark rose because you acted on draft ${prev.draft_number} accuracy notes.`,
+      );
+    }
+  }
+
+  return {
+    ...result,
+    scores_breakdown: breakdown,
+    marker_notes: {
+      ...result.marker_notes,
+      strengths: uniqueNoteStrings(strengths).slice(0, 5),
+    },
+  };
+}
+
+function uniqueNoteStrings(values: string[]) {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    const trimmed = value.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    out.push(trimmed);
+  }
+  return out;
 }
 
 function wordCount(text: string): number {
@@ -133,10 +270,10 @@ function normalizeResult(
 ): ScoringResult {
   const wc = typeof partial.word_count === 'number' ? partial.word_count : wordCount(content);
 
-  const structure = clamp(Number(partial.scores_breakdown?.structure ?? 0), 0, 5);
-  const vocabulary = clamp(Number(partial.scores_breakdown?.vocabulary ?? 0), 0, 5);
-  const audience = clamp(Number(partial.scores_breakdown?.audience ?? 0), 0, 5);
-  const grammar = clamp(Number(partial.scores_breakdown?.grammar ?? 0), 0, 5);
+  const structure = clampHalf(Number(partial.scores_breakdown?.structure ?? 0), 0, 5);
+  const vocabulary = clampHalf(Number(partial.scores_breakdown?.vocabulary ?? 0), 0, 5);
+  const audience = clampHalf(Number(partial.scores_breakdown?.audience ?? 0), 0, 5);
+  const grammar = clampHalf(Number(partial.scores_breakdown?.grammar ?? 0), 0, 5);
 
   let score_set_a = clamp(Number(partial.score_set_a ?? structure + vocabulary + audience), 0, 15);
   let score_set_b = clamp(Number(partial.score_set_b ?? grammar * 2), 0, 10);
@@ -151,7 +288,7 @@ function normalizeResult(
     overall_score = clamp(score_set_a + score_set_b, 0, 25);
   }
 
-  return applyPhotoTaskMatch({
+  return {
     score_set_a,
     score_set_b,
     overall_score,
@@ -165,7 +302,7 @@ function normalizeResult(
     checked_hint_2: Boolean(partial.checked_hint_2),
     checked_hint_3: Boolean(partial.checked_hint_3),
     word_count: wc,
-  });
+  };
 }
 
 /** When a photo question is readable, off-task writing cannot keep a high Set A. */
@@ -200,6 +337,47 @@ export function applyPhotoTaskMatch(result: ScoringResult): ScoringResult {
     overall_score,
     scores_breakdown: breakdown,
   };
+}
+
+/**
+ * Missing the picture’s key object (letterbox, empty seat note, …) is a Set A
+ * content gap, not an off-task script. Keep the overall in the basic 12–17 band
+ * so sentence polish can still raise a dimension without inflating the total.
+ */
+export function applyMissedStimulusCap(result: ScoringResult, input: ScoreInput): ScoringResult {
+  const focus = input.stimulusFocus;
+  if (!focus || writingUsesStimulusFocus(input.content, focus)) return result;
+
+  const breakdown = { ...result.scores_breakdown };
+  breakdown.structure = Math.min(breakdown.structure, 3);
+  breakdown.vocabulary = Math.min(breakdown.vocabulary, 3);
+  breakdown.audience = Math.min(breakdown.audience, 2);
+  const score_set_a = clamp(Math.min(result.score_set_a, 10), 0, 15);
+  const score_set_b = clamp(Math.min(result.score_set_b, 6), 0, 10);
+  return {
+    ...result,
+    score_set_a,
+    score_set_b,
+    overall_score: clamp(score_set_a + score_set_b, 0, 25),
+    scores_breakdown: breakdown,
+  };
+}
+
+function softenMissedFocusTaskMatch(result: ScoringResult, input: ScoreInput): ScoringResult {
+  const focus = input.stimulusFocus;
+  if (!focus || writingUsesStimulusFocus(input.content, focus)) return result;
+  if (result.marker_notes.task_match !== 'no') return result;
+  return {
+    ...result,
+    marker_notes: { ...result.marker_notes, task_match: 'partial' },
+  };
+}
+
+function finalizeWritingScore(result: ScoringResult, input: ScoreInput): ScoringResult {
+  return applyDraftMemory(
+    applyMissedStimulusCap(applyPhotoTaskMatch(softenMissedFocusTaskMatch(result, input)), input),
+    input,
+  );
 }
 
 function photoFieldsFromParsed(parsed: {
@@ -263,7 +441,7 @@ export function scoreWritingAttemptHeuristic(input: ScoreInput): ScoringResult {
   const grammar = clamp(2 + (wc > 60 ? 1 : 0) + (content.includes('.') ? 1 : 0), 0, 5);
 
   const score_set_a = clamp(structure + vocabulary + audience, 0, 15);
-  const score_set_b = clamp(grammar + hintScore + Math.floor(lengthScore / 2), 0, 10);
+  const score_set_b = clamp(grammar + Math.floor(lengthScore / 2), 0, 10);
   const overall_score = clamp(score_set_a + score_set_b, 0, 25);
 
   const covered = checked
@@ -294,23 +472,28 @@ export function scoreWritingAttemptHeuristic(input: ScoreInput): ScoringResult {
     hintPoints: input.hintPoints,
     examStyle: input.examStyle,
     wordCount: wc,
+    stimulusFocus: input.stimulusFocus,
   });
-  const marker_notes = input.promptImage
-    ? { ...notes, task_match: 'unread' as const }
-    : notes;
+  const marker_notes =
+    input.promptImage && !input.stimulusFocus
+      ? { ...notes, task_match: 'unread' as const }
+      : notes;
 
-  return {
-    score_set_a,
-    score_set_b,
-    overall_score,
-    scores_breakdown: { structure, vocabulary, audience, grammar },
-    ai_feedback: notes.summary || ai_feedback,
-    marker_notes,
-    checked_hint_1: checked[0] ?? false,
-    checked_hint_2: checked[1] ?? false,
-    checked_hint_3: checked[2] ?? false,
-    word_count: wc,
-  };
+  return finalizeWritingScore(
+    {
+      score_set_a,
+      score_set_b,
+      overall_score,
+      scores_breakdown: { structure, vocabulary, audience, grammar },
+      ai_feedback: notes.summary || ai_feedback,
+      marker_notes,
+      checked_hint_1: checked[0] ?? false,
+      checked_hint_2: checked[1] ?? false,
+      checked_hint_3: checked[2] ?? false,
+      word_count: wc,
+    },
+    input,
+  );
 }
 
 async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
@@ -321,7 +504,19 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
     temperature: 0.2,
     system: [
       'You mark NSW Selective writing practice for TrialSeed.',
-      'Circle exact errors, give one overall development note if the piece is a sketch, and rewrite the student’s own weakest sentences.',
+      'Circle exact errors, give content-change advice when Set A is weak, and rewrite the student’s own weakest sentences. Never mark “Dear Diary,” as missing a full stop.',
+      input.previousDrafts?.length && input.draftNumber
+        ? `Compare Draft ${input.draftNumber} with the previous draft. If the student improved their vocabulary (e.g., 'got scared' to 'hid under her covers') or fixed punctuation based on previous feedback, you MUST increase the 'Vocabulary & style' (vocabulary) or 'Sentences/punctuation' (grammar) dimension score by 0.5 or 1 point from that previous draft. Reward their effort.`
+        : 'If a previous draft is supplied, reward real vocabulary or punctuation improvement with +0.5 or +1 on that dimension.',
+      input.stimulusFocus
+        ? [
+            `The visual prompt’s key object is: ${input.stimulusFocus.focus}.`,
+            `If the student writes a generic cleanup story (e.g., sweeping leaves, falling trees) and completely misses the key visual object in the image, you must explicitly tell them. Do not just say 'add more detail'. Say: '${input.stimulusFocus.missedIssue.replace(/^Set A content:\s*/i, '')} ${input.stimulusFocus.missedSuggestion}'`,
+            `If the 'plan change' hint is missed, provide a concrete example of how to alter the plot in the 'Do this next' section. Example: '${input.stimulusFocus.plotFix}'`,
+            'Missing that object is a Set A content gap, not an off-task script, when the writing is still about this scene. Keep overall in the 12–17 band (16/25 is fair for a generic cleanup).',
+          ].join('\n')
+        : 'If a picture or stimulus_focus is supplied and the writing misses the key object, name that object. Do not only say add more detail.',
+      'If a plan-change or discovery hint is missed, give a concrete plot example in next_steps.',
       'Student-facing comments must say TrialSeed feedback or TrialSeed mark-up, never a teacher mark.',
       'Score consistently against Set A (content, form, organisation, vocabulary/style) and Set B (sentences, punctuation, spelling).',
       'Return ONLY valid JSON matching the required schema.',
@@ -356,6 +551,24 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
       hint_points: input.examStyle ? [] : hints,
       exam_style: Boolean(input.examStyle),
       word_count: wc,
+      draft_number: input.draftNumber ?? null,
+      stimulus_focus: input.stimulusFocus
+        ? {
+            key_object: input.stimulusFocus.focus,
+            missed_issue: input.stimulusFocus.missedIssue,
+            missed_suggestion: input.stimulusFocus.missedSuggestion,
+            plot_fix: input.stimulusFocus.plotFix,
+          }
+        : null,
+      previous_drafts: (input.previousDrafts ?? []).map((row) => ({
+        draft_number: row.draft_number,
+        overall_score: row.overall_score,
+        score_set_a: row.score_set_a,
+        score_set_b: row.score_set_b,
+        scores_breakdown: row.scores_breakdown,
+        next_steps: row.next_steps ?? [],
+        student_writing: row.content,
+      })),
       student_writing: input.content,
       required_json_schema: {
         photo_kind: input.promptImage
@@ -371,10 +584,10 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
         score_set_b: 'integer 0-10',
         overall_score: 'integer 0-25 (= score_set_a + score_set_b)',
         scores_breakdown: {
-          structure: 'integer 0-5',
-          vocabulary: 'integer 0-5',
-          audience: 'integer 0-5',
-          grammar: 'integer 0-5',
+          structure: 'number 0-5 (halves allowed)',
+          vocabulary: 'number 0-5 (halves allowed)',
+          audience: 'number 0-5 (halves allowed)',
+          grammar: 'number 0-5 (halves allowed)',
         },
         ai_feedback: input.examStyle
           ? 'string: 3-6 short paragraphs with strengths and gaps for a one-sitting paper; do not mention hints or a next draft'
@@ -391,7 +604,9 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
             ? '"yes" | "partial" | "no" | "unread"'
             : 'omit',
           strengths: ['string: what this sitting already does well'],
-          next_steps: ['string: what to change next, tied to Set A or Set B'],
+          next_steps: [
+            'string: what to change next, tied to Set A or Set B. If a picture object or plan-change hint is missing, the first step must name the object and give a concrete plot example. If Set A is weak for another reason, the first step must say what to add, cut, or reorder',
+          ],
           annotations: [
             {
               kind: 'spelling|punctuation|sentence|structure|vocabulary|content',
@@ -431,6 +646,7 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
     hintPoints: input.hintPoints,
     examStyle: input.examStyle,
     wordCount: wc,
+    stimulusFocus: input.stimulusFocus,
   });
   let notes = combineRemoteMarkerNotes(input.content, local, {
     ...(parsed.marker_notes &&
@@ -440,14 +656,17 @@ async function scoreWithOpenAI(input: ScoreInput): Promise<ScoringResult> {
       : {}),
     ...photoFieldsFromParsed(parsed),
   });
-  if (input.promptImage && !notes.task_match) {
+  if (input.promptImage && !notes.task_match && !input.stimulusFocus) {
     notes = { ...notes, task_match: 'unread' };
   }
   if (input.promptImage && notes.photo_question && !notes.photo_kind) {
     notes = { ...notes, photo_kind: inferPhotoKind(notes.photo_question) };
   }
 
-  return normalizeResult({ ...parsed, word_count: parsed.word_count ?? wc }, input.content, notes);
+  return finalizeWritingScore(
+    normalizeResult({ ...parsed, word_count: parsed.word_count ?? wc }, input.content, notes),
+    input,
+  );
 }
 
 /**

@@ -1,6 +1,10 @@
 import { typeLabel } from '@/lib/units';
+import {
+  writingUsesStimulusFocus,
+  type StimulusFocus,
+} from '@/lib/stimulus-focus';
 
-export const MARKER_NOTES_VERSION = 5;
+export const MARKER_NOTES_VERSION = 8;
 
 export const MARKER_KINDS = [
   'spelling',
@@ -410,6 +414,7 @@ export type MarkerNotesInput = {
   hintPoints?: string[];
   examStyle?: boolean;
   wordCount?: number;
+  stimulusFocus?: StimulusFocus | null;
 };
 
 function isMarkerKind(value: unknown): value is MarkerKind {
@@ -437,6 +442,72 @@ export function splitSentences(content: string): { text: string; start: number; 
   return found;
 }
 
+const WEEKDAY =
+  '(?:(?:mon|tues|wednes|thurs|fri|satur|sun)day)';
+const MONTH =
+  '(?:january|february|march|april|may|june|july|august|september|october|november|december)';
+
+/**
+ * Diary and letter lines that are form conventions, not sentences.
+ * “Dear Diary,” is correctly followed by a comma.
+ */
+export function isFormConventionLine(text: string): boolean {
+  const line = text.trim().replace(/\s+/g, ' ');
+  if (!line || line.length > 70) return false;
+  const words = wordCountOf(line);
+  if (/^dear\s+[A-Za-z][\w.'-]*(?:\s+[A-Za-z][\w.'-]*){0,3},?$/i.test(line) && words <= 5) {
+    return true;
+  }
+  if (/^from\s+[A-Za-z][\w.'-]*(?:\s+[A-Za-z][\w.'-]*){0,3},?$/i.test(line) && words <= 5) {
+    return true;
+  }
+  if (/^to\s+[A-Za-z][\w.'-]*(?:\s+[A-Za-z][\w.'-]*){0,3},?$/i.test(line) && words <= 5) {
+    return true;
+  }
+  if (
+    /^(yours\s+(sincerely|faithfully)|kind regards|best (wishes|regards)|warm regards|lots of love|love( from)?|regards),?$/i.test(
+      line,
+    )
+  ) {
+    return true;
+  }
+  if (/^[xo]{2,10}$/i.test(line)) return true;
+  if (/^subject:\s*.{1,80}$/i.test(line)) return true;
+  if (/^p\.?\s*s\.?:?\s*.{0,40}$/i.test(line) && words <= 8) return true;
+  if (new RegExp(`^(?:${WEEKDAY},?\\s+)?(?:\\d{1,2}(?:st|nd|rd|th)?\\s+)?${MONTH}\\s+\\d{1,4}$`, 'i').test(line)) {
+    return true;
+  }
+  if (/^\d{1,2}[/.\\-]\d{1,2}(?:[/.\\-]\d{2,4})?$/.test(line)) return true;
+  return false;
+}
+
+const GREETING_FALSE_POSITIVE =
+  /full stop|question mark|exclamation|choppy|terminal|finish the sentence|sentence control/i;
+
+function annotationTargetsFormConvention(
+  content: string,
+  quote: string,
+): boolean {
+  const needle = quote.trim();
+  if (!needle) return false;
+  if (isFormConventionLine(needle)) return true;
+  const located = locateQuote(content, needle);
+  if (!located) return false;
+  const sentence = splitSentences(content).find(
+    (row) => row.start <= located.start && located.end <= row.end,
+  );
+  return sentence ? isFormConventionLine(sentence.text) : false;
+}
+
+export function isGreetingAccuracyFalsePositive(
+  note: Pick<MarkerAnnotation, 'kind' | 'quote' | 'issue' | 'suggestion'>,
+  content: string,
+): boolean {
+  if (note.kind !== 'punctuation' && note.kind !== 'sentence') return false;
+  if (!annotationTargetsFormConvention(content, note.quote)) return false;
+  return GREETING_FALSE_POSITIVE.test(`${note.issue} ${note.suggestion}`);
+}
+
 function firstSentenceSpan(content: string) {
   const sentences = splitSentences(content);
   return sentences[0] ?? { text: content.slice(0, 48), start: 0, end: Math.min(content.length, 48) };
@@ -445,6 +516,19 @@ function firstSentenceSpan(content: string) {
 function lastSentenceSpan(content: string) {
   const sentences = splitSentences(content);
   return sentences[sentences.length - 1] ?? firstSentenceSpan(content);
+}
+
+function contentSentenceSpans(content: string) {
+  return splitSentences(content).filter((row) => !isFormConventionLine(row.text));
+}
+
+function firstContentSentenceSpan(content: string) {
+  return contentSentenceSpans(content)[0] ?? firstSentenceSpan(content);
+}
+
+function lastContentSentenceSpan(content: string) {
+  const sentences = contentSentenceSpans(content);
+  return sentences[sentences.length - 1] ?? lastSentenceSpan(content);
 }
 
 export function locateQuote(
@@ -772,14 +856,16 @@ export function normalizeMarkerNotes(raw: unknown, content: string): MarkerNotes
       const key = `${note.kind}:${located.start}:${located.end}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      annotations.push({
+      const built = {
         start: located.start,
         end: located.end,
         kind: note.kind,
         quote: content.slice(located.start, located.end) || quote,
         issue,
         suggestion,
-      });
+      };
+      if (isGreetingAccuracyFalsePositive(built, content)) continue;
+      annotations.push(built);
     }
   }
 
@@ -792,6 +878,7 @@ export function normalizeMarkerNotes(raw: unknown, content: string): MarkerNotes
       const improved = typeof note.improved === 'string' ? note.improved.trim() : '';
       const why = typeof note.why === 'string' ? note.why.trim() : '';
       if (!original || !improved || original === improved) continue;
+      if (isFormConventionLine(original)) continue;
       rewrites.push({
         original,
         improved,
@@ -835,9 +922,110 @@ function mergeAgainstContent(base: MarkerNotes, extra: MarkerNotes, content: str
 }
 
 function openingQuote(content: string) {
-  const sentences = splitSentences(content).slice(0, 2);
+  const sentences = contentSentenceSpans(content).slice(0, 2);
   const joined = sentences.map((row) => row.text.trim()).join(' ');
-  return joined.slice(0, 80) || firstSentenceSpan(content).text.trim().slice(0, 48);
+  return joined.slice(0, 80) || firstContentSentenceSpan(content).text.trim().slice(0, 48);
+}
+
+const SEQUENCE_MARKER =
+  /\b(then|and then|after that|afterwards|next|later|finally|first(?:ly)?|second(?:ly)?|at the end|after we|then we)\b/gi;
+
+function sequenceMarkerCount(text: string) {
+  return (text.match(SEQUENCE_MARKER) ?? []).length;
+}
+
+function looksLikeEventList(content: string, wc: number) {
+  return wc >= 80 && sequenceMarkerCount(content) >= 3;
+}
+
+function lastLinesHaveReflection(content: string) {
+  const close = contentSentenceSpans(content)
+    .slice(-2)
+    .map((row) => row.text)
+    .join(' ');
+  return /\b(felt|feel|feeling|realised|realized|hope|wish|remember|proud|glad|sorry|miss(?:ed)?|loved|will|tomorrow|next time|still|now i|i now)\b/i.test(
+    close,
+  );
+}
+
+function firstSequenceQuote(content: string) {
+  const sentence = contentSentenceSpans(content).find((row) => {
+    SEQUENCE_MARKER.lastIndex = 0;
+    return SEQUENCE_MARKER.test(row.text);
+  });
+  return (sentence?.text.trim() || openingQuote(content)).slice(0, 90);
+}
+
+function contentChangeSuggestion(promptType: string) {
+  if (promptType === 'diary_entry') {
+    return 'Keep the moment that mattered most. Stay there: what you saw, said, and felt. Cut two smaller events so that scene has room.';
+  }
+  if (promptType === 'narrative') {
+    return 'Keep the turning point and show that one scene. Cut a side event so the middle has room to build.';
+  }
+  if (promptType === 'news_report') {
+    return 'Lead with the main event, then add who / where / a quote. Cut extra timeline details that do not change the news.';
+  }
+  if (promptType === 'formal_letter' || promptType === 'email') {
+    return 'Keep one clear request. Give two reasons. Cut extra story so the reader knows what you want.';
+  }
+  if (promptType === 'persuasive_text' || promptType === 'speech') {
+    return 'Keep your strongest reason and grow it with one example. Cut a weaker point so the close lands.';
+  }
+  return 'Choose one main idea to grow, and cut two smaller points so the marker can reward detail.';
+}
+
+function contentChangeIssue(promptType: string) {
+  if (promptType === 'diary_entry') {
+    return 'Set A content: this diary lists lots of things that happened. Selective markers reward one moment shown clearly, not a full-day timetable.';
+  }
+  if (promptType === 'narrative') {
+    return 'Set A content: the story names several events. Markers reward one turning point shown clearly, not a list of what happened next.';
+  }
+  return 'Set A content: the piece covers too many points. Markers reward one idea developed clearly, not a list.';
+}
+
+function organisationJobSuggestion(promptType: string) {
+  if (promptType === 'diary_entry') {
+    return 'Give each paragraph a job: why you are writing, one main moment, then how you felt after or what you will remember.';
+  }
+  if (promptType === 'narrative') {
+    return 'Give each paragraph a job: a hook, the problem in the middle, then an ending that lands.';
+  }
+  return FORM_SHAPE[promptType] ?? 'Give each paragraph a job so the marker can follow the shape of the form.';
+}
+
+function isSetAContentStep(step: string) {
+  return (
+    /set a (content|organisation|form)\b/i.test(step) ||
+    /keep (the )?(one main moment|turning point)|cut two smaller|paragraph a job|what to add, cut/i.test(
+      step,
+    )
+  );
+}
+
+function isPictureFocusStep(step: string) {
+  return /missed the most interesting part of the picture|overturned letterbox|scattered envelopes|key visual object/i.test(
+    step,
+  );
+}
+
+function dropGreetingFalsePositives(notes: MarkerNotes, content: string): MarkerNotes {
+  return {
+    ...notes,
+    annotations: notes.annotations.filter((note) => !isGreetingAccuracyFalsePositive(note, content)),
+    rewrites: notes.rewrites.filter((row) => !isFormConventionLine(row.original)),
+  };
+}
+
+function preferContentNextSteps(notes: MarkerNotes): MarkerNotes {
+  const picture = notes.next_steps.filter(isPictureFocusStep);
+  const setA = notes.next_steps.filter((step) => isSetAContentStep(step) && !isPictureFocusStep(step));
+  const rest = notes.next_steps.filter((step) => !isSetAContentStep(step) && !isPictureFocusStep(step));
+  return {
+    ...notes,
+    next_steps: uniqueStrings([...picture, ...setA, ...rest]).slice(0, 5),
+  };
 }
 
 function sentenceReason(
@@ -885,6 +1073,9 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
   const nextSteps: string[] = [];
   const sceneNouns = sceneNounsFrom(content);
   const titleBit = input.promptTitle ? ` for “${input.promptTitle}”` : '';
+  const stimulusFocus = input.stimulusFocus ?? null;
+  const missedPicture =
+    Boolean(stimulusFocus) && !writingUsesStimulusFocus(content, stimulusFocus as StimulusFocus);
 
   eachWord(content, (word, start, end) => {
     const key = word.toLowerCase();
@@ -920,7 +1111,7 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
   let capitalCount = 0;
   for (const sentence of sentences) {
     const text = sentence.text.trim();
-    if (!text) continue;
+    if (!text || isFormConventionLine(text)) continue;
     const lead = text.replace(/^\s+/, '');
     if (/^[a-z]/.test(lead) && capitalCount < 2) {
       capitalCount += 1;
@@ -961,8 +1152,9 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
 
   // One choppy note is enough, and a short piece already has a content note.
   if (wc >= 80) {
-    const firstShort = sentences.find((row) => wordCountOf(row.text.trim()) <= 4);
-    const shortCount = sentences.filter((row) => wordCountOf(row.text.trim()) <= 4).length;
+    const bodySentences = sentences.filter((row) => !isFormConventionLine(row.text.trim()));
+    const firstShort = bodySentences.find((row) => wordCountOf(row.text.trim()) <= 4);
+    const shortCount = bodySentences.filter((row) => wordCountOf(row.text.trim()) <= 4).length;
     if (firstShort && shortCount >= 3) {
       pushNote(
         annotations,
@@ -1039,6 +1231,18 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
         ? `Stay with ${scene}: add what you saw, heard, and did next so the marker has details to reward.`
         : 'Keep your idea, then add what the character saw, heard, and did next so the marker has details to reward.',
     );
+  } else if (!missedPicture && looksLikeEventList(content, wc)) {
+    pushNote(
+      annotations,
+      content,
+      'content',
+      firstSequenceQuote(content),
+      contentChangeIssue(promptType),
+      contentChangeSuggestion(promptType),
+    );
+    nextSteps.push(
+      `Set A content: ${contentChangeSuggestion(promptType)}`,
+    );
   } else {
     strengths.push('You wrote enough for a marker to follow a developed idea.');
   }
@@ -1048,7 +1252,7 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
       annotations,
       content,
       'structure',
-      firstSentenceSpan(content).text.trim().slice(0, 40),
+      firstContentSentenceSpan(content).text.trim().slice(0, 40),
       'Set A organisation: the writing runs as one block. Selective markers look for paragraphs or clear sections.',
       `Start a new paragraph when the ${form.toLowerCase()} moves to a new moment, reason, or speaker.`,
     );
@@ -1056,19 +1260,51 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
     strengths.push('You used paragraph breaks, which helps the organisation mark.');
   }
 
+  if (wc >= 80 && !missedPicture && looksLikeEventList(content, wc) && hasParagraphBreak(content)) {
+    nextSteps.push(`Set A organisation: ${organisationJobSuggestion(promptType)}`);
+  }
+
+  if (
+    wc >= 80 &&
+    /^(diary_entry|narrative)$/.test(promptType) &&
+    !lastLinesHaveReflection(content)
+  ) {
+    const lastBody = lastContentSentenceSpan(content).text.trim();
+    pushNote(
+      annotations,
+      content,
+      'structure',
+      lastBody.slice(0, 80) || lastBody,
+      'Set A organisation: the ending names what happened last, but it does not close the form.',
+      promptType === 'diary_entry'
+        ? 'Finish with how you feel now, or what you will remember tomorrow, so the last paragraph has a job.'
+        : 'Finish with what changed for the character, so the last paragraph closes the story.',
+    );
+    nextSteps.push(
+      promptType === 'diary_entry'
+        ? 'Set A organisation: give the last paragraph a job — how you felt after, or what you will remember.'
+        : 'Set A organisation: close with what changed, not only the last thing that happened.',
+    );
+  }
+
   if (formLooksWrong(promptType, content)) {
     pushNote(
       annotations,
       content,
       'structure',
-      firstSentenceSpan(content).text.trim().slice(0, 40),
+      firstContentSentenceSpan(content).text.trim().slice(0, 40),
       `Set A form: this does not yet read as a ${form.toLowerCase()}.`,
       FORM_SHAPE[promptType] ?? `Match the conventions of a ${form.toLowerCase()}.`,
     );
   }
 
-  const last = lastSentenceSpan(content);
-  if (wc >= 12 && last.text.trim().length < 28 && !/[.!?]$/.test(last.text.trim())) {
+  const last = lastContentSentenceSpan(content);
+  if (
+    wc >= 12 &&
+    last.text.trim().length < 28 &&
+    !/[.!?]$/.test(last.text.trim()) &&
+    !isFormConventionLine(last.text)
+  ) {
     pushNote(
       annotations,
       content,
@@ -1076,6 +1312,21 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
       last.text.trim(),
       'Set A organisation: the ending stops rather than closes the form.',
       FORM_SHAPE[promptType] ?? 'Give the last line a job: resolve, recommend, or look ahead.',
+    );
+  }
+
+  if (stimulusFocus && missedPicture) {
+    const pictureQuote =
+      content.match(
+        /swept the road|buy new flowers|tree was on the floor|knocked down|helped the environment|leaves were scattered/i,
+      )?.[0] ?? lastSentenceSpan(content).text.trim().slice(0, 48);
+    pushNote(
+      annotations,
+      content,
+      'content',
+      pictureQuote || openingQuote(content),
+      stimulusFocus.missedIssue,
+      stimulusFocus.missedSuggestion,
     );
   }
 
@@ -1091,7 +1342,19 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
     return keywords.length > 0 && hits < Math.min(2, keywords.length);
   });
   if (missedHint && !examStyle) {
-    nextSteps.push(`Cover this task hint in the writing itself: ${missedHint}`);
+    const plotHint = /discover|character.?s plan|changes the character/i.test(missedHint);
+    nextSteps.unshift(
+      plotHint
+        ? stimulusFocus
+          ? `The hint “${missedHint}” is still missing. ${stimulusFocus.plotFix}`
+          : `The hint “${missedHint}” is still missing. Give the character a plan, then let one discovery force a new plan.`
+        : `The hint “${missedHint}” is still missing. ${FORM_SHAPE[promptType] ?? 'Cover it in the writing itself, not only in a plan.'}`,
+    );
+  }
+  if (stimulusFocus && missedPicture && !examStyle) {
+    nextSteps.unshift(
+      `${stimulusFocus.missedIssue.replace(/^Set A content:\s*/i, '')} ${stimulusFocus.missedSuggestion}`,
+    );
   }
 
   const ranked = sentences
@@ -1101,6 +1364,7 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
       ...sentenceReason(row, annotations, index, sentences.length),
     }))
     .filter((row) => wordCountOf(row.row.text.trim()) >= 3)
+    .filter((row) => !isFormConventionLine(row.row.text))
     .sort((a, b) => b.score - a.score || a.index - b.index)
     .slice(0, 3);
 
@@ -1123,9 +1387,6 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
     });
   }
 
-  if (annotations.some((row) => row.kind === 'spelling' || row.kind === 'punctuation')) {
-    nextSteps.push('Proofread once for Set B: spelling, capitals, apostrophes, and full stops.');
-  }
   if (wc < 80 && sceneNouns.length > 0) {
     nextSteps.push(
       `Stay inside this scene (${namedScene(sceneNouns, content).slice(0, 3).join(', ')}) and grow each line with what happened next.`,
@@ -1136,9 +1397,16 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
     nextSteps.push('Aim for about 160–250 words in 30 minutes so each idea has room.');
   }
   if (!examStyle) {
-    nextSteps.push('On the next draft, keep your idea and add one precise detail in every paragraph.');
+    nextSteps.push(
+      looksLikeEventList(content, wc)
+        ? 'On the next draft, change what you write about: grow one moment and cut two smaller events.'
+        : 'On the next draft, keep your idea and add one precise detail in every paragraph.',
+    );
   } else {
     nextSteps.push('On the day there is one sitting. Leave three minutes to check spelling and paragraphing.');
+  }
+  if (annotations.some((row) => row.kind === 'spelling' || row.kind === 'punctuation')) {
+    nextSteps.push('Proofread once for Set B: spelling, capitals, apostrophes, and full stops.');
   }
 
   if (annotations.some((row) => row.kind === 'spelling') === false && wc >= 20) {
@@ -1150,25 +1418,32 @@ export function buildMarkerNotesHeuristic(input: MarkerNotesInput): MarkerNotes 
 
   const spellingCount = annotations.filter((row) => row.kind === 'spelling').length;
   const punctuationCount = annotations.filter((row) => row.kind === 'punctuation').length;
+  const hasContentChange = annotations.some((row) => row.kind === 'content' || row.kind === 'structure');
   const summary = [
     `TrialSeed mark-up for this ${form.toLowerCase()}${titleBit}, using the NSW Selective writing criteria.`,
     `Set A (content, form, organisation, vocabulary/style) looks at whether the piece does the job of a ${form.toLowerCase()}.`,
     `Set B (sentences, punctuation, spelling) looks at accuracy. This sitting has ${spellingCount} spelling note${spellingCount === 1 ? '' : 's'} and ${punctuationCount} punctuation note${punctuationCount === 1 ? '' : 's'}.`,
     wc < 80
       ? `At ${wc} words the main gap is development: keep your idea, then show the moment in enough detail for a 30-minute paper.`
-      : 'Read the highlighted lines, then the “Write it better” rewrites that start from your own sentences.',
+      : missedPicture && stimulusFocus
+        ? `The main Set A gap is the picture, not only the sentences. ${stimulusFocus.missedIssue.replace(/^Set A content:\s*/i, '')} ${stimulusFocus.missedSuggestion}`
+      : hasContentChange && looksLikeEventList(content, wc)
+        ? 'The main Set A gap is what you chose to write about, not only how the sentences are written. Read the content notes first: keep one moment and cut smaller events.'
+        : 'Read the highlighted lines, then the “Write it better” rewrites that start from your own sentences.',
   ].join(' ');
 
-  return normalizeMarkerNotes(
-    {
-      version: MARKER_NOTES_VERSION,
-      summary,
-      strengths: uniqueStrings(strengths).slice(0, 4),
-      next_steps: uniqueStrings(nextSteps).slice(0, 5),
-      annotations,
-      rewrites,
-    },
-    content,
+  return preferContentNextSteps(
+    normalizeMarkerNotes(
+      {
+        version: MARKER_NOTES_VERSION,
+        summary,
+        strengths: uniqueStrings(strengths).slice(0, 4),
+        next_steps: uniqueStrings(nextSteps).slice(0, 5),
+        annotations,
+        rewrites,
+      },
+      content,
+    ),
   );
 }
 
@@ -1193,8 +1468,13 @@ export function combineRemoteMarkerNotes(
   remote: unknown,
 ): MarkerNotes {
   const parsed = markerNotesFromUnknown(remote, content);
-  if (!parsed) return local;
-  return mergeAgainstContent(local, parsed, content);
+  if (!parsed) return preferContentNextSteps(dropGreetingFalsePositives(local, content));
+  const merged = mergeAgainstContent(
+    dropGreetingFalsePositives(local, content),
+    dropGreetingFalsePositives(parsed, content),
+    content,
+  );
+  return preferContentNextSteps(dropGreetingFalsePositives(merged, content));
 }
 
 const MARKER_PRIORITY: Record<MarkerKind, number> = {
