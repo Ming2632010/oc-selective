@@ -110,7 +110,7 @@ export function SelectiveMathLaunch({
           />
         </div>
       ) : onTrial ? (
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <ModeLink
             href="/dashboard/selective-math/sit/trial/1"
             title="Trial warm-up"
@@ -121,30 +121,17 @@ export function SelectiveMathLaunch({
             title="Trial mini exam"
             detail="12 questions · mixed computer-test items"
           />
-          <ModeLink
-            href="/dashboard/selective-math/sit/preview"
-            title="Computer test screen"
-            detail="Try the buttons. Not scored as real maths."
-          />
         </div>
-      ) : (
+      ) : canStart ? (
         <div className="flex flex-wrap gap-3">
-          {canStart ? (
-            <Link
-              href="/subscription"
-              className="rounded-full border border-brand px-4 py-2 text-sm font-medium text-brand hover:bg-[#EDF3ED]"
-            >
-              Buy a year · $99
-            </Link>
-          ) : null}
           <Link
-            href="/dashboard/selective-math/sit/preview"
+            href="/subscription"
             className="rounded-full border border-brand px-4 py-2 text-sm font-medium text-brand hover:bg-[#EDF3ED]"
           >
-            Try the computer test screen
+            Buy a year · $99
           </Link>
         </div>
-      )}
+      ) : null}
     </section>
   );
 }
@@ -199,12 +186,6 @@ export function SelectiveMathOverview({
       </header>
 
       <div className="flex flex-wrap gap-3">
-        <Link
-          href="/dashboard/selective-math/sit/preview"
-          className="rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-hover"
-        >
-          Try the computer test screen
-        </Link>
         <Link
           href="/dashboard"
           className="rounded-full border border-brand px-4 py-2 text-sm font-medium text-brand hover:bg-[#EDF3ED]"

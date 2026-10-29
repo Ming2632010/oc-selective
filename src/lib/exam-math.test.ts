@@ -23,6 +23,7 @@ import {
   sittingScore,
   usesExamMathDashboard,
 } from './exam-math';
+import { readFileSync } from 'fs';
 import { EXAM_MATH_PREVIEW_QUESTIONS } from './exam-math-preview';
 
 describe('Selective Math catalogue', () => {
@@ -120,3 +121,19 @@ describe('Selective Math player helpers', () => {
     );
   });
 });
+
+describe('Selective Math launch copy', () => {
+  it('does not offer the dummy computer-test preview', () => {
+    const files = [
+      'src/components/dashboard/selective-math-home.tsx',
+      'src/app/dashboard/selective-math/mini/page.tsx',
+      'src/app/dashboard/selective-math/papers/page.tsx',
+      'src/app/dashboard/page.tsx',
+    ];
+    const blob = files.map((file) => readFileSync(file, 'utf8')).join('\n');
+    assert.equal(/Try the computer test screen/i.test(blob), false);
+    assert.equal(/Try the buttons\. Not scored as real maths/i.test(blob), false);
+    assert.equal(/sit\/preview/.test(blob), false);
+  });
+});
+
