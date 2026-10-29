@@ -83,7 +83,8 @@ export default function Home() {
               TrialSeed is a calm place to practise Writing, Math, Thinking
               Skills, and Reading. Feedback shows what is already going well
               and what to try next, so the work can follow your child.
-              Writing is open now, with a progress line and a chat you can
+              Writing and Math are open now. Each has a 7-day trial before
+              you buy a year. Writing has a progress line and a chat you can
               use together. K–Y1 is the first year-level path, with Y2 to Y6
               to follow as they are ready.
             </p>
@@ -265,7 +266,7 @@ export default function Home() {
               Create an account
             </Link>
             <p className="mt-4 text-sm text-warm-subtle">
-              Selective Writing is available now at ${SUBJECT_PRICE_AUD} AUD.
+              Selective Writing and Math are available now at ${SUBJECT_PRICE_AUD} AUD.
               K–Y1 Maths is open at ${KY1_SUBJECT_PRICE_AUD} AUD. English and
               Reading will follow.
             </p>

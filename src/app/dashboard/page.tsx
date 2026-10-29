@@ -33,6 +33,7 @@ import {
 import { KY1_SUBJECT_PRICE_AUD } from '@/lib/subjects';
 import type { WeekNoteData } from '@/lib/week-note';
 import { MathsHome, type MathsOverview } from '@/components/dashboard/maths-home';
+import { SelectiveMathLaunch, type MathTrialInfo } from '@/components/dashboard/selective-math-home';
 
 const SubjectChat = dynamic(
   () => import('@/components/writing/subject-chat').then((module) => module.SubjectChat),
@@ -350,6 +351,11 @@ export default function DashboardPage() {
   const [trialPack, setTrialPack] = useState<TrialPackInfo | null>(null);
   const [trialGroupOpen, setTrialGroupOpen] = useState(false);
   const [startingTrial, setStartingTrial] = useState(false);
+  const [mathTrial, setMathTrial] = useState<MathTrialInfo | null>(null);
+  const [mathAccess, setMathAccess] = useState<
+    'granted' | 'trial' | 'unlicensed' | 'not-found' | 'wrong-grade' | null
+  >(null);
+  const [startingMathTrial, setStartingMathTrial] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -420,6 +426,16 @@ export default function DashboardPage() {
       setRecommendation(guidance?.recommendation ?? null);
       setWritingTrial((res.data.trial as WritingTrialInfo | null) ?? null);
       setTrialPack((res.data.trial_pack as TrialPackInfo | null) ?? null);
+      setMathTrial((res.data.math_trial as MathTrialInfo | null) ?? null);
+      setMathAccess(
+        (res.data.math_access as
+          | 'granted'
+          | 'trial'
+          | 'unlicensed'
+          | 'not-found'
+          | 'wrong-grade'
+          | undefined) ?? null,
+      );
       const isTrial = (res.data.writing_access as string | undefined) === 'trial';
       setTrialGroupOpen(isTrial);
       const selectedStudent = studentList.find((student) => student.id === selected);
@@ -589,6 +605,26 @@ export default function DashboardPage() {
       setError(err instanceof Error ? err.message : 'Could not create custom task');
     } finally {
       setCustomCreating(false);
+    }
+  }
+
+  async function startMathTrial() {
+    if (!selectedStudentId || startingMathTrial) return;
+    setStartingMathTrial(true);
+    setError(null);
+    try {
+      const res = await apiFetch('/api/subscription/start-trial', {
+        method: 'POST',
+        body: JSON.stringify({ student_id: selectedStudentId, subject: 'math' }),
+      });
+      if (!res.response.ok) {
+        throw new Error(res.data.error || 'Could not start the trial');
+      }
+      await loadDashboard(selectedStudentId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not start the trial');
+    } finally {
+      setStartingMathTrial(false);
     }
   }
 
@@ -847,13 +883,23 @@ export default function DashboardPage() {
             )
           ) : null}
 
+          {showWriting ? (
+            <SelectiveMathLaunch
+              access={mathAccess}
+              trial={mathTrial}
+              startingTrial={startingMathTrial}
+              onStartTrial={() => void startMathTrial()}
+            />
+          ) : null}
+
           <section className="space-y-3 rounded-lg border border-warm-border bg-warm-card p-4 shadow-card">
             <div>
               <h2 className="text-lg font-semibold text-warm-ink">Add another child</h2>
               <p className="text-sm text-warm-muted">
                 Each child has their own progress. Year 4–7 profiles use
-                Selective Writing. Kindergarten and Year 1 profiles use K–Y1
-                Maths. Later years open as those paths are ready.
+                Selective Writing and Selective Math. Kindergarten and Year 1
+                profiles use K–Y1 Maths. Later years open as those paths are
+                ready.
               </p>
             </div>
             <form

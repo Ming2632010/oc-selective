@@ -243,9 +243,9 @@ export const PROGRAMS: readonly Program[] = [
     eyebrow: 'Selective Trials',
     headline: 'NSW Selective High School practice',
     summary:
-      'Four subjects: Writing, Math, Thinking Skills, and Reading. Feedback shows what is going well and what to try next. Writing already has a progress line, a subject chat, and a suggestion for the next task. $99 AUD per subject for one year.',
+      'Four subjects: Writing, Math, Thinking Skills, and Reading. Feedback shows what is going well and what to try next. Writing and Math each have a 7-day trial before you buy a year. $99 AUD per subject for one year.',
     subjectsIntro:
-      'Writing is open now. Math, Thinking Skills, and Reading will open at the same price.',
+      'Writing and Math are open now, each with a 7-day trial. Thinking Skills and Reading will open at the same price.',
     subjects: SELECTIVE_SUBJECTS,
     priceAud: EXAM_SUBJECT_PRICE_AUD,
     image: {

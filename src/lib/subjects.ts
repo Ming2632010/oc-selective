@@ -6,7 +6,7 @@ export type Subject = (typeof SUBJECTS)[number];
  * Exam-catalogue subjects that can be bought today without a year-level profile.
  * K–Y1 Maths is sold separately through `isPurchasableSubject` / `priceIdForPurchase`.
  */
-export const AVAILABLE_SUBJECTS = ['writing'] as const satisfies readonly Subject[];
+export const AVAILABLE_SUBJECTS = ['writing', 'math'] as const satisfies readonly Subject[];
 
 export const SUBJECT_LABELS: Record<Subject, string> = {
   writing: 'Writing',
@@ -17,7 +17,7 @@ export const SUBJECT_LABELS: Record<Subject, string> = {
 
 export const SUBJECT_BLURBS: Record<Subject, string> = {
   writing: 'Selective writing with timed drafts and AI feedback.',
-  math: 'Selective maths problem sets. This exam subject is still being prepared.',
+  math: 'Selective maths for the computer Mathematical Reasoning test, with mini exams, full papers, and a 7-day trial.',
   thinking: 'Thinking Skills reasoning and pattern practice.',
   reading: 'Reading comprehension passages and questions.',
 };
@@ -25,6 +25,11 @@ export const SUBJECT_BLURBS: Record<Subject, string> = {
 /** Selective and OC exam subjects: $99 AUD one-off for 1 year of access. */
 export const SUBJECT_PRICE_AUD = 99;
 export const EXAM_SUBJECT_PRICE_AUD = SUBJECT_PRICE_AUD;
+
+/** Year 4–7 subscription header. Writing and Math are both for sale. */
+export function examSubscriptionIntro(priceAud: number = SUBJECT_PRICE_AUD): string {
+  return `Selective Writing and Math are $${priceAud} AUD for one year. The paid year starts from the day you buy.`;
+}
 
 /** K–Y1 year-level subjects: a smaller set of practice at $29 AUD for 1 year. */
 export const KY1_SUBJECT_PRICE_AUD = 29;
@@ -48,7 +53,7 @@ export function isExamWritingGrade(grade: string): boolean {
 /** Whether this child can buy this subject today. */
 export function isPurchasableSubject(subject: Subject, grade: string): boolean {
   if (subject === 'writing') return isExamWritingGrade(grade);
-  if (subject === 'math') return isKy1MathGrade(grade);
+  if (subject === 'math') return isKy1MathGrade(grade) || isExamWritingGrade(grade);
   return false;
 }
 

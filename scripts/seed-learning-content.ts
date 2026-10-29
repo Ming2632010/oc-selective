@@ -8,8 +8,10 @@ async function main() {
 
   const { seedWritingContent } = await import('../src/lib/writing-state');
   const { seedEarlyMathContent } = await import('../src/lib/seed-early-math-db');
+  const { seedExamMathContent } = await import('../src/lib/seed-exam-math-db');
   await seedWritingContent();
   await seedEarlyMathContent();
+  await seedExamMathContent();
   console.log('Learning content seeded without replacing existing identifiers.');
 }
 

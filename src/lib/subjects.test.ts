@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  examSubscriptionIntro,
   isAvailableSubject,
   isPurchasableSubject,
   isSubject,
@@ -8,23 +9,24 @@ import {
   priceAudForPurchase,
   priceIdForPurchase,
   priceIdForSubject,
+  SUBJECT_BLURBS,
   SUBJECT_PRICE_AUD,
 } from './subjects';
 
 describe('subscription subject availability', () => {
-  it('keeps Selective Math out of the exam catalogue until that course opens', () => {
+  it('opens Writing and Selective Math in the exam catalogue', () => {
     assert.equal(isAvailableSubject('writing'), true);
-    assert.equal(isAvailableSubject('math'), false);
+    assert.equal(isAvailableSubject('math'), true);
     assert.equal(isAvailableSubject('thinking'), false);
     assert.equal(isAvailableSubject('reading'), false);
   });
 
-  it('lets Year 4–7 buy Writing and Kindergarten/Year 1 buy Maths', () => {
+  it('lets Year 4–7 buy Writing and Math, and Kindergarten/Year 1 buy Maths', () => {
     assert.equal(isPurchasableSubject('writing', 'Year 5'), true);
     assert.equal(isPurchasableSubject('writing', 'Kindergarten'), false);
     assert.equal(isPurchasableSubject('math', 'Kindergarten'), true);
     assert.equal(isPurchasableSubject('math', 'Year 1'), true);
-    assert.equal(isPurchasableSubject('math', 'Year 5'), false);
+    assert.equal(isPurchasableSubject('math', 'Year 5'), true);
     assert.equal(isPurchasableSubject('thinking', 'Year 5'), false);
   });
 
@@ -33,6 +35,13 @@ describe('subscription subject availability', () => {
     assert.equal(isSubject('math'), true);
     assert.equal(isSubject('thinking'), true);
     assert.equal(isSubject('reading'), true);
+  });
+
+  it('describes Selective Math as an open exam subject with a 7-day trial', () => {
+    assert.match(SUBJECT_BLURBS.math, /computer Mathematical Reasoning test/);
+    assert.match(SUBJECT_BLURBS.math, /7-day trial/);
+    assert.doesNotMatch(SUBJECT_BLURBS.math, /still being prepared/i);
+    assert.match(examSubscriptionIntro(99), /Selective Writing and Math are \$99 AUD/);
   });
 
   it('keeps exam subjects at $99 and K–Y1 at $29', () => {

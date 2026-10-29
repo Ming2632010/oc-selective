@@ -49,7 +49,7 @@ export const HOME_FAQS: { q: string; a: string }[] = [
   },
   {
     q: 'Which subjects can I use today?',
-    a: 'Selective Writing and K–Y1 Maths are open now. Selective Math, Thinking Skills, and Reading, OC Trial subjects, and K–Y1 English and Reading will open as those courses are ready. You are not charged for a subject until you choose to add it.',
+    a: 'Selective Writing, Selective Math, and K–Y1 Maths are open now. Writing and Math each have a 7-day trial before you buy a year. Thinking Skills and Reading, OC Trial subjects, and K–Y1 English and Reading will open as those courses are ready. You are not charged for a subject until you choose to add it.',
   },
   {
     q: 'Can parent and student follow progress together?',
