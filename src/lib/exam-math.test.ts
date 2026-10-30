@@ -24,7 +24,6 @@ import {
   usesExamMathDashboard,
 } from './exam-math';
 import { readFileSync } from 'fs';
-import { EXAM_MATH_PREVIEW_QUESTIONS } from './exam-math-preview';
 
 describe('Selective Math catalogue', () => {
   it('keeps 100 mini exams of 12 and 20 papers of 35', () => {
@@ -95,9 +94,9 @@ describe('Selective Math player helpers', () => {
     );
   });
 
-  it('scores a finished sitting and keeps preview items as chrome only', () => {
+  it('scores a finished sitting and keeps trial instructions untimed', () => {
     const score = sittingScore({
-      questions: EXAM_MATH_PREVIEW_QUESTIONS,
+      questions: [{ correctIndex: 0 }, { correctIndex: 1 }, { correctIndex: 2 }],
       answers: [
         { chosen: 0, flagged: false },
         { chosen: 0, flagged: true },
@@ -110,15 +109,10 @@ describe('Selective Math player helpers', () => {
     assert.equal(examMathInstructions('mini').questions, 12);
     assert.equal(examMathInstructions('mini').minutes, 0);
     assert.match(examMathInstructions('mini').points[1] ?? '', /No timer/);
-    assert.equal(examMathInstructions('preview').minutes, 10);
-    assert.match(examMathInstructions('preview').points[0] ?? '', /try the buttons/);
-    assert.match(examMathInstructions('preview').points[1] ?? '', /practice questions/);
+    assert.equal(examMathInstructions('trial').minutes, 0);
+    assert.match(examMathInstructions('trial').points[0] ?? '', /Trial questions only/);
     assert.equal(examMathInstructions('strengthen').questions, 1);
     assert.match(examMathInstructions('strengthen').points[2] ?? '', /keeps this type/);
-    assert.equal(
-      EXAM_MATH_PREVIEW_QUESTIONS.every((item) => item.options.length === 5),
-      true,
-    );
   });
 });
 
@@ -134,6 +128,9 @@ describe('Selective Math launch copy', () => {
     assert.equal(/Try the computer test screen/i.test(blob), false);
     assert.equal(/Try the buttons\. Not scored as real maths/i.test(blob), false);
     assert.equal(/sit\/preview/.test(blob), false);
+    const player = readFileSync('src/components/exam-math/player.tsx', 'utf8');
+    const math = readFileSync('src/lib/exam-math.ts', 'utf8');
+    assert.equal(/Preview only|try the buttons/i.test(`${player}\n${math}`), false);
   });
 });
 

@@ -21,7 +21,7 @@ import { ExamMathStimulusView } from '@/components/exam-math/stimulus';
 import { ExamMathWorkingView } from '@/components/exam-math/working';
 import { completeWorking } from '@/lib/exam-math-working';
 
-type PlayerKind = ExamMathSetKind | 'preview' | 'strengthen';
+type PlayerKind = ExamMathSetKind | 'strengthen';
 type PlayerPhase = 'instructions' | 'sitting' | 'results';
 
 export function ExamMathPlayer({
@@ -340,11 +340,6 @@ export function ExamMathPlayer({
 
       <div className="mx-auto grid max-w-5xl gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_13rem]">
         <section className="space-y-5 rounded-lg border border-warm-border bg-white p-5 shadow-card">
-          {kind === 'preview' ? (
-            <p className="rounded-md border border-[#C9DDD0] bg-[#EEF6F0] px-3 py-2 text-sm text-brand-dark">
-              Preview only. This is not a Selective Maths question.
-            </p>
-          ) : null}
           {kind === 'strengthen' ? (
             <p className="rounded-md border border-[#C9DDD0] bg-[#EEF6F0] px-3 py-2 text-sm text-brand-dark">
               Same type as a miss, new numbers. This is not the question you got wrong.
