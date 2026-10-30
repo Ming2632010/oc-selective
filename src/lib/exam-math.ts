@@ -13,9 +13,6 @@ export const EXAM_MATH_PAPER_COUNT = 20;
 export const EXAM_MATH_PAPER_QUESTIONS = 35;
 export const EXAM_MATH_PAPER_SECONDS = 40 * 60;
 
-/** Interface preview only. Long enough to try buttons without sitting a real paper. */
-export const EXAM_MATH_PREVIEW_SECONDS = 10 * 60;
-
 /** Extra 7-day trial pack. Not part of the paid 100 minis / 20 papers. */
 export const EXAM_MATH_TRIAL_WARMUP_SET = 1;
 export const EXAM_MATH_TRIAL_MINI_SET = 2;
@@ -278,24 +275,12 @@ export function examMathFamilyLabel(familyId: string): string {
     .join(' ');
 }
 
-export function examMathInstructions(kind: ExamMathSetKind | 'preview' | 'strengthen'): {
+export function examMathInstructions(kind: ExamMathSetKind | 'strengthen'): {
   heading: string;
   minutes: number;
   questions: number;
   points: string[];
 } {
-  if (kind === 'preview') {
-    return {
-      heading: 'Computer test screen',
-      minutes: EXAM_MATH_PREVIEW_SECONDS / 60,
-      questions: 3,
-      points: [
-        'This is only to try the buttons, timer, and review screen.',
-        'Mini exams and papers have the practice questions.',
-        'Choose A–E, flag a question, hide the timer, then finish.',
-      ],
-    };
-  }
   if (kind === 'strengthen') {
     return {
       heading: 'Strengthen · same type, new numbers',
