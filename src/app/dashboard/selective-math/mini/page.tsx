@@ -54,12 +54,6 @@ export default function SelectiveMathMiniPage() {
         >
           Back to Selective Math
         </Link>
-        <Link
-          href="/dashboard/selective-math/sit/preview"
-          className="text-sm font-medium text-brand hover:text-brand-dark"
-        >
-          Try the computer test screen
-        </Link>
       </div>
     </main>
   );
