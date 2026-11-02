@@ -146,6 +146,30 @@ function multiplesTo(n: number, max: number): number[] {
   return values;
 }
 
+/** Two different rectangles with the same whole-cm² area. Q is never a rotation of P. */
+function equalAreaRectPair(rng: Rng): { a: number; b: number; c: number; d: number; area: number } {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const a = int(rng, 4, 12);
+    const b = int(rng, 5, 14);
+    if (a === b) continue;
+    const area = a * b;
+    const sides: number[] = [];
+    for (let side = 2; side < area; side += 1) {
+      if (area % side !== 0) continue;
+      const other = area / side;
+      if (other === side) continue;
+      if (other > 18 || side > 18) continue;
+      const sameAsP = (side === a && other === b) || (side === b && other === a);
+      if (sameAsP) continue;
+      sides.push(side);
+    }
+    if (sides.length === 0) continue;
+    const c = pick(rng, sides);
+    return { a, b, c, d: area / c, area };
+  }
+  return { a: 8, b: 6, c: 4, d: 12, area: 48 };
+}
+
 function bandPick(band: ExamMathDifficultyBand, foundation: number, standard: number, exam: number) {
   if (band === 'foundation') return foundation;
   if (band === 'standard') return standard;
@@ -606,7 +630,7 @@ const FAMILIES: Family[] = [
       return {
         stem: `${name} cuts a square of perimeter ${perimeter} cm into four identical smaller squares. What is the perimeter of one of the smaller squares?`,
         correct: `${smallPerimeter} cm`,
-        distractors: [`${side} cm`, `${2 * smallSide} cm`, `${perimeter / 4} cm`, `${3 * smallSide} cm`],
+        distractors: [`${perimeter} cm`, `${side} cm`, `${smallSide} cm`, `${2 * side} cm`],
         explanation: `The large side is ${perimeter} ÷ 4 = ${side} cm. Each small square has side ${smallSide} cm, so its perimeter is ${smallPerimeter} cm.`,
         stimulus: { type: 'square-cut', side, unit: 'cm' },
         working: workingSteps(
@@ -1358,59 +1382,29 @@ const FAMILIES: Family[] = [
     id: 'equal-area-rect',
     skill: 'measurement-area',
     make({ rng, name }) {
-      const a = int(rng, 4, 9);
-      const b = int(rng, 6, 12);
-      const c = int(rng, 3, 8);
-      if (c === 0 || (a * b) % c !== 0) {
-        const length = (8 * 6) / 4;
-        return {
-          stem: `${name} draws rectangle P, 8 cm by 6 cm. Rectangle Q has the same area and one side 4 cm. What is the other side of Q?`,
-          correct: `${length} cm`,
-          distractors: ['10 cm', '12 cm', '16 cm', '24 cm'],
-          explanation: `Area is 48 cm², so the missing side is 48 ÷ 4 = 12 cm.`,
-          stimulus: { type: 'rect-pair', aW: 8, aH: 6, bW: 4, unit: 'cm' },
-          working: workingSteps(
-            {
-              heading: 'Area of P',
-              body: `Area = length × width = 8 × 6 = 48 cm².`,
-              stimulus: calcTable('Rectangle P', [
-                ['Sides', '8 cm by 6 cm'],
-                ['Area', '48 cm²'],
-              ]),
-            },
-            {
-              heading: 'Match the area of Q',
-              body: `Q has the same area and one side 4 cm, so the other side is 48 ÷ 4 = 12 cm.`,
-              stimulus: calcTable('Rectangle Q', [
-                ['Known side', '4 cm'],
-                ['Other side', '48 ÷ 4 = 12 cm'],
-              ]),
-            },
-          ),
-        };
-      }
-      const length = (a * b) / c;
+      const pair = equalAreaRectPair(rng);
+      const { a, b, c, d, area } = pair;
       return {
-        stem: `${name} draws rectangle P, ${a} cm by ${b} cm. Rectangle Q has the same area and one side ${c} cm. What is the other side of Q?`,
-        correct: `${length} cm`,
-        distractors: [`${a + b - c} cm`, `${a * b} cm`, `${(a * b) / 2} cm`, `${c * 2} cm`],
-        explanation: `Area = ${a * b} cm², so the missing side is ${a * b} ÷ ${c} = ${length} cm.`,
-        stimulus: { type: 'rect-pair', aW: a, aH: b, bW: c, unit: 'cm' },
+        stem: `${name} draws rectangle P, ${a} cm by ${b} cm. Rectangle Q has the same area. One side of Q is ${c} cm. What is the other side of Q?`,
+        correct: `${d} cm`,
+        distractors: [`${a + b - c} cm`, `${area} cm`, `${a + b} cm`, `${c * 2} cm`],
+        explanation: `Area of P is ${area} cm², so the missing side of Q is ${area} ÷ ${c} = ${d} cm.`,
+        stimulus: { type: 'rect-pair', aW: a, aH: b, bW: c, bH: d, unit: 'cm' },
         working: workingSteps(
           {
             heading: 'Area of P',
-            body: `Area = ${a} × ${b} = ${a * b} cm².`,
+            body: `Area = ${a} × ${b} = ${area} cm².`,
             stimulus: calcTable('Rectangle P', [
               ['Sides', `${a} cm by ${b} cm`],
-              ['Area', `${a * b} cm²`],
+              ['Area', `${area} cm²`],
             ]),
           },
           {
             heading: 'Match the area of Q',
-            body: `Q has one side ${c} cm, so the other side is ${a * b} ÷ ${c} = ${length} cm.`,
+            body: `Q has the same area and one side ${c} cm, so the other side is ${area} ÷ ${c} = ${d} cm. Q is not the same rectangle as P.`,
             stimulus: calcTable('Rectangle Q', [
               ['Known side', `${c} cm`],
-              ['Other side', `${a * b} ÷ ${c} = ${length} cm`],
+              ['Other side', `${area} ÷ ${c} = ${d} cm`],
             ]),
           },
         ),
@@ -1704,9 +1698,9 @@ const FAMILIES: Family[] = [
     id: 'grid-next',
     skill: 'coordinates',
     make({ rng, name }) {
-      const startCol = int(rng, 1, 5);
-      const startRow = int(rng, 1, 5);
-      const n = pick(rng, [4, 5, 6, 7, 8]);
+      const n = pick(rng, [3, 4, 5, 6]);
+      const startCol = int(rng, 1, 9 - n);
+      const startRow = int(rng, 1, 9 - n);
       const col = startCol + (n - 1);
       const row = startRow + (n - 1);
       const letter = String.fromCharCode(64 + startCol);
@@ -1787,9 +1781,9 @@ const FAMILIES: Family[] = [
       const a = pick(rng, [25, 32, 35, 42, 48, 55, 63, 70, 75, 88, 110, 125, 132, 147]);
       const b = 180 - a;
       return {
-        stem: `${name} splits a straight line into two angles. One angle is ${a}°. What is the other angle?`,
+        stem: `${name} marks two angles on a straight line. One angle is ${a}°. What is the other angle?`,
         correct: `${b}°`,
-        distractors: [`${a}°`, `${90 - (a % 90)}°`, `${180 + a}°`, `${360 - a}°`],
+        distractors: [`${a}°`, `90°`, `${Math.abs(90 - a)}°`, `${a + 180}°`],
         explanation: `Angles on a straight line add to 180°, so 180 − ${a} = ${b}.`,
         stimulus: { type: 'straight-angle', given: a },
         working: workingSteps(

@@ -20,7 +20,7 @@ import {
   type ExamMathSet,
   type ExamMathSetKind,
 } from '@/lib/exam-math';
-import { seedExamMathContent } from '@/lib/seed-exam-math-db';
+import { examMathBankNeedsRefresh, seedExamMathContent } from '@/lib/seed-exam-math-db';
 import { seedExamMathSets } from '@/lib/seed-exam-math-sets';
 import { isMissingExamMathTable } from '@/lib/exam-math-schema';
 import { ensureExamMathTrialSchema } from '@/lib/exam-math-trial-schema';
@@ -377,7 +377,12 @@ export async function getExamMathOverview(
       const row = setRows.find((item) => item.kind === 'trial' && item.set_number === set.setNumber);
       return Boolean(row && Number(row.item_count) >= set.questionCount);
     });
-    if (setRows.length === 0 || itemTotal === 0 || !trialReady) {
+    if (
+      setRows.length === 0 ||
+      itemTotal === 0 ||
+      !trialReady ||
+      (await examMathBankNeedsRefresh())
+    ) {
       await seedExamMathContent();
       setRows = (await query<SetRow>(SET_OVERVIEW_SQL)).rows;
     }
@@ -479,7 +484,11 @@ export async function getExamMathSetQuestions(
         [kind, setNumber],
       );
     let existing = await load();
-    if (existing.rows.length === 0 || existing.rows.some((row) => workingLooksEmpty(row.working))) {
+    if (
+      existing.rows.length === 0 ||
+      existing.rows.some((row) => workingLooksEmpty(row.working)) ||
+      (await examMathBankNeedsRefresh())
+    ) {
       await seedExamMathContent();
       existing = await load();
     }

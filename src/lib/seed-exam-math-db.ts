@@ -11,6 +11,21 @@ function chunks<T>(items: T[], size: number): T[][] {
   return out;
 }
 
+const STALE_STEM = [
+  '%the same area and one side%',
+  '%splits a straight line into two angles%',
+] as const;
+
+/** True when live items still use the old Diya-same-rectangle / outside-label stems. */
+export async function examMathBankNeedsRefresh(): Promise<boolean> {
+  const stale = await query<{ n: string }>(
+    `SELECT COUNT(*)::text AS n FROM exam_math_items
+     WHERE stem ILIKE $1 OR stem ILIKE $2`,
+    [...STALE_STEM],
+  );
+  return Number(stale.rows[0]?.n ?? 0) > 0;
+}
+
 /** Upsert Selective Math questions. Safe to re-run. Does not touch student sittings. */
 export async function seedExamMathContent(): Promise<void> {
   await ensureExamMathSchema();

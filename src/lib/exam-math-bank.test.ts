@@ -10,6 +10,7 @@ import {
   EXAM_MATH_BANK_SIZE,
   EXAM_MATH_SOURCE_PHRASE_BLOCKLIST,
   buildExamMathBank,
+  buildExamMathTrialBank,
   examMathFamilies,
 } from './exam-math-bank';
 
@@ -122,6 +123,37 @@ describe('Selective Math question bank', () => {
     for (const item of grid) {
       for (const option of item.options) {
         assert.match(option, /^[A-Z]\d+$/, `${item.stem} → ${option}`);
+      }
+    }
+  });
+
+  it('keeps equal-area Q different from P, and grid steps on the 8×8 diagram', () => {
+    const all = [...bank, ...buildExamMathTrialBank()];
+    const equalArea = all.filter((item) => item.familyId === 'equal-area-rect');
+    assert.ok(equalArea.length > 0);
+    for (const item of equalArea) {
+      const match = item.stem.match(
+        /rectangle P, (\d+) cm by (\d+) cm\. Rectangle Q has the same area\. One side of Q is (\d+) cm/,
+      );
+      assert.ok(match, item.stem);
+      const a = Number(match[1]);
+      const b = Number(match[2]);
+      const c = Number(match[3]);
+      const d = (a * b) / c;
+      assert.equal(item.options[item.correctIndex], `${d} cm`, item.stem);
+      assert.equal((c === a && d === b) || (c === b && d === a), false, item.stem);
+      assert.equal(item.stimulus?.type, 'rect-pair');
+      if (item.stimulus?.type === 'rect-pair') {
+        assert.equal(item.stimulus.bW, c);
+        assert.equal(item.stimulus.bH, d);
+      }
+    }
+    const grids = all.filter((item) => item.familyId === 'grid-next');
+    for (const item of grids) {
+      assert.equal(item.stimulus?.type, 'coord-grid');
+      if (item.stimulus?.type === 'coord-grid') {
+        assert.ok(item.stimulus.startCol + item.stimulus.steps - 1 <= 8, item.stem);
+        assert.ok(item.stimulus.startRow + item.stimulus.steps - 1 <= 8, item.stem);
       }
     }
   });
