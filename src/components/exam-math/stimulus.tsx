@@ -471,25 +471,44 @@ function CompoundRect({ stimulus }: { stimulus: Extract<ExamMathStimulus, { type
 }
 
 function RectPair({ stimulus }: { stimulus: Extract<ExamMathStimulus, { type: 'rect-pair' }> }) {
-  const scale = 6;
-  const bH = stimulus.bH ?? 10;
+  const aW = stimulus.aW;
+  const aH = stimulus.aH;
+  const bW = stimulus.bW;
+  const bH = stimulus.bH ?? Math.max(3, Math.round((aW * aH) / Math.max(bW, 1)));
+  const maxD = Math.max(aW, aH, bW, bH, 1);
+  const scale = 70 / maxD;
+  const pW = aW * scale;
+  const pH = aH * scale;
+  const qW = bW * scale;
+  const qH = bH * scale;
+  const gap = 48;
+  const top = 22;
+  const left = 28;
+  const width = left + pW + gap + qW + 36;
+  const height = top + Math.max(pH, qH) + 28;
+  const qX = left + pW + gap;
   return (
-    <Frame label="Two rectangles">
-      <svg viewBox="0 0 280 120" className="mx-auto h-36 w-full" role="img">
-        <rect x="10" y="20" width={stimulus.aW * scale} height={stimulus.aH * scale} fill="#DCEEE3" stroke={INK} />
-        <text x={10 + (stimulus.aW * scale) / 2} y="16" textAnchor="middle" fontSize="11" fill={INK}>
-          P {dim(stimulus.aW, stimulus.unit)} × {dim(stimulus.aH, stimulus.unit)}
+    <Frame label="Two rectangles with the same area">
+      <svg viewBox={`0 0 ${width} ${height}`} className="mx-auto h-40 w-full" role="img">
+        <rect x={left} y={top} width={pW} height={pH} fill="#DCEEE3" stroke={INK} strokeWidth="1.6" />
+        <text x={left + pW / 2} y={top - 6} textAnchor="middle" fontSize="11" fill={INK}>
+          P
         </text>
-        <rect
-          x="160"
-          y="20"
-          width={stimulus.bW * scale}
-          height={Math.min(80, bH * scale)}
-          fill="#F3E6D4"
-          stroke={INK}
-        />
-        <text x={160 + (stimulus.bW * scale) / 2} y="16" textAnchor="middle" fontSize="11" fill={INK}>
-          Q {dim(stimulus.bW, stimulus.unit)} × ?
+        <text x={left + pW / 2} y={top + pH + 14} textAnchor="middle" fontSize="11" fill={INK}>
+          {dim(aW, stimulus.unit)}
+        </text>
+        <text x={left - 6} y={top + pH / 2} textAnchor="end" fontSize="11" fill={INK}>
+          {dim(aH, stimulus.unit)}
+        </text>
+        <rect x={qX} y={top} width={qW} height={qH} fill="#F3E6D4" stroke={INK} strokeWidth="1.6" />
+        <text x={qX + qW / 2} y={top - 6} textAnchor="middle" fontSize="11" fill={INK}>
+          Q
+        </text>
+        <text x={qX + qW / 2} y={top + qH + 14} textAnchor="middle" fontSize="11" fill={INK}>
+          {dim(bW, stimulus.unit)}
+        </text>
+        <text x={qX + qW + 8} y={top + qH / 2} fontSize="11" fill={INK}>
+          ?
         </text>
       </svg>
     </Frame>
@@ -511,17 +530,38 @@ function SquareCut({ stimulus }: { stimulus: Extract<ExamMathStimulus, { type: '
 
 function StraightAngle({ stimulus }: { stimulus: Extract<ExamMathStimulus, { type: 'straight-angle' }> }) {
   const given = stimulus.given;
-  const sweep = Math.min(given, 160);
-  const end = polar(90, 70, 36, (Math.PI * (180 - sweep)) / 180);
+  const other = 180 - given;
+  const cx = 130;
+  const cy = 108;
+  const rayDeg = 180 - given;
+  const at = (r: number, deg: number) => ({
+    x: cx + r * Math.cos((deg * Math.PI) / 180),
+    y: cy - r * Math.sin((deg * Math.PI) / 180),
+  });
+  const ray = at(78, rayDeg);
+  const labelR = (angle: number) => (angle >= 100 ? 42 : angle >= 60 ? 48 : 34);
+  const left = at(labelR(given), 180 - given / 2);
+  const right = at(labelR(other), rayDeg / 2);
+  const arc = (r: number, fromDeg: number, toDeg: number) => {
+    const steps = 18;
+    return Array.from({ length: steps + 1 }, (_, i) => {
+      const deg = fromDeg + ((toDeg - fromDeg) * i) / steps;
+      const p = at(r, deg);
+      return `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`;
+    }).join(' ');
+  };
   return (
     <Frame label="Angles on a straight line">
-      <svg viewBox="0 0 180 100" className="mx-auto h-36 w-56" role="img">
-        <line x1="16" y1="70" x2="164" y2="70" stroke={INK} strokeWidth="2.5" />
-        <line x1="90" y1="70" x2={end.x} y2={end.y} stroke={FILL_2} strokeWidth="2.5" />
-        <text x="58" y="64" fontSize="12" fill={INK}>
+      <svg viewBox="0 0 260 130" className="mx-auto h-40 w-full max-w-md" role="img">
+        <line x1="28" y1={cy} x2="232" y2={cy} stroke={INK} strokeWidth="2.6" />
+        <line x1={cx} y1={cy} x2={ray.x} y2={ray.y} stroke={FILL_2} strokeWidth="2.6" />
+        <circle cx={cx} cy={cy} r="3.2" fill={INK} />
+        <path d={arc(26, 180, rayDeg)} fill="none" stroke={INK} strokeWidth="1.4" />
+        <path d={arc(20, 0, rayDeg)} fill="none" stroke={INK} strokeWidth="1.4" />
+        <text x={left.x} y={left.y} textAnchor="middle" fontSize="13" fontWeight="600" fill={INK}>
           {given}°
         </text>
-        <text x="118" y="64" fontSize="12" fill={INK}>
+        <text x={right.x} y={right.y} textAnchor="middle" fontSize="16" fontWeight="700" fill={FILL_2}>
           ?
         </text>
       </svg>
