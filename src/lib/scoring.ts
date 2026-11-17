@@ -2,6 +2,7 @@ import { createJsonCompletion, isOpenAIConfigured } from '@/lib/openai';
 import {
   buildMarkerNotesHeuristic,
   combineRemoteMarkerNotes,
+  hasSceneClashNote,
   isPhotoKind,
   isTaskMatch,
   inferPhotoKind,
@@ -133,6 +134,9 @@ Script mark-up (required):
 - Write for a Year 5–6 student in Australian English. Be specific to their words, not generic.
 - In student-facing text, say TrialSeed feedback or TrialSeed mark-up. Never call it a teacher mark.
 - Do not mark “very” in phrases such as “the very end”. Do not mark “went” in “went off”.
+- Do not mark “go” in “letting go”, “go on”, or “go home”.
+- Do not mark diary dates, greetings, or numbers as spelling. A spelling suggestion must be a corrected spelling of the quoted word, not an unrelated word such as “haunted” on “October 23, 2026”.
+- Scene consistency (Set A content / organisation): after reading the whole piece, check whether names, events, objects, and roles stay one scene. A common mix-up is naming a three-legged race while describing a relay (baton, third or final runner). The student often meant “the third leg of the relay”. Highlight the conflicting phrase, explain the two events in Year 5–6 English, and suggest the likely intended wording. Do not flag a clear sequence of different events (“first the sack race, then the relay”). A clash is one organisation/content slip, not a failing paper: structure 3 rather than 4–5, Set A about 12–13 rather than 14–15, plus a clear note.
 - Do not say a diary is a full-day timetable if it already develops one moment with inner conflict (a choice, a fall, a decision). A sentence such as “Then came the 100-metre sprint” can open that moment; it is not a new event to cut.
 - If a task hint is clearly covered, do not say it is still missing, and do not ask for extra opening activities that would turn a focused diary into a list.
 - On draft 2+, do not repeat a next step the student already did. Name what improved, then give one new, smaller craft step.
@@ -362,9 +366,27 @@ function softenMissedFocusTaskMatch(result: ScoringResult, input: ScoreInput): S
   };
 }
 
+/** Mixing two events in one moment is a Set A slip, not a failing paper. */
+export function applySceneClashMark(result: ScoringResult): ScoringResult {
+  if (!hasSceneClashNote(result.marker_notes)) return result;
+  const breakdown = {
+    ...result.scores_breakdown,
+    structure: Math.min(result.scores_breakdown.structure, 3),
+  };
+  const score_set_a = clamp(Math.min(result.score_set_a, 13), 0, 15);
+  return {
+    ...result,
+    score_set_a,
+    overall_score: clamp(score_set_a + result.score_set_b, 0, 25),
+    scores_breakdown: breakdown,
+  };
+}
+
 function finalizeWritingScore(result: ScoringResult, input: ScoreInput): ScoringResult {
   return applyDraftMemory(
-    applyMissedStimulusCap(applyPhotoTaskMatch(softenMissedFocusTaskMatch(result, input)), input),
+    applySceneClashMark(
+      applyMissedStimulusCap(applyPhotoTaskMatch(softenMissedFocusTaskMatch(result, input)), input),
+    ),
     input,
   );
 }

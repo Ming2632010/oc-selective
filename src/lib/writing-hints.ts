@@ -48,6 +48,14 @@ export function isWeakVocabularyFalsePositive(
   if (key === 'went' && /\bwent (off|on|out|through|missing|ahead)\b/.test(window)) {
     return true;
   }
+  if (
+    key === 'go' &&
+    (/\blett(?:ing|s)? go\b/.test(window) ||
+      /\blet go\b/.test(window) ||
+      /\bgo (on|to|away|back|home|out|in|off|up|down|for|with|through|around)\b/.test(window))
+  ) {
+    return true;
+  }
   return false;
 }
 

@@ -4,6 +4,7 @@ import {
   annotationSegments,
   buildMarkerNotesHeuristic,
   combineRemoteMarkerNotes,
+  hasSceneClashNote,
   inferPhotoKind,
   isFormConventionLine,
   isGreetingAccuracyFalsePositive,
@@ -551,6 +552,25 @@ const CARNIVAL_DRAFT_1 = [
   'At the end of the day, I was very tired. My house came third overall. We did not win the trophy, but we had a lot of fun.',
 ].join('\n');
 
+const CARNIVAL_RELAY_MIXUP = [
+  'October 23, 2026',
+  'Dear Diary,',
+  'Today was absolutely unforgettable. The morning started with a burst of energy the moment I walked through the school gates.',
+  '',
+  'The highlight of the day was definitely the 100 metre relay, which turned into a highly tense yet hilarious event. I was running the three legged race for our house. When the baton was passed to me, we were neck-and-neck with Blue House. I sprinted as fast as I could and reached our final runner, Leo.',
+  '',
+  'In our absolute desperation to win, we both gripped the baton tightly and ended up doing a bizarre, clumsy tango down the track for a few awkward seconds, neither of us letting go.',
+  '',
+  'By the time the closing ceremony ended, I was completely exhausted. Walking home with a shiny ribbon in my bag, I felt an overwhelming sense of pride.',
+].join('\n');
+
+const CARNIVAL_SEQUENCED_EVENTS = [
+  'Dear Diary,',
+  'First we did the three-legged race for our house. Then I ran the 100 metre relay. When the baton was passed to me, Leo was our final runner.',
+  '',
+  'By the end of the day I felt proud.',
+].join('\n');
+
 const CARNIVAL_DRAFT_3 = [
   'Dear Diary,',
   'It was a chilly Friday morning when the sports carnival began.',
@@ -578,6 +598,67 @@ describe('sports carnival diary mark-up', () => {
       notes.annotations.some((row) => row.quote.toLowerCase() === 'went'),
       false,
     );
+  });
+
+  it('flags a three-legged race named inside a relay moment', () => {
+    const notes = buildMarkerNotesHeuristic({
+      content: CARNIVAL_RELAY_MIXUP,
+      promptType: 'diary_entry',
+      promptTitle: 'Sports carnival day',
+      hintPoints: CARNIVAL_HINTS,
+    });
+    assert.equal(hasSceneClashNote(notes), true);
+    assert.ok(notes.annotations.some((row) => /three legged race/i.test(row.quote)));
+    assert.match(
+      notes.annotations.find((row) => /three legged/i.test(row.quote))?.suggestion ?? '',
+      /third leg/i,
+    );
+    assert.ok(notes.next_steps.some((row) => /third leg/i.test(row)));
+    assert.equal(
+      notes.annotations.some((row) => row.kind === 'vocabulary' && row.quote.toLowerCase() === 'go'),
+      false,
+    );
+  });
+
+  it('does not flag a three-legged race and a relay listed as separate events', () => {
+    const notes = buildMarkerNotesHeuristic({
+      content: CARNIVAL_SEQUENCED_EVENTS,
+      promptType: 'diary_entry',
+      hintPoints: CARNIVAL_HINTS,
+    });
+    assert.equal(hasSceneClashNote(notes), false);
+  });
+
+  it('drops a date marked as spelling haunted and go in letting go', () => {
+    const notes = normalizeMarkerNotes(
+      {
+        summary: 'TrialSeed mark-up.',
+        annotations: [
+          {
+            kind: 'spelling',
+            quote: 'October 23, 2026',
+            issue: 'Set B - spelling error',
+            suggestion: "Try this: Correct to 'haunted'.",
+          },
+          {
+            kind: 'vocabulary',
+            quote: 'go',
+            issue: 'Set A vocabulary: “go” is a general word. Markers look for a more precise choice.',
+            suggestion: 'Try a verb that shows how they moved.',
+          },
+        ],
+      },
+      CARNIVAL_RELAY_MIXUP,
+    );
+    assert.equal(
+      notes.annotations.some((row) => row.kind === 'spelling' && /october/i.test(row.quote)),
+      false,
+    );
+    assert.equal(
+      notes.annotations.some((row) => row.kind === 'vocabulary' && row.quote.toLowerCase() === 'go'),
+      false,
+    );
+    assert.equal(hasSceneClashNote(notes), true);
   });
 
   it('does not treat a focused race diary as a full-day timetable', () => {

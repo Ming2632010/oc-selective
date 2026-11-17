@@ -60,4 +60,11 @@ describe('isWeakVocabularyFalsePositive', () => {
     assert.equal(isWeakVocabularyFalsePositive('went', gun, wentAt, wentAt + 4), true);
     assert.equal(isWeakVocabularyFalsePositive('very', 'I was very tired.', 6, 10), false);
   });
+
+  it('ignores go in letting go', () => {
+    const line = 'neither of us letting go.';
+    const goAt = line.indexOf('go');
+    assert.equal(isWeakVocabularyFalsePositive('go', line, goAt, goAt + 2), true);
+    assert.equal(isWeakVocabularyFalsePositive('go', 'I will go later.', 7, 9), false);
+  });
 });
