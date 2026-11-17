@@ -4,6 +4,7 @@ import {
   applyDraftMemory,
   applyMissedStimulusCap,
   applyPhotoTaskMatch,
+  applySceneClashMark,
   detectDraftPolish,
   formatDimensionScore,
   scoreWritingAttemptHeuristic,
@@ -272,5 +273,36 @@ describe('scoreWritingAttemptHeuristic', () => {
       promptImage: { mimeType: 'image/jpeg', bytes: Buffer.from('not-a-real-photo') },
     });
     assert.equal(scored.marker_notes.task_match, 'unread');
+  });
+});
+
+describe('applySceneClashMark', () => {
+  it('lowers organisation and Set A by a little when a relay is mixed with a three-legged race', () => {
+    const notes = {
+      ...emptyMarkerNotes(),
+      annotations: [
+        {
+          start: 0,
+          end: 18,
+          kind: 'content' as const,
+          quote: 'three legged race',
+          issue: 'Set A content: this names a three-legged race, but the same moment is a relay (baton, runners, legs).',
+          suggestion: 'If you meant you ran the third leg of the relay, say that.',
+        },
+      ],
+    };
+    const scored = applySceneClashMark(
+      sample({
+        marker_notes: notes,
+        score_set_a: 14,
+        score_set_b: 8,
+        overall_score: 22,
+        scores_breakdown: { structure: 4, vocabulary: 4, audience: 4, grammar: 4.5 },
+      }),
+    );
+    assert.equal(scored.scores_breakdown.structure, 3);
+    assert.equal(scored.score_set_a, 13);
+    assert.equal(scored.overall_score, 21);
+    assert.equal(scored.score_set_b, 8);
   });
 });

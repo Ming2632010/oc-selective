@@ -567,6 +567,137 @@ export function locateQuote(
   return { start: index, end: index + needle.length };
 }
 
+function editDistance(left: string, right: string): number {
+  if (left === right) return 0;
+  if (!left.length) return right.length;
+  if (!right.length) return left.length;
+  const rows = left.length + 1;
+  const cols = right.length + 1;
+  const prev = new Array<number>(cols);
+  const next = new Array<number>(cols);
+  for (let j = 0; j < cols; j += 1) prev[j] = j;
+  for (let i = 1; i < rows; i += 1) {
+    next[0] = i;
+    for (let j = 1; j < cols; j += 1) {
+      const cost = left[i - 1] === right[j - 1] ? 0 : 1;
+      next[j] = Math.min((prev[j] ?? 0) + 1, (next[j - 1] ?? 0) + 1, (prev[j - 1] ?? 0) + cost);
+    }
+    for (let j = 0; j < cols; j += 1) prev[j] = next[j] ?? 0;
+  }
+  return prev[right.length] ?? right.length;
+}
+
+function looksLikeDate(quote: string): boolean {
+  return (
+    /\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\b/i.test(
+      quote,
+    ) || /\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/.test(quote)
+  );
+}
+
+function suggestedSpelling(suggestion: string): string | null {
+  const match =
+    suggestion.match(/correct to ['‘’“”"]([^'‘’“”"]+)['‘’“”"]/i) ??
+    suggestion.match(/write ['‘’“”"]([^'‘’“”"]+)['‘’“”"]/i) ??
+    suggestion.match(/try ['‘’“”"]([^'‘’“”"]+)['‘’“”"]/i);
+  return match?.[1]?.trim() ?? null;
+}
+
+function spellingNoteFitsQuote(quote: string, suggestion: string): boolean {
+  if (looksLikeDate(quote)) return false;
+  const suggested = suggestedSpelling(suggestion);
+  if (!suggested) return !looksLikeDate(quote);
+  const quotedWords = quote
+    .toLowerCase()
+    .replace(/[^a-z'\s]/g, ' ')
+    .split(/\s+/)
+    .filter((word) => word.length > 2);
+  const target = suggested.toLowerCase().replace(/[^a-z']/g, '');
+  if (!target || quotedWords.length === 0) return false;
+  return quotedWords.some((word) => {
+    const clean = word.replace(/[^a-z']/g, '');
+    if (!clean) return false;
+    if (clean === target) return false;
+    if (clean.includes(target) || target.includes(clean)) return true;
+    return editDistance(clean, target) <= Math.max(2, Math.floor(Math.max(clean.length, target.length) / 3));
+  });
+}
+
+function isPhrasalGo(content: string, start: number, end: number): boolean {
+  const word = content.slice(start, end);
+  if (word.toLowerCase() !== 'go') return false;
+  const before = content.slice(Math.max(0, start - 14), start).toLowerCase();
+  const after = content.slice(end, Math.min(content.length, end + 10)).toLowerCase();
+  if (/\blett(?:ing|s)?\s*$/.test(before) || /\blet\s*$/.test(before)) return true;
+  return /^\s*(on|to|away|back|home|out|in|off|up|down|for|with|through|around)\b/.test(after);
+}
+
+function hasSequenceCue(text: string): boolean {
+  return /\b(then|after that|afterwards|later|next|first|before that|followed by)\b/i.test(text);
+}
+
+const THREE_LEGGED_RE = /\bthree[-\s]?legged(?:\s+race)?\b/i;
+const RELAY_EVENT_RE = /\b(?:\d+\s*(?:metre|meter|m)\s+)?relay\b/i;
+const RELAY_DETAIL_RE =
+  /\bbaton\b|\b(?:first|second|third|final|last)\s+(?:leg|runner)s?\b|\bpassed to me\b/i;
+
+function sceneClashAnnotations(content: string): MarkerAnnotation[] {
+  const sentences = splitSentences(content);
+  if (sentences.length === 0) return [];
+  const notes: MarkerAnnotation[] = [];
+  const seen = new Set<number>();
+  for (let i = 0; i < sentences.length; i += 1) {
+    const sentence = sentences[i]!;
+    const match = sentence.text.match(THREE_LEGGED_RE);
+    if (!match) continue;
+    const prev = sentences[i - 1];
+    const next = sentences[i + 1];
+    const mixedHere = RELAY_EVENT_RE.test(sentence.text) || RELAY_DETAIL_RE.test(sentence.text);
+    const nearbyRelay =
+      Boolean(prev && (RELAY_EVENT_RE.test(prev.text) || RELAY_DETAIL_RE.test(prev.text))) ||
+      Boolean(next && (RELAY_EVENT_RE.test(next.text) || RELAY_DETAIL_RE.test(next.text)));
+    if (!mixedHere && !nearbyRelay) continue;
+    const listsEvents =
+      hasSequenceCue(sentence.text) ||
+      Boolean(prev && hasSequenceCue(sentence.text) && RELAY_EVENT_RE.test(prev.text)) ||
+      Boolean(next && hasSequenceCue(next.text) && RELAY_EVENT_RE.test(next.text) && !RELAY_DETAIL_RE.test(next.text));
+    if (listsEvents && !mixedHere && !RELAY_DETAIL_RE.test(next?.text ?? '')) continue;
+    const located = locateQuote(sentence.text, match[0]) ?? {
+      start: 0,
+      end: match[0].length,
+    };
+    const start = sentence.start + located.start;
+    if (seen.has(start)) continue;
+    seen.add(start);
+    notes.push({
+      start,
+      end: sentence.start + located.end,
+      kind: 'content',
+      quote: content.slice(start, sentence.start + located.end),
+      issue:
+        'Set A content: this names a three-legged race, but the same moment is a relay (baton, runners, legs).',
+      suggestion:
+        'If you meant you ran the third leg of the relay, say that. A three-legged race is a different event, with two people sharing one pair of legs.',
+    });
+  }
+  return notes;
+}
+
+export function hasSceneClashNote(notes: MarkerNotes): boolean {
+  return notes.annotations.some(
+    (row) =>
+      row.kind === 'content' &&
+      /three-legged|two different events|same moment is a relay/i.test(`${row.issue} ${row.suggestion}`),
+  );
+}
+
+function annotationIsPlausible(note: MarkerAnnotation, content: string): boolean {
+  if (note.kind === 'spelling' && !spellingNoteFitsQuote(note.quote, note.suggestion)) return false;
+  if (note.kind === 'vocabulary' && isPhrasalGo(content, note.start, note.end)) return false;
+  if (note.kind === 'vocabulary' && /\blett(?:ing)? go\b/i.test(note.quote)) return false;
+  return true;
+}
+
 function pushNote(
   notes: MarkerAnnotation[],
   content: string,
@@ -890,6 +1021,8 @@ export function normalizeMarkerNotes(raw: unknown, content: string): MarkerNotes
         suggestion,
       };
       if (isGreetingAccuracyFalsePositive(built, content)) continue;
+      if (isVocabularyFalsePositive(built, content)) continue;
+      if (!annotationIsPlausible(built, content)) continue;
       annotations.push(built);
     }
   }
@@ -913,6 +1046,18 @@ export function normalizeMarkerNotes(raw: unknown, content: string): MarkerNotes
     }
   }
 
+  const clashNotes = sceneClashAnnotations(content);
+  for (const extra of clashNotes) {
+    const key = `${extra.kind}:${extra.start}:${extra.end}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    annotations.push(extra);
+  }
+  const clashStep =
+    'Set A content: this paragraph mixes a three-legged race with a relay. If you meant the third leg of the relay, say that.';
+  const parsedSteps = uniqueStrings(Array.isArray(row.next_steps) ? row.next_steps.map(String) : []);
+  const nextSteps = clashNotes.length > 0 ? uniqueStrings([clashStep, ...parsedSteps]) : parsedSteps;
+
   const photoQuestion =
     typeof row.photo_question === 'string' ? row.photo_question.trim().slice(0, 2_000) : '';
   const versionRaw = Number(row.version);
@@ -920,7 +1065,7 @@ export function normalizeMarkerNotes(raw: unknown, content: string): MarkerNotes
     version: Number.isFinite(versionRaw) ? versionRaw : 0,
     summary: typeof row.summary === 'string' ? row.summary.trim() : '',
     strengths: uniqueStrings(Array.isArray(row.strengths) ? row.strengths.map(String) : []),
-    next_steps: uniqueStrings(Array.isArray(row.next_steps) ? row.next_steps.map(String) : []),
+    next_steps: nextSteps,
     annotations: annotations.sort((a, b) => a.start - b.start || a.end - b.end),
     rewrites: rewrites.slice(0, 4),
     ...(photoQuestion ? { photo_question: photoQuestion } : {}),
